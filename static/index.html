@@ -58,9 +58,11 @@
 
     /* MAIN */
     .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-    .toolbar { padding: 12px 20px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
-    .search-input { flex: 1; max-width: 420px; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: .85rem; }
+    .toolbar { padding: 12px 20px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .search-input { flex: 1; min-width: 200px; max-width: 380px; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: .85rem; }
     .search-input:focus { outline: none; border-color: var(--accent); }
+    .search-mode-select { padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: .82rem; background: var(--surface); color: var(--text); width: auto; }
+    .search-mode-select:focus { outline: none; border-color: var(--accent); }
     .result-count { font-size: .82rem; color: var(--text-muted); margin-left: auto; }
     .results { flex: 1; overflow-y: auto; padding: 14px 18px; display: flex; flex-direction: column; gap: 9px; }
 
@@ -207,6 +209,15 @@
     </div>
 
     <div class="sidebar-section">
+      <div class="sidebar-label">Déjà animé</div>
+      <div class="check-group">
+        <label class="check-item"><input type="radio" name="anime" value=""> Toutes</label>
+        <label class="check-item"><input type="radio" name="anime" value="1"> Déjà animées</label>
+        <label class="check-item"><input type="radio" name="anime" value="0"> Pas encore animées</label>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
       <div class="sidebar-label">Thématique</div>
       <button class="filter-pick-btn" id="btn-pick-them" onclick="openTreeModal('them')">
         <span id="pick-them-label">Toutes</span> <span style="margin-left:auto;opacity:.5">▼</span>
@@ -241,7 +252,13 @@
   <main class="main">
     <div class="toolbar">
       <input type="text" id="search-input" class="search-input" placeholder="Rechercher une activité…" />
+      <select id="search-mode" class="search-mode-select" title="Champ de recherche">
+        <option value="titre">Titre uniquement</option>
+        <option value="titre_desc">Titre + description</option>
+        <option value="objectif">Visée pédagogique</option>
+      </select>
       <button class="btn btn-primary" id="btn-search">Rechercher</button>
+      <button class="btn btn-ghost" id="btn-reset-toolbar" onclick="resetAll()" title="Réinitialiser les filtres">✕</button>
       <span class="result-count" id="result-count"></span>
     </div>
     <div class="results" id="results"><div class="loading">Chargement…</div></div>
@@ -279,6 +296,7 @@
 const S = {
   q:'', lieu:'', meteo:[], mois:null, groupe:'',
   thematique_id:null, objectif_id:null, cycle_ids:[], attendu_ids:[], tag_ids:[],
+  search_mode:'titre', anime:'',
   limit:40, offset:0, total:0
 };
 
@@ -338,25 +356,18 @@ async function init() {
   search();
 }
 
-// ---- ARBRE ----
-
-
-
-
 // ---- ATTENDUS ----
 async function chargerAttendus(cycleIds) {
   const sec = document.getElementById('section-attendus');
   const c   = document.getElementById('f-attendus');
   if (!cycleIds || !cycleIds.length) { sec.style.display='none'; c.innerHTML=''; return; }
   try {
-    // Charger les attendus de tous les cycles sélectionnés
     const allAttendus = [];
     for (const cid of cycleIds) {
       const attendus = await api(`/api/cycles/${cid}/attendus`);
       attendus.forEach(a => allAttendus.push(a));
     }
     c.innerHTML = '';
-    // Grouper par cycle puis par domaine
     const byCycle = {};
     allAttendus.forEach(a => {
       if(!byCycle[a.cycle_id]) byCycle[a.cycle_id] = {label: '', items: {}};
@@ -367,7 +378,6 @@ async function chargerAttendus(cycleIds) {
       Object.entries(cy.items).forEach(([dom, items]) => {
         const t = document.createElement('div');
         t.className = 'attendus-group-title';
-        // Préfixer par le code cycle si plusieurs cycles sélectionnés
         const prefix = cycleIds.length > 1 ? `[${items[0].cycle_code || ''}] ` : '';
         t.textContent = prefix + dom;
         c.appendChild(t);
@@ -387,13 +397,23 @@ async function chargerAttendus(cycleIds) {
 // ---- EVENTS ----
 function bindEvents() {
   document.getElementById('btn-search').addEventListener('click', () => {
-    S.q = document.getElementById('search-input').value.trim(); S.offset=0; search();
+    S.q = document.getElementById('search-input').value.trim();
+    S.search_mode = document.getElementById('search-mode').value;
+    S.offset=0; search();
   });
   document.getElementById('search-input').addEventListener('keydown', e => {
     if(e.key==='Enter') document.getElementById('btn-search').click();
   });
+  // Recherche automatique au changement de mode si une query est active
+  document.getElementById('search-mode').addEventListener('change', e => {
+    S.search_mode = e.target.value;
+    if(S.q) { S.offset=0; search(); }
+  });
   document.getElementById('f-lieu').addEventListener('change', e => { S.lieu=e.target.value; S.offset=0; search(); });
   document.getElementById('f-groupe').addEventListener('change', e => { S.groupe=e.target.value; S.offset=0; search(); });
+  document.querySelectorAll('input[name="anime"]').forEach(r => {
+    r.addEventListener('change', e => { S.anime=e.target.value; S.offset=0; search(); });
+  });
 
   document.querySelectorAll('input[name="meteo"]').forEach(cb => {
     cb.addEventListener('change', () => {
@@ -414,7 +434,6 @@ function bindEvents() {
     if(e.target.name==='cycle'){
       S.cycle_ids=[...document.querySelectorAll('input[name="cycle"]:checked')].map(x=>x.value);
       S.attendu_ids=[]; S.offset=0;
-      // Recharger les attendus selon les cycles cochés
       await chargerAttendus(S.cycle_ids);
       search();
     }
@@ -437,8 +456,10 @@ function bindEvents() {
 
 function resetAll() {
   S.q=''; S.lieu=''; S.meteo=[]; S.mois=null; S.groupe='';
-  S.thematique_id=null; S.objectif_id=null; S.cycle_id=null; S.attendu_id=null; S.offset=0;
+  S.thematique_id=null; S.objectif_id=null; S.cycle_ids=[]; S.attendu_ids=[]; S.offset=0;
+  S.search_mode='titre';
   document.getElementById('search-input').value='';
+  document.getElementById('search-mode').value='titre';
   document.getElementById('f-lieu').value='';
   document.getElementById('f-groupe').value='';
   document.querySelectorAll('input[name="meteo"]').forEach(cb=>cb.checked=false);
@@ -447,8 +468,8 @@ function resetAll() {
   document.querySelectorAll('input[name="cycle"]').forEach(r=>r.checked=false);
   document.querySelectorAll('input[name="attendu"]').forEach(r=>r.checked=false);
   document.getElementById('section-attendus').style.display='none';
+  S.anime=''; document.querySelectorAll('input[name="anime"]').forEach(r=>{ r.checked = r.value===''; });
   S.tag_ids=[]; document.querySelectorAll('input[name="tag"]').forEach(cb=>cb.checked=false);
-  // Reset boutons arbre
   document.getElementById('btn-pick-them').classList.remove('active');
   document.getElementById('btn-pick-obj').classList.remove('active');
   document.getElementById('pick-them-label').textContent='Toutes';
@@ -459,10 +480,11 @@ function resetAll() {
 // ---- SEARCH ----
 async function search() {
   const p = new URLSearchParams();
-  if(S.q) p.set('q',S.q);
+  if(S.q) { p.set('q',S.q); p.set('search_mode', S.search_mode); }
   if(S.lieu) p.set('lieu',S.lieu);
   if(S.mois) p.set('mois',S.mois);
   if(S.groupe) p.set('competence',S.groupe);
+  if(S.anime !== '') p.set('anime',S.anime);
   if(S.thematique_id) p.set('thematique_id',S.thematique_id);
   if(S.objectif_id) p.set('objectif_id',S.objectif_id);
   if(S.attendu_ids.length) p.set('attendu_ids',S.attendu_ids.join(','));
@@ -530,6 +552,8 @@ async function openDrawer(id) {
     c.innerHTML=buildDrawer(a);
     const btn=c.querySelector('.open-folder-btn');
     if(btn) btn.addEventListener('click',()=>fetch(`/api/activites/${id}/ouvrir-dossier`).catch(()=>{}));
+    // Initialiser le select de tags rapides
+    await initDrawerTagSelect(id, a.tags);
   } catch(e){ c.innerHTML=`<div class="empty">Erreur : ${e.message}</div>`; }
 }
 
@@ -565,7 +589,6 @@ function buildDrawer(a) {
   h+=`<div class="drawer-section"><h3>Thématiques</h3><div class="badges-wrap">${badges(a.thematiques)}</div></div>`;
   h+=`<div class="drawer-section"><h3>Objectifs</h3><div class="badges-wrap">${badges(a.objectifs)}</div></div>`;
 
-  // Attendus scolaires groupés par cycle
   h+=`<div class="drawer-section"><h3>Attendus scolaires</h3>`;
   if(a.attendus && a.attendus.length){
     const byCycle={};
@@ -581,14 +604,16 @@ function buildDrawer(a) {
   }
   h+=`</div>`;
 
-  // Tags
-  h+=`<div class="drawer-section"><h3>Tags</h3>`;
-  if(a.tags&&a.tags.length){
-    h+=`<div class="badges-wrap">${a.tags.map(t=>`<span class="badge" style="background:#f0e8f5;color:#5c2d7a">${t.nom}</span>`).join('')}</div>`;
-  } else {
-    h+=`<span style="color:var(--text-muted);font-size:.82rem">—</span>`;
-  }
-  h+=`</div>`;
+  h+=`<div class="drawer-section"><h3>Tags</h3>
+    <div id="drawer-tags-wrap" class="badges-wrap" style="margin-bottom:6px">${
+      a.tags&&a.tags.length
+        ? a.tags.map(t=>`<span class="badge" style="background:#f0e8f5;color:#5c2d7a">${t.nom}</span>`).join('')
+        : '<span style="color:var(--text-muted);font-size:.82rem">Aucun tag</span>'
+    }</div>
+    <select id="drawer-tag-select" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius);font-size:.82rem;background:var(--surface);color:var(--text)">
+      <option value="">+ Ajouter un tag…</option>
+    </select>
+  </div>`;
 
   if(a.relations&&a.relations.length){
     h+=`<div class="drawer-section"><h3>Activités liées</h3>`;
@@ -613,13 +638,11 @@ function buildDrawer(a) {
 let currentActivite = null;
 
 async function toggleEdit(id) {
-  // Charger toutes les données nécessaires pour les selects
   const [themes, objectifs, cycles] = await Promise.all([
     api('/api/thematiques/arbre'),
     api('/api/objectifs/arbre'),
     api('/api/cycles')
   ]);
-  // Charger tous les attendus de tous les cycles
   const allAttendus = [];
   for (const cy of cycles) {
     const ats = await api(`/api/cycles/${cy.id}/attendus`);
@@ -641,7 +664,6 @@ async function toggleEdit(id) {
     `<label class="check-item"><input type="checkbox" name="${name}" value="${x.id}" ${selSet.has(x.id)?'checked':''}> ${labelFn(x)}</label>`
   ).join('');
 
-  // Grouper attendus par cycle
   const attByDom = {};
   allAttendus.forEach(a => {
     const k = a.cycle_code + ' — ' + a.domaine;
@@ -726,7 +748,7 @@ async function toggleEdit(id) {
       <button onclick="addTagToEdit()" style="padding:6px 10px;background:var(--accent);color:white;border:none;border-radius:var(--radius);cursor:pointer;font-size:.82rem">+</button>
       <button onclick="showCreateTag()" style="padding:6px 10px;border:1px solid var(--accent);color:var(--accent);background:none;border-radius:var(--radius);cursor:pointer;font-size:.82rem">Nouveau</button>
     </div>
-    <div id="new-tag-form" style="display:none;margin-top:6px;display:none">
+    <div id="new-tag-form" style="display:none;margin-top:6px">
       <input id="new-tag-input" class="edit-field" placeholder="Nom du tag" style="margin-bottom:4px">
       <button onclick="createAndAddTag(${id})" style="padding:5px 10px;background:var(--accent);color:white;border:none;border-radius:var(--radius);cursor:pointer;font-size:.82rem">Créer et ajouter</button>
     </div>
@@ -780,7 +802,7 @@ async function saveEdit(id) {
     status.className = 'save-success';
     status.textContent = 'Enregistré !';
     setTimeout(() => openDrawer(id), 800);
-    search(); // Rafraîchir la liste
+    search();
   } catch(e) {
     status.className = 'save-error';
     status.textContent = 'Erreur : ' + e.message;
@@ -789,7 +811,7 @@ async function saveEdit(id) {
 
 // ---- MODALE ARBRE ----
 const treeCache = { them: [], obj: [] };
-let modalMode = 'them'; // 'them' ou 'obj'
+let modalMode = 'them';
 let modalSelectedId = null;
 let modalSelectedNom = null;
 
@@ -843,21 +865,15 @@ function makeMNode(node) {
 
   row.addEventListener('click', e => {
     e.stopPropagation();
-    // Ouvrir/fermer les enfants si nœud parent
-    if (node.children && node.children.length && e.target === chev) return;
-    // Sélectionner (clic sur n'importe où dans la ligne)
     if (node.id === modalSelectedId) {
-      // Désélectionner si re-clic
       modalSelectedId = null;
       modalSelectedNom = null;
     } else {
       modalSelectedId = node.id;
       modalSelectedNom = node.nom;
     }
-    // Mettre à jour l'affichage
     document.querySelectorAll('#modal-tree .mrow').forEach(r => r.classList.remove('selected'));
     if (modalSelectedId) row.classList.add('selected');
-    // Appliquer immédiatement
     applyModalSelection();
   });
 
@@ -883,7 +899,6 @@ function applyModalSelection() {
     lbl.textContent = defLabel;
   }
   search();
-  // Ne pas fermer la modale — laisser l'utilisateur explorer
 }
 
 function clearModalSelection() {
@@ -903,17 +918,12 @@ function collapseAllModal() {
 
 function filterModal(q) {
   const nodes = document.querySelectorAll('#modal-tree .mnode');
-  if (!q) {
-    nodes.forEach(n => { n.style.display=''; });
-    return;
-  }
+  if (!q) { nodes.forEach(n => { n.style.display=''; }); return; }
   q = q.toLowerCase();
-  // Afficher les noeuds qui contiennent la requête (et leurs parents)
   nodes.forEach(n => { n.style.display = 'none'; });
   nodes.forEach(n => {
     if (n.dataset.nom && n.dataset.nom.toLowerCase().includes(q)) {
       n.style.display = '';
-      // Remonter les parents
       let p = n.parentElement;
       while (p && p.id !== 'modal-tree') {
         if (p.classList.contains('mnode')) { p.style.display=''; p.classList.add('open'); }
@@ -923,7 +933,6 @@ function filterModal(q) {
   });
 }
 
-// Fermer la modale en cliquant sur l'overlay
 document.getElementById('tree-modal').addEventListener('click', e => {
   if (e.target === document.getElementById('tree-modal')) closeTreeModal();
 });
@@ -933,10 +942,7 @@ let editTagIds = [];
 let allTagsCache = [];
 
 async function loadAllTags() {
-  try {
-    allTagsCache = await api('/api/tags');
-    return allTagsCache;
-  } catch(e) { return []; }
+  try { allTagsCache = await api('/api/tags'); return allTagsCache; } catch(e) { return []; }
 }
 
 async function populateTagSelect(activiteTags) {
@@ -1001,7 +1007,6 @@ async function createAndAddTag(activiteId) {
     editTagIds.push(tag.id);
     input.value = '';
     document.getElementById('new-tag-form').style.display = 'none';
-    // Ajouter au select
     const sel = document.getElementById('edit-tag-select');
     const o = document.createElement('option');
     o.value = tag.id; o.textContent = tag.nom;
@@ -1010,13 +1015,96 @@ async function createAndAddTag(activiteId) {
   } catch(e) { alert('Erreur création tag'); }
 }
 
-// Surcharger toggleEdit pour charger aussi les tags
 const _toggleEditOrig = toggleEdit;
 toggleEdit = async function(id) {
   await _toggleEditOrig(id);
   const a = await api(`/api/activites/${id}`);
   await populateTagSelect(a.tags);
 };
+
+// ---- TAGS RAPIDES DEPUIS LA FICHE ----
+async function initDrawerTagSelect(activiteId, activiteTags) {
+  const sel = document.getElementById('drawer-tag-select');
+  if (!sel) return;
+  const tags = await loadAllTags();
+  const assignedIds = new Set((activiteTags||[]).map(t => t.id));
+  sel.innerHTML = '<option value="">+ Ajouter un tag…</option>';
+  tags.filter(t => !assignedIds.has(t.id)).forEach(t => {
+    const o = document.createElement('option');
+    o.value = t.id; o.textContent = t.nom;
+    sel.appendChild(o);
+  });
+  sel.onchange = async () => {
+    const tagId = parseInt(sel.value);
+    if (!tagId) return;
+    await ajouterTagActivite(activiteId, tagId);
+  };
+}
+
+async function ajouterTagActivite(activiteId, tagId) {
+  // Récupérer les tags actuels
+  const a = await api(`/api/activites/${activiteId}`);
+  const tagIds = [...(a.tags||[]).map(t => t.id), tagId];
+  await fetch(`/api/activites/${activiteId}`, {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({tag_ids: tagIds})
+  });
+  // Rafraîchir la fiche
+  openDrawer(activiteId);
+  search();
+}
+
+async function retirerTagActivite(activiteId, tagId, btn) {
+  const a = await api(`/api/activites/${activiteId}`);
+  const tagIds = (a.tags||[]).map(t => t.id).filter(id => id !== tagId);
+  await fetch(`/api/activites/${activiteId}`, {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({tag_ids: tagIds})
+  });
+  openDrawer(activiteId);
+  search();
+}
+
+// ---- TAGS RAPIDES DEPUIS LA FICHE ----
+async function initDrawerTagSelect(activiteId, activiteTags) {
+  const sel = document.getElementById('drawer-tag-select');
+  if (!sel) return;
+  const tags = await loadAllTags();
+  const assignedIds = new Set((activiteTags||[]).map(t => t.id));
+  sel.innerHTML = '<option value="">+ Ajouter un tag…</option>';
+  tags.filter(t => !assignedIds.has(t.id)).forEach(t => {
+    const o = document.createElement('option');
+    o.value = t.id; o.textContent = t.nom;
+    sel.appendChild(o);
+  });
+  sel.onchange = async () => {
+    const tagId = parseInt(sel.value);
+    if (!tagId) return;
+    const a = await api(`/api/activites/${activiteId}`);
+    const tagIds = [...(a.tags||[]).map(t => t.id), tagId];
+    await fetch(`/api/activites/${activiteId}`, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({tag_ids: tagIds})
+    });
+    openDrawer(activiteId);
+    search();
+  };
+}
+
+async function retirerTagActivite(activiteId, tagId) {
+  const a = await api(`/api/activites/${activiteId}`);
+  const tagIds = (a.tags||[]).map(t => t.id).filter(id => id !== tagId);
+  await fetch(`/api/activites/${activiteId}`, {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({tag_ids: tagIds})
+  });
+  openDrawer(activiteId);
+  search();
+}
 
 init();
 </script>

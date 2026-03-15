@@ -59,6 +59,7 @@ def index():
 @app.get("/api/activites")
 def liste_activites(
     q: Optional[str] = Query(None, description="Recherche texte"),
+    search_mode: Optional[str] = Query("titre_desc", description="titre / titre_desc / objectif"),
     lieu: Optional[str] = Query(None, description="Intérieur / Extérieur / Intérieur/Extérieur"),
     mois: Optional[str] = Query(None, description="jan, fev, mar, avr, mai, jun, jul, aou, sep, oct, nov, dec"),
     meteo: Optional[str] = Query(None, description="nuage, soleil, pluie, vent"),
@@ -69,6 +70,7 @@ def liste_activites(
     cycle_ids: Optional[str] = Query(None, description="IDs séparés par des virgules"),
     attendu_ids: Optional[str] = Query(None, description="IDs séparés par des virgules"),
     tag_ids: Optional[str] = Query(None, description="IDs de tags séparés par des virgules"),
+    anime: Optional[str] = Query(None, description="0 ou 1"),
     competence: Optional[str] = Query(None, description="individuel, binôme, petit groupe, grand groupe"),
     limit: int = Query(50, le=200),
     offset: int = Query(0),
@@ -79,22 +81,22 @@ def liste_activites(
     conditions = []
     params = []
 
-    # Recherche texte
+    # Recherche texte avec mode configurable
     if q:
-        conditions.append("(a.nom LIKE ? OR a.description LIKE ? OR a.objectif_texte LIKE ?)")
-        params += [f"%{q}%", f"%{q}%", f"%{q}%"]
+        if search_mode == "titre":
+            conditions.append("a.nom LIKE ?")
+            params += [f"%{q}%"]
+        elif search_mode == "objectif":
+            conditions.append("a.objectif_texte LIKE ?")
+            params += [f"%{q}%"]
+        else:  # titre_desc (défaut)
+            conditions.append("(a.nom LIKE ? OR a.description LIKE ?)")
+            params += [f"%{q}%", f"%{q}%"]
 
     # Lieu
     if lieu:
-        if lieu.lower() == "extérieur":
-            conditions.append("(a.lieu = ? OR a.lieu = ?)")
-            params.extend(["Extérieur", "Intérieur/Extérieur"])
-        elif lieu.lower() == "intérieur":
-            conditions.append("(a.lieu = ? OR a.lieu = ?)")
-            params.extend(["Intérieur", "Intérieur/Extérieur"])
-        else:
-            conditions.append("a.lieu = ?")
-            params.append(lieu)
+        conditions.append("a.lieu = ?")
+        params.append(lieu)
 
     # Météo
     if meteo:
@@ -105,6 +107,11 @@ def liste_activites(
     if mois:
         col = f"mois_{mois}"
         conditions.append(f"a.{col} = 1")
+
+    # Animé
+    if anime is not None and anime != '':
+        conditions.append("a.anime = ?")
+        params.append(int(anime))
 
     # Format groupe
     if competence:
@@ -165,7 +172,6 @@ def liste_activites(
             conditions.append(f"a.id IN (SELECT activite_id FROM activite_attendu WHERE attendu_id IN ({placeholders}))")
             params += ids
 
-    # Cycles (plusieurs possibles)
     # Tags
     if tag_ids:
         ids = [int(x) for x in tag_ids.split(',') if x.strip().isdigit()]
@@ -273,13 +279,6 @@ def detail_activite(activite_id: int):
         WHERE ac.activite_id = ?
     """, (activite_id,)).fetchall())
 
-    # Tags
-    result["tags"] = rows_to_list(conn.execute("""
-        SELECT t.id, t.nom FROM tag t
-        INNER JOIN activite_tag at2 ON t.id = at2.tag_id
-        WHERE at2.activite_id = ?
-    """, (activite_id,)).fetchall())
-
     # Relations avec d'autres activités
     result["relations"] = rows_to_list(conn.execute("""
         SELECT a.id, a.nom, r.type_relation FROM activite a
@@ -295,13 +294,11 @@ def detail_activite(activite_id: int):
     return result
 
 
-
 @app.put("/api/activites/{activite_id}")
 def modifier_activite(activite_id: int, data: dict):
     """Met a jour les champs d'une activite."""
     conn = get_db()
     try:
-        # Champs simples
         champs = ["nom", "description", "objectif_texte", "lieu", "duree_min", "format_groupe", "anime",
                   "meteo_soleil", "meteo_pluie", "meteo_vent", "meteo_nuage", "meteo_nuit",
                   "mois_jan","mois_fev","mois_mar","mois_avr","mois_mai","mois_jun",
@@ -314,25 +311,21 @@ def modifier_activite(activite_id: int, data: dict):
                 list(updates.values()) + [activite_id]
             )
 
-        # Tags
         if "tag_ids" in data:
             conn.execute("DELETE FROM activite_tag WHERE activite_id = ?", (activite_id,))
             for tid in data["tag_ids"]:
                 conn.execute("INSERT OR IGNORE INTO activite_tag (activite_id, tag_id) VALUES (?,?)", (activite_id, tid))
 
-        # Thematiques
         if "thematique_ids" in data:
             conn.execute("DELETE FROM activite_thematique WHERE activite_id = ?", (activite_id,))
             for tid in data["thematique_ids"]:
                 conn.execute("INSERT OR IGNORE INTO activite_thematique (activite_id, thematique_id) VALUES (?,?)", (activite_id, tid))
 
-        # Objectifs
         if "objectif_ids" in data:
             conn.execute("DELETE FROM activite_objectif WHERE activite_id = ?", (activite_id,))
             for oid in data["objectif_ids"]:
                 conn.execute("INSERT OR IGNORE INTO activite_objectif (activite_id, objectif_id) VALUES (?,?)", (activite_id, oid))
 
-        # Attendus + cycles derives
         if "attendu_ids" in data:
             conn.execute("DELETE FROM activite_attendu WHERE activite_id = ?", (activite_id,))
             conn.execute("DELETE FROM activite_cycle WHERE activite_id = ?", (activite_id,))
@@ -379,8 +372,7 @@ def ouvrir_dossier(activite_id: int):
 # ============================================================================
 
 @app.get("/api/thematiques")
-def liste_thematiques(parent_id: Optional[int] = Query(None, description="None = racines")):
-    """Retourne les thématiques d'un niveau (racines si parent_id absent)."""
+def liste_thematiques(parent_id: Optional[int] = Query(None)):
     conn = get_db()
     if parent_id is None:
         rows = conn.execute(
@@ -413,7 +405,6 @@ def liste_objectifs(parent_id: Optional[int] = Query(None)):
 
 @app.get("/api/thematiques/arbre")
 def arbre_thematiques():
-    """Retourne l'arbre complet des thematiques."""
     conn = get_db()
     rows = conn.execute(
         "SELECT id, nom, niveau, parent_id FROM thematique ORDER BY niveau, nom"
@@ -424,7 +415,6 @@ def arbre_thematiques():
 
 @app.get("/api/objectifs/arbre")
 def arbre_objectifs():
-    """Retourne l'arbre complet des objectifs."""
     conn = get_db()
     rows = conn.execute(
         "SELECT id, nom, niveau, parent_id FROM objectif ORDER BY niveau, nom"
@@ -434,7 +424,6 @@ def arbre_objectifs():
 
 
 def _construire_arbre(nodes):
-    """Transforme une liste plate en arbre imbriqué."""
     index = {n["id"]: {**n, "children": []} for n in nodes}
     roots = []
     for n in nodes:
@@ -507,26 +496,8 @@ def liste_tags(q: Optional[str] = Query(None)):
     return rows_to_list(rows)
 
 # ============================================================================
-# PLANIFICATION — SÉJOURS
+# TAGS (CRUD)
 # ============================================================================
-
-class SejourCreate(BaseModel):
-    nom: str
-    date_debut: Optional[str] = None
-    date_fin: Optional[str] = None
-    public: Optional[str] = None
-    cycle_id: Optional[int] = None
-    effectif: Optional[int] = None
-    thematique_generale: Optional[str] = None
-    notes: Optional[str] = None
-
-
-@app.get("/api/tags")
-def get_tags():
-    conn = get_db()
-    rows = conn.execute("SELECT id, nom FROM tag ORDER BY nom").fetchall()
-    conn.close()
-    return [dict(r) for r in rows]
 
 @app.post("/api/tags")
 def creer_tag(data: dict):
@@ -564,6 +535,21 @@ def supprimer_tag(tag_id: int):
     conn.close()
     return {"ok": True}
 
+# ============================================================================
+# PLANIFICATION — SÉJOURS
+# ============================================================================
+
+class SejourCreate(BaseModel):
+    nom: str
+    date_debut: Optional[str] = None
+    date_fin: Optional[str] = None
+    public: Optional[str] = None
+    cycle_id: Optional[int] = None
+    effectif: Optional[int] = None
+    thematique_generale: Optional[str] = None
+    notes: Optional[str] = None
+
+
 @app.get("/api/sejours")
 def liste_sejours():
     conn = get_db()
@@ -594,7 +580,6 @@ def detail_sejour(sejour_id: int):
 
     result = dict(sejour)
 
-    # Séquences avec leurs activités
     sequences = conn.execute(
         "SELECT * FROM sequence WHERE sejour_id = ? ORDER BY ordre, date, moment",
         (sejour_id,)
@@ -614,7 +599,6 @@ def detail_sejour(sejour_id: int):
 
     conn.close()
     return result
-
 
 # ============================================================================
 # STATISTIQUES
