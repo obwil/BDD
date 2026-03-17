@@ -1,4 +1,5 @@
 activites.db
+activites.db.backup
 __pycache__/
 *.pyc
 config.json
