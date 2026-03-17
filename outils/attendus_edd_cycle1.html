@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Attendus EDD — Cycle 1</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #F7F5F0; --card: #FFFFFF; --text: #1A1A18; --muted: #6B6B66;
+    --border: #E0DDD6; --accent: #2D5A3D;
+    --amber: #B8860B; --amber-light: #FDF6DC; --amber-border: #E8D080;
+    --mono: 'DM Mono', monospace; --sans: 'DM Sans', sans-serif;
+  }
+  body { font-family: var(--sans); background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.6; padding: 32px 24px 80px; max-width: 720px; margin: 0 auto; }
+  header { margin-bottom: 28px; padding-bottom: 20px; border-bottom: 1.5px solid var(--text); }
+  .header-top { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
+  h1 { font-family: var(--mono); font-size: 18px; font-weight: 500; letter-spacing: -0.02em; }
+  .cycle-badge { font-family: var(--mono); font-size: 11px; background: var(--accent); color: #fff; padding: 2px 8px; border-radius: 2px; letter-spacing: 0.05em; }
+  .header-sub { font-size: 12px; color: var(--muted); }
+
+  .legend { display: flex; gap: 16px; margin-bottom: 24px; font-size: 12px; color: var(--muted); align-items: flex-start; flex-direction: column; }
+  .legend-item { display: flex; align-items: center; gap: 8px; }
+  .dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+  .dot-normal { background: #EAF2ED; border: 1px solid #A8C9B4; }
+  .dot-doublon { background: var(--amber-light); border: 1px solid var(--amber-border); }
+
+  .theme { margin-bottom: 20px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: var(--card); }
+  .theme-header { padding: 10px 14px; background: var(--text); color: #fff; display: flex; justify-content: space-between; align-items: center; }
+  .theme-header h2 { font-family: var(--mono); font-size: 12px; font-weight: 500; letter-spacing: 0.02em; }
+  .theme-count { font-family: var(--mono); font-size: 11px; opacity: 0.5; }
+  .subtheme { border-top: 1px solid var(--border); }
+  .subtheme-title { font-family: var(--mono); font-size: 11px; color: var(--muted); padding: 8px 14px 6px; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid var(--border); background: #FAFAF8; }
+
+  /* Attendu normal (conservé d'office) */
+  .attendu { display: grid; grid-template-columns: 28px 1fr; gap: 0 8px; padding: 8px 14px; border-bottom: 1px solid var(--border); align-items: baseline; }
+  .attendu:last-child { border-bottom: none; }
+  .num { font-family: var(--mono); font-size: 11px; color: var(--muted); padding-top: 2px; }
+  .attendu-text { font-size: 13px; line-height: 1.55; color: var(--text); }
+
+  /* Bloc doublon */
+  .doublon-block { border-bottom: 1px solid var(--border); background: var(--amber-light); }
+  .doublon-block:last-child { border-bottom: none; }
+
+  .edd-row { display: grid; grid-template-columns: 28px 20px 1fr; gap: 0 8px; padding: 9px 14px 7px; align-items: baseline; cursor: pointer; }
+  .edd-row:hover { background: rgba(184,134,11,0.1); }
+  .edd-row.selected { background: rgba(45,90,61,0.08); }
+
+  .disc-row { padding: 5px 14px 9px 62px; background: rgba(184,134,11,0.05); border-top: 1px dashed var(--amber-border); }
+  .disc-source { font-family: var(--mono); font-size: 10px; color: var(--amber); display: block; margin-bottom: 2px; }
+  .disc-text { font-size: 12px; line-height: 1.5; color: #7A6000; font-style: italic; }
+
+  .edd-text { font-size: 13px; line-height: 1.55; color: #4A3800; }
+  .edd-row.selected .edd-text { color: #1A3A28; }
+
+  .cb-wrap { display: flex; align-items: center; padding-top: 2px; }
+  input[type="checkbox"] {
+    appearance: none; -webkit-appearance: none;
+    width: 16px; height: 16px; border: 1.5px solid var(--amber-border);
+    border-radius: 3px; background: #fff; cursor: pointer;
+    flex-shrink: 0; position: relative; transition: all 0.15s;
+  }
+  input[type="checkbox"]:checked { background: var(--accent); border-color: var(--accent); }
+  input[type="checkbox"]:checked::after {
+    content: ''; position: absolute; left: 4px; top: 1px;
+    width: 5px; height: 9px; border: 2px solid #fff;
+    border-top: none; border-left: none; transform: rotate(45deg);
+  }
+  input[type="checkbox"]:hover:not(:checked) { border-color: var(--amber); }
+
+  .sticky-bar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--card); border-top: 1px solid var(--border);
+    padding: 12px 24px; display: flex; justify-content: space-between;
+    align-items: center; gap: 16px; z-index: 100;
+    box-shadow: 0 -4px 16px rgba(0,0,0,0.06);
+  }
+  .bar-info { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+  .btn-send {
+    font-family: var(--mono); font-size: 12px; font-weight: 500;
+    background: var(--accent); color: #fff; border: none;
+    padding: 8px 18px; border-radius: 4px; cursor: pointer;
+    letter-spacing: 0.03em; transition: background 0.15s;
+  }
+  .btn-send:hover { background: #1f3f2b; }
+  footer { margin-top: 20px; display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; color: var(--muted); padding-top: 16px; border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-top"><h1>Attendus EDD</h1><span class="cycle-badge">CYCLE 1</span></div>
+  <div class="header-sub">MEN — Éducation au développement durable et à la transition écologique, octobre 2024</div>
+</header>
+
+<div class="legend">
+  <div class="legend-item"><div class="dot dot-normal"></div><span>Attendu EDD spécifique — conservé d'office</span></div>
+  <div class="legend-item"><div class="dot dot-doublon"></div><span>Doublon possible — cocher l'EDD pour le garder (l'attendu disciplinaire est toujours conservé)</span></div>
+</div>
+
+<!-- THÈME 1 -->
+<div class="theme">
+  <div class="theme-header"><h2>Thème 1 — Biodiversité et écosystèmes</h2><span class="theme-count">10 attendus</span></div>
+
+  <div class="subtheme">
+    <div class="subtheme-title">1.1 · Le tissu vivant de la planète</div>
+
+    <div class="doublon-block">
+      <label class="edd-row" id="row-01" onclick="toggle('01', event)">
+        <span class="num">01</span>
+        <div class="cb-wrap"><input type="checkbox" id="cb-01" data-num="01" data-text="Observer le réel ou des images afin d'identifier et nommer les principales étapes du développement d'un être vivant, en mobilisant quelques premiers repères de temps et d'espace." onchange="updateCount()"></div>
+        <span class="edd-text">Observer le réel ou des images afin d'identifier et nommer les principales étapes du développement d'un être vivant, en mobilisant quelques premiers repères de temps et d'espace.</span>
+      </label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Domaine 5</span><span class="disc-text">Reconnaître et décrire les principales étapes du développement d'un animal ou d'un végétal, dans une situation d'observation du réel ou sur des images fixes ou animées.</span></div>
+    </div>
+
+    <div class="doublon-block">
+      <label class="edd-row" id="row-02" onclick="toggle('02', event)">
+        <span class="num">02</span>
+        <div class="cb-wrap"><input type="checkbox" id="cb-02" data-num="02" data-text="Décrire et représenter un être vivant : les parties de son corps, ses besoins essentiels, une ou plusieurs interactions avec d'autres êtres vivants." onchange="updateCount()"></div>
+        <span class="edd-text">Décrire et représenter un être vivant : les parties de son corps, ses besoins essentiels, une ou plusieurs interactions avec d'autres êtres vivants.</span>
+      </label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Domaine 5</span><span class="disc-text">Connaître les besoins essentiels de quelques animaux et végétaux.</span></div>
+    </div>
+
+    <div class="attendu"><span class="num">03</span><span class="attendu-text">Formuler des interrogations, à partir de l'observation, pour identifier quelques caractéristiques des êtres vivants et prendre conscience de leur diversité et de quelques-unes de leurs interactions.</span></div>
+  </div>
+
+  <div class="subtheme">
+    <div class="subtheme-title">1.2 · Érosion, gestion et préservation</div>
+    <div class="attendu"><span class="num">04</span><span class="attendu-text">Identifier quelques interactions entre l'être humain et les autres êtres vivants.</span></div>
+    <div class="attendu"><span class="num">05</span><span class="attendu-text">Prendre conscience de la richesse de la biodiversité dans son environnement proche.</span></div>
+
+    <div class="doublon-block">
+      <label class="edd-row" id="row-06" onclick="toggle('06', event)">
+        <span class="num">06</span>
+        <div class="cb-wrap"><input type="checkbox" id="cb-06" data-num="06" data-text="Adopter au quotidien des gestes respectueux du vivant." onchange="updateCount()"></div>
+        <span class="edd-text">Adopter au quotidien des gestes respectueux du vivant.</span>
+      </label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Domaine 5</span><span class="disc-text">Commencer à adopter une attitude responsable en matière de respect des lieux et de protection du vivant.</span></div>
+    </div>
+
+    <div class="attendu"><span class="num">07</span><span class="attendu-text">Participer à une action collective qui vise à étudier et préserver la biodiversité à l'école ou dans son environnement proche.</span></div>
+  </div>
+
+  <div class="subtheme">
+    <div class="subtheme-title">1.3 · Biodiversité et santé</div>
+
+    <div class="doublon-block">
+      <label class="edd-row" id="row-08" onclick="toggle('08', event)">
+        <span class="num">08</span>
+        <div class="cb-wrap"><input type="checkbox" id="cb-08" data-num="08" data-text="Décrire les besoins essentiels de quelques animaux et végétaux et identifier quelques liens avec la santé humaine." onchange="updateCount()"></div>
+        <span class="edd-text">Décrire les besoins essentiels de quelques animaux et végétaux et identifier quelques liens avec la santé humaine.</span>
+      </label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Domaine 5</span><span class="disc-text">Connaître les besoins essentiels de quelques animaux et végétaux.</span></div>
+    </div>
+
+    <div class="attendu"><span class="num">09</span><span class="attendu-text">Formuler des interrogations sur les liens entre le vivant et la santé humaine.</span></div>
+    <div class="attendu"><span class="num">10</span><span class="attendu-text">Prendre conscience d'émotions ressenties au contact de la biodiversité et de leurs bienfaits pour la santé, en particulier en termes de bien-être.</span></div>
+  </div>
+</div>
+
+<!-- THÈME 2 -->
+<div class="theme">
+  <div class="theme-header"><h2>Thème 2 — Alimentation</h2><span class="theme-count">9 attendus</span></div>
+
+  <div class="subtheme">
+    <div class="subtheme-title">2.1 · Production alimentaire</div>
+
+    <div class="doublon-block">
+      <label class="edd-row" id="row-11" onclick="toggle('11', event)">
+        <span class="num">11</span>
+        <div class="cb-wrap"><input type="checkbox" id="cb-11" data-num="11" data-text="Observer le réel ou des images afin de reconnaître et nommer les principales étapes du développement d'une plante." onchange="updateCount()"></div>
+        <span class="edd-text">Observer le réel ou des images afin de reconnaître et nommer les principales étapes du développement d'une plante.</span>
+      </label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Domaine 5</span><span class="disc-text">Reconnaître et décrire les principales étapes du développement d'un animal ou d'un végétal, dans une situation d'observation du réel ou sur des images fixes ou animées.</span></div>
+    </div>
+
+    <div class="doublon-block">
+      <label class="edd-row" id="row-12" onclick="toggle('12', event)">
+        <span class="num">12</span>
+        <div class="cb-wrap"><input type="checkbox" id="cb-12" data-num="12" data-text="Décrire les besoins des végétaux (sol, eau, lumière)." onchange="updateCount()"></div>
+        <span class="edd-text">Décrire les besoins des végétaux (sol, eau, lumière).</span>
+      </label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Domaine 5</span><span class="disc-text">Connaître les besoins essentiels de quelques animaux et végétaux.</span></div>
+    </div>
+
+    <div class="attendu"><span class="num">13</span><span class="attendu-text">Formuler des questions sur les besoins d'une plante.</span></div>
+  </div>
+
+  <div class="subtheme">
+    <div class="subtheme-title">2.2 · Alimentation et santé</div>
+    <div class="attendu"><span class="num">14</span><span class="attendu-text">Décrire et nommer les différentes saveurs primaires.</span></div>
+    <div class="attendu"><span class="num">15</span><span class="attendu-text">S'interroger sur le goût d'un aliment.</span></div>
+
+    <div class="doublon-block">
+      <label class="edd-row" id="row-16" onclick="toggle('16', event)">
+        <span class="num">16</span>
+        <div class="cb-wrap"><input type="checkbox" id="cb-16" data-num="16" data-text="Prendre conscience que son alimentation a une influence sur sa santé." onchange="updateCount()"></div>
+        <span class="edd-text">Prendre conscience que son alimentation a une influence sur sa santé.</span>
+      </label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Domaine 5</span><span class="disc-text">Connaître et mettre en œuvre quelques règles d'hygiène corporelle et d'une vie saine.</span></div>
+    </div>
+  </div>
+
+  <div class="subtheme">
+    <div class="subtheme-title">2.3 · Consommation alimentaire responsable</div>
+    <div class="attendu"><span class="num">17</span><span class="attendu-text">Prendre conscience de l'impact des emballages alimentaires sur la production de déchets.</span></div>
+    <div class="attendu"><span class="num">18</span><span class="attendu-text">Adapter son choix d'aliment en fonction de l'emballage.</span></div>
+    <div class="attendu"><span class="num">19</span><span class="attendu-text">Nommer les principaux critères de tri des emballages alimentaires.</span></div>
+  </div>
+</div>
+
+<!-- THÈME 3 -->
+<div class="theme">
+  <div class="theme-header"><h2>Thème 3 — Eau et changement climatique</h2><span class="theme-count">4 attendus</span></div>
+  <div class="subtheme">
+    <div class="subtheme-title">3.1 · Le cycle de l'eau</div>
+    <div class="attendu"><span class="num">20</span><span class="attendu-text">Prendre conscience de la présence de l'eau dans son environnement.</span></div>
+  </div>
+  <div class="subtheme">
+    <div class="subtheme-title">3.2 · Les usages de l'eau</div>
+    <div class="attendu"><span class="num">21</span><span class="attendu-text">Observer et décrire les différents usages de l'eau à l'école et à la maison.</span></div>
+    <div class="attendu"><span class="num">22</span><span class="attendu-text">Formuler des interrogations sur les différents usages quotidiens de l'eau.</span></div>
+  </div>
+  <div class="subtheme">
+    <div class="subtheme-title">3.3 · Gestion durable de l'eau</div>
+    <div class="doublon-block">
+      <label class="edd-row" id="row-23" onclick="toggle('23', event)">
+        <span class="num">23</span>
+        <div class="cb-wrap"><input type="checkbox" id="cb-23" data-num="23" data-text="Adopter quelques écogestes pour limiter la consommation d'eau à l'école." onchange="updateCount()"></div>
+        <span class="edd-text">Adopter quelques écogestes pour limiter la consommation d'eau à l'école.</span>
+      </label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Domaine 5</span><span class="disc-text">Commencer à adopter une attitude responsable en matière de respect des lieux et de protection du vivant.</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- THÈME 4 -->
+<div class="theme">
+  <div class="theme-header"><h2>Thème 4 — Gestion durable des ressources naturelles</h2><span class="theme-count">5 attendus</span></div>
+  <div class="subtheme">
+    <div class="subtheme-title">4.1 · Diversité et accessibilité des ressources</div>
+    <div class="attendu"><span class="num">24</span><span class="attendu-text">Observer et décrire les constructions humaines à l'école et dans ses abords, puis nommer et identifier des matières et des matériaux naturels utilisés.</span></div>
+  </div>
+  <div class="subtheme">
+    <div class="subtheme-title">4.2 · Exploitation et gestion des ressources</div>
+
+    <div class="doublon-block">
+      <label class="edd-row" id="row-25" onclick="toggle('25', event)">
+        <span class="num">25</span>
+        <div class="cb-wrap"><input type="checkbox" id="cb-25" data-num="25" data-text="Participer à la fabrication et à la transformation de différents objets et matières." onchange="updateCount()"></div>
+        <span class="edd-text">Participer à la fabrication et à la transformation de différents objets et matières.</span>
+      </label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Domaine 5</span><span class="disc-text">Choisir, utiliser et savoir désigner des outils et des matériaux adaptés à une situation, à des actions techniques spécifiques. Réaliser des constructions ; construire des maquettes simples en fonction de plans ou d'instructions de montage.</span></div>
+    </div>
+
+    <div class="doublon-block">
+      <label class="edd-row" id="row-26" onclick="toggle('26', event)">
+        <span class="num">26</span>
+        <div class="cb-wrap"><input type="checkbox" id="cb-26" data-num="26" data-text="Prendre conscience des risques liés à l'usage de ressources dans son quotidien." onchange="updateCount()"></div>
+        <span class="edd-text">Prendre conscience des risques liés à l'usage de ressources dans son quotidien.</span>
+      </label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Domaine 5</span><span class="disc-text">Prendre en compte les risques de l'environnement familier proche (objets et comportements dangereux, produits toxiques).</span></div>
+    </div>
+  </div>
+  <div class="subtheme">
+    <div class="subtheme-title">4.3 · Usages et partage des ressources</div>
+    <div class="attendu"><span class="num">27</span><span class="attendu-text">Progresser dans la formulation d'interrogations concernant les gestes du quotidien (consommation d'eau et d'énergie notamment) pour initier une attitude responsable.</span></div>
+
+    <div class="doublon-block">
+      <label class="edd-row" id="row-28" onclick="toggle('28', event)">
+        <span class="num">28</span>
+        <div class="cb-wrap"><input type="checkbox" id="cb-28" data-num="28" data-text="Adopter quelques écogestes (extinction des lumières, utilisation de gourdes, tri des déchets, etc.)." onchange="updateCount()"></div>
+        <span class="edd-text">Adopter quelques écogestes (extinction des lumières, utilisation de gourdes, tri des déchets, etc.).</span>
+      </label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Domaine 5</span><span class="disc-text">Commencer à adopter une attitude responsable en matière de respect des lieux et de protection du vivant.</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- THÈME 5 -->
+<div class="theme">
+  <div class="theme-header"><h2>Thème 5 — Aménagement durable des territoires</h2><span class="theme-count">7 attendus</span></div>
+  <div class="subtheme">
+    <div class="subtheme-title">5.1 · Mieux habiter les villes</div>
+    <div class="attendu"><span class="num">29</span><span class="attendu-text">Comparer les caractéristiques de son environnement à travers les saisons.</span></div>
+    <div class="attendu"><span class="num">30</span><span class="attendu-text">Identifier différentes constructions humaines et quelques matériaux utilisés.</span></div>
+    <div class="attendu"><span class="num">31</span><span class="attendu-text">Prendre conscience de la diversité des constructions dans son environnement.</span></div>
+  </div>
+  <div class="subtheme">
+    <div class="subtheme-title">5.2 · Résilience face aux risques</div>
+
+    <div class="doublon-block">
+      <label class="edd-row" id="row-32" onclick="toggle('32', event)">
+        <span class="num">32</span>
+        <div class="cb-wrap"><input type="checkbox" id="cb-32" data-num="32" data-text="Prendre conscience des risques qui concernent son environnement (risques naturels, risques technologiques, etc.)." onchange="updateCount()"></div>
+        <span class="edd-text">Prendre conscience des risques qui concernent son environnement (risques naturels, risques technologiques, etc.).</span>
+      </label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Domaine 5</span><span class="disc-text">Prendre en compte les risques de l'environnement familier proche (objets et comportements dangereux, produits toxiques).</span></div>
+    </div>
+
+    <div class="doublon-block">
+      <label class="edd-row" id="row-33" onclick="toggle('33', event)">
+        <span class="num">33</span>
+        <div class="cb-wrap"><input type="checkbox" id="cb-33" data-num="33" data-text="Identifier et adopter les gestes et comportements nécessaires pour se protéger soi et les autres, et protéger le vivant et son environnement." onchange="updateCount()"></div>
+        <span class="edd-text">Identifier et adopter les gestes et comportements nécessaires pour se protéger soi et les autres, et protéger le vivant et son environnement.</span>
+      </label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Domaine 5</span><span class="disc-text">Prendre en compte les risques de l'environnement familier proche (objets et comportements dangereux, produits toxiques).</span></div>
+    </div>
+  </div>
+  <div class="subtheme">
+    <div class="subtheme-title">5.3 · Mobilités et transports</div>
+
+    <div class="doublon-block">
+      <label class="edd-row" id="row-34" onclick="toggle('34', event)">
+        <span class="num">34</span>
+        <div class="cb-wrap"><input type="checkbox" id="cb-34" data-num="34" data-text="Participer à une action qui permet de découvrir et d'explorer un environnement aménagé pour s'y déplacer avec aisance." onchange="updateCount()"></div>
+        <span class="edd-text">Participer à une action qui permet de découvrir et d'explorer un environnement aménagé pour s'y déplacer avec aisance.</span>
+      </label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Domaine 2</span><span class="disc-text">Se déplacer avec aisance et en sécurité dans des environnements variés, naturels ou aménagés.</span></div>
+    </div>
+
+    <div class="doublon-block">
+      <label class="edd-row" id="row-35" onclick="toggle('35', event)">
+        <span class="num">35</span>
+        <div class="cb-wrap"><input type="checkbox" id="cb-35" data-num="35" data-text="Prendre conscience des risques de son environnement proche." onchange="updateCount()"></div>
+        <span class="edd-text">Prendre conscience des risques de son environnement proche.</span>
+      </label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Domaine 5</span><span class="disc-text">Prendre en compte les risques de l'environnement familier proche (objets et comportements dangereux, produits toxiques).</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- THÈME 6 -->
+<div class="theme">
+  <div class="theme-header"><h2>Thème 6 — Numérique</h2><span class="theme-count">3 attendus</span></div>
+  <div class="subtheme">
+    <div class="subtheme-title">6.1 · Outil d'élaboration des savoirs</div>
+    <div class="doublon-block">
+      <label class="edd-row" id="row-36" onclick="toggle('36', event)">
+        <span class="num">36</span>
+        <div class="cb-wrap"><input type="checkbox" id="cb-36" data-num="36" data-text="Identifier des outils numériques qui permettent de décrire l'environnement proche de l'école et ses changements." onchange="updateCount()"></div>
+        <span class="edd-text">Identifier des outils numériques qui permettent de décrire l'environnement proche de l'école et ses changements.</span>
+      </label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Domaine 5</span><span class="disc-text">Utiliser des objets numériques : appareil photo, tablette, ordinateur.</span></div>
+    </div>
+  </div>
+  <div class="subtheme">
+    <div class="subtheme-title">6.2 · Usages quotidiens du numérique</div>
+    <div class="attendu"><span class="num">37</span><span class="attendu-text">Prendre conscience des usages multiples des écrans et des risques associés pour identifier des gestes favorables à sa santé.</span></div>
+  </div>
+  <div class="subtheme">
+    <div class="subtheme-title">6.3 · Enjeux environnementaux du numérique</div>
+    <div class="attendu"><span class="num">38</span><span class="attendu-text">Prendre conscience que le numérique repose sur des objets qui ont une durée de vie limitée et peuvent donc être réparés, triés, recyclés, avant d'être remplacés.</span></div>
+  </div>
+</div>
+
+<footer>
+  <span>38 attendus · 16 doublons possibles</span>
+  <span>EDD Cycle 1 · MEN octobre 2024</span>
+</footer>
+
+<div class="sticky-bar">
+  <span class="bar-info" id="count-info">0 / 16 doublons EDD sélectionnés</span>
+  <button class="btn-send" onclick="sendSelection()">Envoyer la sélection à Claude</button>
+</div>
+
+<script>
+const DOUBLON_NUMS = ['01','02','06','08','11','12','16','23','25','26','28','32','33','34','35','36'];
+
+function toggle(num, e) {
+  if (e.target.tagName === 'INPUT') return;
+  const cb = document.getElementById('cb-' + num);
+  cb.checked = !cb.checked;
+  updateRow(num);
+  updateCount();
+}
+
+function updateRow(num) {
+  const row = document.getElementById('row-' + num);
+  const cb = document.getElementById('cb-' + num);
+  if (cb.checked) row.classList.add('selected');
+  else row.classList.remove('selected');
+}
+
+function updateCount() {
+  DOUBLON_NUMS.forEach(n => updateRow(n));
+  const checked = document.querySelectorAll('input[type="checkbox"]:checked').length;
+  document.getElementById('count-info').textContent = checked + ' / 16 doublons EDD sélectionnés';
+}
+
+function sendSelection() {
+  const kept = [];
+  const dropped = [];
+  DOUBLON_NUMS.forEach(num => {
+    const cb = document.getElementById('cb-' + num);
+    if (cb) {
+      if (cb.checked) kept.push({ num, text: cb.dataset.text });
+      else dropped.push({ num, text: cb.dataset.text });
+    }
+  });
+
+  const lines = ['Voici ma sélection pour les attendus EDD Cycle 1 (doublons uniquement) :\n'];
+  lines.push('EDD DOUBLONS À GARDER :');
+  if (kept.length === 0) lines.push('(aucun)');
+  else kept.forEach(e => lines.push('- n°' + e.num + ' : ' + e.text));
+
+  lines.push('\nEDD DOUBLONS À EXCLURE :');
+  if (dropped.length === 0) lines.push('(aucun)');
+  else dropped.forEach(e => lines.push('- n°' + e.num + ' : ' + e.text));
+
+  lines.push('\nRappel : les 22 attendus EDD sans doublon sont tous conservés d\'office. Les attendus disciplinaires ne changent pas.');
+  lines.push('\nGénère maintenant la liste EDD Cycle 1 actualisée.');
+
+  const msg = lines.join('\n');
+
+  if (typeof sendPrompt === 'function') {
+    sendPrompt(msg);
+  } else if (window.parent && window.parent !== window) {
+    window.parent.postMessage({ type: 'sendPrompt', text: msg }, '*');
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = msg;
+    ta.style.cssText = 'position:fixed;top:10px;left:10px;right:10px;height:220px;z-index:9999;font-size:11px;font-family:monospace;padding:8px;border:2px solid #2D5A3D;border-radius:4px;background:#fff;';
+    document.body.appendChild(ta);
+    ta.select();
+    const note = document.createElement('div');
+    note.style.cssText = 'position:fixed;top:240px;left:10px;font-size:12px;z-index:9999;background:#2D5A3D;color:#fff;padding:6px 12px;border-radius:4px;';
+    note.textContent = 'Copie ce texte et colle-le dans la conversation Claude.';
+    document.body.appendChild(note);
+    setTimeout(() => { ta.remove(); note.remove(); }, 10000);
+  }
+}
+</script>
+</body>
+</html>

@@ -257,11 +257,13 @@ def detail_activite(activite_id: int):
 
     # Attendus scolaires
     result["attendus"] = rows_to_list(conn.execute("""
-        SELECT ats.id, ats.libelle, ats.domaine, ats.sous_domaine, c.nom as cycle, c.code as cycle_code
+        SELECT ats.id, ats.libelle, ats.domaine, ats.sous_domaine, ats.type,
+               c.nom as cycle, c.code as cycle_code
         FROM attendu_scolaire ats
         INNER JOIN activite_attendu aa ON ats.id = aa.attendu_id
         INNER JOIN cycle c ON ats.cycle_id = c.id
         WHERE aa.activite_id = ?
+        ORDER BY ats.type, ats.cycle_id, ats.domaine
     """, (activite_id,)).fetchall())
 
     # Tags
@@ -463,12 +465,12 @@ def attendus_par_cycle(cycle_id: int, domaine: Optional[str] = Query(None)):
     conn = get_db()
     if domaine:
         rows = conn.execute(
-            "SELECT ats.id, ats.domaine, ats.sous_domaine, ats.libelle, c.code as cycle_code, c.id as cycle_id FROM attendu_scolaire ats JOIN cycle c ON c.id=ats.cycle_id WHERE ats.cycle_id = ? AND ats.domaine = ? ORDER BY ats.domaine, ats.libelle",
+            "SELECT ats.id, ats.domaine, ats.sous_domaine, ats.libelle, ats.type, c.code as cycle_code, c.id as cycle_id FROM attendu_scolaire ats JOIN cycle c ON c.id=ats.cycle_id WHERE ats.cycle_id = ? AND ats.domaine = ? ORDER BY ats.domaine, ats.libelle",
             (cycle_id, domaine)
         ).fetchall()
     else:
         rows = conn.execute(
-            "SELECT ats.id, ats.domaine, ats.sous_domaine, ats.libelle, c.code as cycle_code, c.id as cycle_id FROM attendu_scolaire ats JOIN cycle c ON c.id=ats.cycle_id WHERE ats.cycle_id = ? ORDER BY ats.domaine, ats.libelle",
+            "SELECT ats.id, ats.domaine, ats.sous_domaine, ats.libelle, ats.type, c.code as cycle_code, c.id as cycle_id FROM attendu_scolaire ats JOIN cycle c ON c.id=ats.cycle_id WHERE ats.cycle_id = ? ORDER BY ats.domaine, ats.libelle",
             (cycle_id,)
         ).fetchall()
     conn.close()

@@ -48,6 +48,15 @@
 
     /* ATTENDUS */
     .attendus-group-title { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); margin: 8px 0 3px; }
+    .attendus-type-title { font-size: .71rem; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; padding: 3px 6px; border-radius: 4px; margin: 10px 0 4px; display: block; }
+    .attendus-type-title.edd  { color: #0F6E56; background: #E1F5EE; }
+    .attendus-type-title.disc { color: #534AB7; background: #EEEDFE; }
+    .attendus-domaine-header { display: flex; align-items: center; gap: 4px; cursor: pointer; padding: 3px 4px; border-radius: 4px; user-select: none; }
+    .attendus-domaine-header:hover { background: var(--surface2); }
+    .attendus-domaine-label { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); flex: 1; }
+    .attendus-domaine-chev { font-size: .55rem; color: var(--text-muted); transition: transform .15s; flex-shrink: 0; }
+    .attendus-domaine-body { display: none; padding-left: 4px; }
+    .attendus-domaine-body.open { display: block; }
 
     /* BOUTONS */
     .btn { padding: 7px 14px; border: none; border-radius: var(--radius); font-size: .85rem; cursor: pointer; font-weight: 500; }
@@ -236,9 +245,13 @@
       <div class="check-group" id="f-cycles"></div>
     </div>
 
-    <div class="sidebar-section" id="section-attendus" style="display:none">
-      <div class="sidebar-label">Attendu scolaire</div>
-      <div id="f-attendus"></div>
+    <div class="sidebar-section" id="section-attendus-edd" style="display:none">
+      <div class="sidebar-label">Attendus EDD</div>
+      <div id="f-attendus-edd"></div>
+    </div>
+    <div class="sidebar-section" id="section-attendus-disc" style="display:none">
+      <div class="sidebar-label">Attendus disciplinaires</div>
+      <div id="f-attendus-disc"></div>
     </div>
 
     <div class="sidebar-section" id="section-tags" style="display:none">
@@ -357,40 +370,67 @@ async function init() {
 }
 
 // ---- ATTENDUS ----
+function buildAttendusAccordion(items, container, multiCycle) {
+  container.innerHTML = '';
+  const byDomaine = {};
+  items.forEach(function(a) {
+    var key = (multiCycle ? '[' + (a.cycle_code||'') + '] ' : '') + a.domaine;
+    if (!byDomaine[key]) byDomaine[key] = [];
+    byDomaine[key].push(a);
+  });
+  Object.keys(byDomaine).forEach(function(dom) {
+    var attendus = byDomaine[dom];
+    var header = document.createElement('div');
+    header.className = 'attendus-domaine-header';
+    var chev = document.createElement('span');
+    chev.className = 'attendus-domaine-chev';
+    chev.textContent = '▶';
+    var label = document.createElement('span');
+    label.className = 'attendus-domaine-label';
+    label.textContent = dom;
+    header.appendChild(chev);
+    header.appendChild(label);
+    container.appendChild(header);
+    var body = document.createElement('div');
+    body.className = 'attendus-domaine-body';
+    attendus.forEach(function(a) {
+      var lbl = document.createElement('label');
+      lbl.className = 'check-item';
+      var sd = a.sous_domaine ? '<strong>' + a.sous_domaine + '</strong> — ' : '';
+      lbl.innerHTML = '<input type="checkbox" name="attendu" value="' + a.id + '"> <span>' + sd + a.libelle + '</span>';
+      body.appendChild(lbl);
+    });
+    container.appendChild(body);
+    header.addEventListener('click', function() {
+      var open = body.classList.toggle('open');
+      chev.style.transform = open ? 'rotate(90deg)' : '';
+    });
+  });
+}
+
 async function chargerAttendus(cycleIds) {
-  const sec = document.getElementById('section-attendus');
-  const c   = document.getElementById('f-attendus');
-  if (!cycleIds || !cycleIds.length) { sec.style.display='none'; c.innerHTML=''; return; }
+  var secEdd  = document.getElementById('section-attendus-edd');
+  var secDisc = document.getElementById('section-attendus-disc');
+  var cEdd    = document.getElementById('f-attendus-edd');
+  var cDisc   = document.getElementById('f-attendus-disc');
+  if (!cycleIds || !cycleIds.length) {
+    secEdd.style.display='none';  cEdd.innerHTML='';
+    secDisc.style.display='none'; cDisc.innerHTML='';
+    return;
+  }
   try {
-    const allAttendus = [];
-    for (const cid of cycleIds) {
-      const attendus = await api(`/api/cycles/${cid}/attendus`);
-      attendus.forEach(a => allAttendus.push(a));
+    var allAttendus = [];
+    for (var i=0; i<cycleIds.length; i++) {
+      var attendus = await api('/api/cycles/' + cycleIds[i] + '/attendus');
+      attendus.forEach(function(a) { allAttendus.push(a); });
     }
-    c.innerHTML = '';
-    const byCycle = {};
-    allAttendus.forEach(a => {
-      if(!byCycle[a.cycle_id]) byCycle[a.cycle_id] = {label: '', items: {}};
-      if(!byCycle[a.cycle_id].items[a.domaine]) byCycle[a.cycle_id].items[a.domaine] = [];
-      byCycle[a.cycle_id].items[a.domaine].push(a);
-    });
-    Object.values(byCycle).forEach(cy => {
-      Object.entries(cy.items).forEach(([dom, items]) => {
-        const t = document.createElement('div');
-        t.className = 'attendus-group-title';
-        const prefix = cycleIds.length > 1 ? `[${items[0].cycle_code || ''}] ` : '';
-        t.textContent = prefix + dom;
-        c.appendChild(t);
-        items.forEach(a => {
-          const lbl = document.createElement('label');
-          lbl.className = 'check-item';
-          lbl.innerHTML = `<input type="checkbox" name="attendu" value="${a.id}">
-            <span><strong>${a.sous_domaine}</strong> — ${a.libelle}</span>`;
-          c.appendChild(lbl);
-        });
-      });
-    });
-    sec.style.display = 'block';
+    var multi = cycleIds.length > 1;
+    var edd  = allAttendus.filter(function(a){ return !a.type || a.type === 'EDD'; });
+    var disc = allAttendus.filter(function(a){ return a.type === 'disciplinaire'; });
+    if (edd.length)  { buildAttendusAccordion(edd,  cEdd,  multi); secEdd.style.display='block'; }
+    else             { cEdd.innerHTML='';  secEdd.style.display='none'; }
+    if (disc.length) { buildAttendusAccordion(disc, cDisc, multi); secDisc.style.display='block'; }
+    else             { cDisc.innerHTML=''; secDisc.style.display='none'; }
   } catch(e){}
 }
 
@@ -438,11 +478,14 @@ function bindEvents() {
       search();
     }
   });
-  document.getElementById('f-attendus').addEventListener('change', e => {
-    if(e.target.name==='attendu'){
-      S.attendu_ids=[...document.querySelectorAll('input[name="attendu"]:checked')].map(x=>x.value);
-      S.offset=0; search();
-    }
+  ['f-attendus-edd','f-attendus-disc'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('change', function(e){
+      if(e.target.name==='attendu'){
+        S.attendu_ids=[...document.querySelectorAll('input[name="attendu"]:checked')].map(function(x){return x.value;});
+        S.offset=0; search();
+      }
+    });
   });
 
   document.getElementById('f-tags').addEventListener('change', () => {
@@ -466,8 +509,11 @@ function resetAll() {
   document.querySelectorAll('.month-btn').forEach(b=>b.classList.remove('active'));
   S.cycle_ids=[]; S.attendu_ids=[];
   document.querySelectorAll('input[name="cycle"]').forEach(r=>r.checked=false);
-  document.querySelectorAll('input[name="attendu"]').forEach(r=>r.checked=false);
-  document.getElementById('section-attendus').style.display='none';
+  document.querySelectorAll('input[name="attendu"]').forEach(function(r){r.checked=false;});
+  document.getElementById('section-attendus-edd').style.display='none';
+  document.getElementById('section-attendus-disc').style.display='none';
+  document.getElementById('f-attendus-edd').innerHTML='';
+  document.getElementById('f-attendus-disc').innerHTML='';
   S.anime=''; document.querySelectorAll('input[name="anime"]').forEach(r=>{ r.checked = r.value===''; });
   S.tag_ids=[]; document.querySelectorAll('input[name="tag"]').forEach(cb=>cb.checked=false);
   document.getElementById('btn-pick-them').classList.remove('active');
@@ -589,20 +635,25 @@ function buildDrawer(a) {
   h+=`<div class="drawer-section"><h3>Thématiques</h3><div class="badges-wrap">${badges(a.thematiques)}</div></div>`;
   h+=`<div class="drawer-section"><h3>Objectifs</h3><div class="badges-wrap">${badges(a.objectifs)}</div></div>`;
 
-  h+=`<div class="drawer-section"><h3>Attendus scolaires</h3>`;
-  if(a.attendus && a.attendus.length){
-    const byCycle={};
-    a.attendus.forEach(at=>{ if(!byCycle[at.cycle_code]) byCycle[at.cycle_code]=[]; byCycle[at.cycle_code].push(at); });
-    Object.entries(byCycle).forEach(([code,items])=>{
-      h+=`<div class="attendu-cycle-title">${code}</div>`;
-      items.forEach(at=>{
-        h+=`<div class="attendu-row"><span class="badge attendu-dom">${at.domaine}</span><span><strong>${at.sous_domaine}</strong> — ${at.libelle}</span></div>`;
+  var edd_at=(a.attendus||[]).filter(function(at){return !at.type||at.type==='EDD';});
+  var disc_at=(a.attendus||[]).filter(function(at){return at.type==='disciplinaire';});
+  function fmtAttendus(items, badgeBg, badgeColor){
+    if(!items.length) return '<span style="color:var(--text-muted);font-size:.82rem">—</span>';
+    var byCycle={};
+    items.forEach(function(at){ if(!byCycle[at.cycle_code]) byCycle[at.cycle_code]=[]; byCycle[at.cycle_code].push(at); });
+    var s='';
+    Object.keys(byCycle).forEach(function(code){
+      s+='<div class="attendu-cycle-title">'+code+'</div>';
+      byCycle[code].forEach(function(at){
+        var sd=at.sous_domaine?'<strong>'+at.sous_domaine+'</strong> — ':'';
+        var style=badgeBg?'style="background:'+badgeBg+';color:'+badgeColor+'"':'';
+        s+='<div class="attendu-row"><span class="badge attendu-dom" '+style+'>'+at.domaine+'</span><span>'+sd+at.libelle+'</span></div>';
       });
     });
-  } else {
-    h+=`<span style="color:var(--text-muted);font-size:.82rem">—</span>`;
+    return s;
   }
-  h+=`</div>`;
+  h+=`<div class="drawer-section"><h3>Attendus EDD</h3>`+fmtAttendus(edd_at,'','')+'</div>';
+  h+=`<div class="drawer-section"><h3>Attendus disciplinaires</h3>`+fmtAttendus(disc_at,'#EEEDFE','#534AB7')+'</div>';
 
   h+=`<div class="drawer-section"><h3>Tags</h3>
     <div id="drawer-tags-wrap" class="badges-wrap" style="margin-bottom:6px">${

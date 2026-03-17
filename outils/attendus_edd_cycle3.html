@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Attendus EDD — Cycle 3</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #F7F5F0; --card: #FFFFFF; --text: #1A1A18; --muted: #6B6B66;
+    --border: #E0DDD6; --accent: #2D5A3D;
+    --amber: #B8860B; --amber-light: #FDF6DC; --amber-border: #E8D080;
+    --red: #8B2E2E; --red-light: #FDF0F0; --red-border: #E8AAAA;
+    --mono: 'DM Mono', monospace; --sans: 'DM Sans', sans-serif;
+  }
+  body { font-family: var(--sans); background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.6; padding: 32px 24px 80px; max-width: 720px; margin: 0 auto; }
+  header { margin-bottom: 28px; padding-bottom: 20px; border-bottom: 1.5px solid var(--text); }
+  .header-top { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
+  h1 { font-family: var(--mono); font-size: 18px; font-weight: 500; letter-spacing: -0.02em; }
+  .cycle-badge { font-family: var(--mono); font-size: 11px; background: var(--accent); color: #fff; padding: 2px 8px; border-radius: 2px; letter-spacing: 0.05em; }
+  .header-sub { font-size: 12px; color: var(--muted); }
+  .legend { display: flex; gap: 12px; margin-bottom: 24px; font-size: 12px; color: var(--muted); align-items: flex-start; flex-direction: column; }
+  .legend-item { display: flex; align-items: center; gap: 8px; }
+  .dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+  .dot-normal { background: #EAF2ED; border: 1px solid #A8C9B4; }
+  .dot-doublon { background: var(--amber-light); border: 1px solid var(--amber-border); }
+  .dot-internal { background: var(--red-light); border: 1px solid var(--red-border); }
+  .theme { margin-bottom: 20px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: var(--card); }
+  .theme-header { padding: 10px 14px; background: var(--text); color: #fff; display: flex; justify-content: space-between; align-items: center; }
+  .theme-header h2 { font-family: var(--mono); font-size: 12px; font-weight: 500; letter-spacing: 0.02em; }
+  .theme-count { font-family: var(--mono); font-size: 11px; opacity: 0.5; }
+  .subtheme { border-top: 1px solid var(--border); }
+  .subtheme-title { font-family: var(--mono); font-size: 11px; color: var(--muted); padding: 8px 14px 6px; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid var(--border); background: #FAFAF8; }
+  .attendu { display: grid; grid-template-columns: 28px 1fr; gap: 0 8px; padding: 8px 14px; border-bottom: 1px solid var(--border); align-items: baseline; }
+  .attendu:last-child { border-bottom: none; }
+  .num { font-family: var(--mono); font-size: 11px; color: var(--muted); padding-top: 2px; }
+  .attendu-text { font-size: 13px; line-height: 1.55; color: var(--text); }
+  .doublon-block { border-bottom: 1px solid var(--border); background: var(--amber-light); }
+  .doublon-block:last-child { border-bottom: none; }
+  .edd-row { display: grid; grid-template-columns: 28px 20px 1fr; gap: 0 8px; padding: 9px 14px 7px; align-items: baseline; cursor: pointer; }
+  .edd-row:hover { background: rgba(184,134,11,0.1); }
+  .edd-row.selected { background: rgba(45,90,61,0.08); }
+  .disc-row { padding: 5px 14px 9px 62px; background: rgba(184,134,11,0.05); border-top: 1px dashed var(--amber-border); }
+  .disc-source { font-family: var(--mono); font-size: 10px; color: var(--amber); display: block; margin-bottom: 2px; }
+  .disc-text { font-size: 12px; line-height: 1.5; color: #7A6000; font-style: italic; }
+  .edd-text { font-size: 13px; line-height: 1.55; color: #4A3800; }
+  .edd-row.selected .edd-text { color: #1A3A28; }
+  .internal-block { border-bottom: 1px solid var(--border); background: var(--red-light); }
+  .internal-block:last-child { border-bottom: none; }
+  .internal-row { display: grid; grid-template-columns: 28px 1fr; gap: 0 8px; padding: 8px 14px; align-items: baseline; }
+  .internal-text { font-size: 13px; line-height: 1.55; color: #5A1A1A; }
+  .internal-note { padding: 4px 14px 8px 42px; font-family: var(--mono); font-size: 10px; color: var(--red); background: rgba(139,46,46,0.04); border-top: 1px dashed var(--red-border); }
+  .cb-wrap { display: flex; align-items: center; padding-top: 2px; }
+  input[type="checkbox"] { appearance: none; -webkit-appearance: none; width: 16px; height: 16px; border: 1.5px solid var(--amber-border); border-radius: 3px; background: #fff; cursor: pointer; flex-shrink: 0; position: relative; transition: all 0.15s; }
+  input[type="checkbox"]:checked { background: var(--accent); border-color: var(--accent); }
+  input[type="checkbox"]:checked::after { content: ''; position: absolute; left: 4px; top: 1px; width: 5px; height: 9px; border: 2px solid #fff; border-top: none; border-left: none; transform: rotate(45deg); }
+  input[type="checkbox"]:hover:not(:checked) { border-color: var(--amber); }
+  .sticky-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--card); border-top: 1px solid var(--border); padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; gap: 16px; z-index: 100; box-shadow: 0 -4px 16px rgba(0,0,0,0.06); }
+  .bar-info { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+  .btn-send { font-family: var(--mono); font-size: 12px; font-weight: 500; background: var(--accent); color: #fff; border: none; padding: 8px 18px; border-radius: 4px; cursor: pointer; letter-spacing: 0.03em; transition: background 0.15s; }
+  .btn-send:hover { background: #1f3f2b; }
+  footer { margin-top: 20px; display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; color: var(--muted); padding-top: 16px; border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+<header>
+  <div class="header-top"><h1>Attendus EDD</h1><span class="cycle-badge">CYCLE 3</span></div>
+  <div class="header-sub">MEN — Éducation au développement durable et à la transition écologique, octobre 2024</div>
+</header>
+<div class="legend">
+  <div class="legend-item"><div class="dot dot-normal"></div><span>Attendu EDD spécifique — conservé d'office</span></div>
+  <div class="legend-item"><div class="dot dot-doublon"></div><span>Doublon possible avec les disciplinaires — cocher l'EDD pour le garder</span></div>
+  <div class="legend-item"><div class="dot dot-internal"></div><span>Doublon interne à l'EDD (même attendu répété dans deux sous-thèmes)</span></div>
+</div>
+
+<!-- THÈME 1 -->
+<div class="theme">
+  <div class="theme-header"><h2>Thème 1 — Biodiversité et écosystèmes</h2><span class="theme-count">16 attendus</span></div>
+  <div class="subtheme">
+    <div class="subtheme-title">1.1 · Le tissu vivant de la planète</div>
+    <div class="doublon-block">
+      <label class="edd-row" id="row-01" onclick="toggle('01',event)"><span class="num">01</span><div class="cb-wrap"><input type="checkbox" id="cb-01" data-num="01" data-text="Décrire la diversité des organismes vivants à différents niveaux (diversité entre espèces, diversité au sein d'une même espèce)." onchange="updateCount()"></div><span class="edd-text">Décrire la diversité des organismes vivants à différents niveaux (diversité entre espèces, diversité au sein d'une même espèce).</span></label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Sciences et technologie</span><span class="disc-text">Caractériser la richesse, l'unité et la diversité actuelle et passée du vivant.</span></div>
+    </div>
+    <div class="doublon-block">
+      <label class="edd-row" id="row-02" onclick="toggle('02',event)"><span class="num">02</span><div class="cb-wrap"><input type="checkbox" id="cb-02" data-num="02" data-text="Identifier des attributs partagés par des êtres vivants à l'aide du vocabulaire scientifique utilisé pour construire un arbre de parenté." onchange="updateCount()"></div><span class="edd-text">Identifier des attributs partagés par des êtres vivants à l'aide du vocabulaire scientifique utilisé pour construire un arbre de parenté.</span></label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Sciences et technologie</span><span class="disc-text">Classer les organismes et établir les liens de parenté.</span></div>
+    </div>
+    <div class="doublon-block">
+      <label class="edd-row" id="row-03" onclick="toggle('03',event)"><span class="num">03</span><div class="cb-wrap"><input type="checkbox" id="cb-03" data-num="03" data-text="Identifier des interactions et interdépendances entre êtres vivants d'un écosystème." onchange="updateCount()"></div><span class="edd-text">Identifier des interactions et interdépendances entre êtres vivants d'un écosystème.</span></label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Sciences et technologie</span><span class="disc-text">Décrire un écosystème et caractériser les interactions qui s'y déroulent.</span></div>
+    </div>
+    <div class="attendu"><span class="num">04</span><span class="attendu-text">Pratiquer une démarche d'investigation en s'appuyant sur des observations pour décrire, comparer et représenter la biodiversité à différentes échelles, à l'aide d'outils de détermination et de classification.</span></div>
+    <div class="doublon-block">
+      <label class="edd-row" id="row-05" onclick="toggle('05',event)"><span class="num">05</span><div class="cb-wrap"><input type="checkbox" id="cb-05" data-num="05" data-text="Exprimer sa relation en tant qu'être humain à la nature par différents langages." onchange="updateCount()"></div><span class="edd-text">Exprimer sa relation en tant qu'être humain à la nature par différents langages.</span></label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Français</span><span class="disc-text">Comprendre l'aptitude du langage à dire le monde, à exprimer la relation de l'être humain à la nature.</span></div>
+    </div>
+  </div>
+  <div class="subtheme">
+    <div class="subtheme-title">1.2 · Érosion, gestion et préservation</div>
+    <div class="doublon-block">
+      <label class="edd-row" id="row-06" onclick="toggle('06',event)"><span class="num">06</span><div class="cb-wrap"><input type="checkbox" id="cb-06" data-num="06" data-text="Caractériser le changement de la biodiversité actuelle et passée au cours des temps géologiques et de l'histoire de l'être humain." onchange="updateCount()"></div><span class="edd-text">Caractériser le changement de la biodiversité actuelle et passée au cours des temps géologiques et de l'histoire de l'être humain.</span></label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Sciences et technologie</span><span class="disc-text">Caractériser la richesse, l'unité et la diversité actuelle et passée du vivant.</span></div>
+    </div>
+    <div class="attendu"><span class="num">07</span><span class="attendu-text">Identifier différents enjeux liés à la préservation de la biodiversité à l'échelle d'un territoire et des acteurs associés.</span></div>
+    <div class="doublon-block">
+      <label class="edd-row" id="row-08" onclick="toggle('08',event)"><span class="num">08</span><div class="cb-wrap"><input type="checkbox" id="cb-08" data-num="08" data-text="Identifier les impacts sur les écosystèmes et la biodiversité de différents comportements ou de décisions prises par différents acteurs." onchange="updateCount()"></div><span class="edd-text">Identifier les impacts sur les écosystèmes et la biodiversité de différents comportements ou de décisions prises par différents acteurs.</span></label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Sciences et technologie</span><span class="disc-text">Caractériser les conséquences d'une action humaine sur un écosystème.</span></div>
+    </div>
+    <div class="doublon-block">
+      <label class="edd-row" id="row-09" onclick="toggle('09',event)"><span class="num">09</span><div class="cb-wrap"><input type="checkbox" id="cb-09" data-num="09" data-text="Participer à un débat en lien avec une problématique de gestion et de préservation de la biodiversité." onchange="updateCount()"></div><span class="edd-text">Participer à un débat en lien avec une problématique de gestion et de préservation de la biodiversité.</span></label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — EMC</span><span class="disc-text">Écouter autrui et justifier un point de vue au cours d'une conversation, d'un débat ou d'un dialogue.</span></div>
+    </div>
+    <div class="attendu"><span class="num">10</span><span class="attendu-text">Participer à une action concrète collective ou individuelle de préservation de la biodiversité et envisager des actions qui dépassent le cadre de l'école ou de l'établissement.</span></div>
+    <div class="attendu"><span class="num">11</span><span class="attendu-text">Appréhender la biodiversité comme un bien commun.</span></div>
+  </div>
+  <div class="subtheme">
+    <div class="subtheme-title">1.3 · Biodiversité et santé</div>
+    <div class="attendu"><span class="num">12</span><span class="attendu-text">Identifier l'impact des méthodes de culture sur la diversité des aliments produits et sur la santé.</span></div>
+    <div class="attendu"><span class="num">13</span><span class="attendu-text">Distinguer une connaissance scientifique d'une opinion sur les comportements favorables à la santé humaine.</span></div>
+    <div class="attendu"><span class="num">14</span><span class="attendu-text">Identifier les valeurs qui peuvent être attribuées à la nature et à la santé des humains, des animaux et des écosystèmes.</span></div>
+    <div class="attendu"><span class="num">15</span><span class="attendu-text">Faire un lien entre la consommation de produits locaux, de saison et issus d'une agriculture durable avec la santé des humains, des animaux et des écosystèmes.</span></div>
+    <div class="attendu"><span class="num">16</span><span class="attendu-text">Évaluer l'impact de certaines pratiques agricoles sur la biodiversité, la santé humaine, animale et celle des écosystèmes (déforestation, pesticides, etc.).</span></div>
+  </div>
+</div>
+
+<!-- THÈME 2 -->
+<div class="theme">
+  <div class="theme-header"><h2>Thème 2 — Alimentation</h2><span class="theme-count">16 attendus</span></div>
+  <div class="subtheme">
+    <div class="subtheme-title">2.1 · Production alimentaire</div>
+    <div class="attendu"><span class="num">17</span><span class="attendu-text">Repérer les acteurs et les spécificités géographiques des productions agricoles.</span></div>
+    <div class="attendu"><span class="num">18</span><span class="attendu-text">Identifier différents systèmes agricoles et leurs effets sur l'environnement (effets des pesticides sur les pollinisateurs et sur la santé humaine, expansion agricole et déforestation, émission de gaz à effet de serre, etc.).</span></div>
+    <div class="doublon-block">
+      <label class="edd-row" id="row-19" onclick="toggle('19',event)"><span class="num">19</span><div class="cb-wrap"><input type="checkbox" id="cb-19" data-num="19" data-text="Identifier le rôle des pollinisateurs dans la transformation des fleurs en fruits et les conséquences de certaines pratiques sur leur abondance et la production des aliments." onchange="updateCount()"></div><span class="edd-text">Identifier le rôle des pollinisateurs dans la transformation des fleurs en fruits et les conséquences de certaines pratiques sur leur abondance et la production des aliments.</span></label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Sciences et technologie</span><span class="disc-text">Décrire le cycle de vie d'une plante à fleurs et celui d'un animal.</span></div>
+    </div>
+    <div class="doublon-block">
+      <label class="edd-row" id="row-20" onclick="toggle('20',event)"><span class="num">20</span><div class="cb-wrap"><input type="checkbox" id="cb-20" data-num="20" data-text="Expliquer le rôle clé des êtres vivants dans le processus de la transformation de la matière organique lors de la formation d'un sol." onchange="updateCount()"></div><span class="edd-text">Expliquer le rôle clé des êtres vivants dans le processus de la transformation de la matière organique lors de la formation d'un sol.</span></label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Sciences et technologie</span><span class="disc-text">Mettre en évidence la place et l'interdépendance de différents êtres vivants dans un réseau trophique.</span></div>
+    </div>
+    <div class="doublon-block">
+      <label class="edd-row" id="row-21" onclick="toggle('21',event)"><span class="num">21</span><div class="cb-wrap"><input type="checkbox" id="cb-21" data-num="21" data-text="Expliquer la production de matière organique par les végétaux." onchange="updateCount()"></div><span class="edd-text">Expliquer la production de matière organique par les végétaux.</span></label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Sciences et technologie</span><span class="disc-text">Mettre en évidence la place et l'interdépendance de différents êtres vivants dans un réseau trophique.</span></div>
+    </div>
+    <div class="doublon-block">
+      <label class="edd-row" id="row-22" onclick="toggle('22',event)"><span class="num">22</span><div class="cb-wrap"><input type="checkbox" id="cb-22" data-num="22" data-text="Reconnaître des transformations alimentaires impliquant des micro-organismes." onchange="updateCount()"></div><span class="edd-text">Reconnaître des transformations alimentaires impliquant des micro-organismes.</span></label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Sciences et technologie</span><span class="disc-text">Identifier les principes des technologies mises en œuvre pour transformer et conserver les aliments.</span></div>
+    </div>
+    <div class="doublon-block">
+      <label class="edd-row" id="row-23" onclick="toggle('23',event)"><span class="num">23</span><div class="cb-wrap"><input type="checkbox" id="cb-23" data-num="23" data-text="Reconnaître les aliments ultra-transformés et leurs effets sur la santé." onchange="updateCount()"></div><span class="edd-text">Reconnaître les aliments ultra-transformés et leurs effets sur la santé.</span></label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Sciences et technologie</span><span class="disc-text">Alimentation humaine — identifier des comportements favorables à la santé (composition des aliments, adéquation entre apports et besoins).</span></div>
+    </div>
+    <div class="attendu"><span class="num">24</span><span class="attendu-text">Relier la production alimentaire à quelques objectifs de développement durable (par exemple, les objectifs 13 et 15).</span></div>
+  </div>
+  <div class="subtheme">
+    <div class="subtheme-title">2.2 · Alimentation et santé</div>
+    <div class="doublon-block">
+      <label class="edd-row" id="row-25" onclick="toggle('25',event)"><span class="num">25</span><div class="cb-wrap"><input type="checkbox" id="cb-25" data-num="25" data-text="Expliquer le rôle des aliments dans le fonctionnement de l'organisme." onchange="updateCount()"></div><span class="edd-text">Expliquer le rôle des aliments dans le fonctionnement de l'organisme.</span></label>
+      <div class="disc-row"><span class="disc-source">Doublon quasi-identique — Sciences et technologie</span><span class="disc-text">Expliquer le rôle des aliments pour le fonctionnement de l'organisme.</span></div>
+    </div>
+    <div class="doublon-block">
+      <label class="edd-row" id="row-26" onclick="toggle('26',event)"><span class="num">26</span><div class="cb-wrap"><input type="checkbox" id="cb-26" data-num="26" data-text="Comprendre les risques sanitaires liés à l'alimentation et les moyens de les réduire, notamment les méthodes et modalités de conservation." onchange="updateCount()"></div><span class="edd-text">Comprendre les risques sanitaires liés à l'alimentation et les moyens de les réduire, notamment les méthodes et modalités de conservation.</span></label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Sciences et technologie</span><span class="disc-text">Identifier les principes des technologies mises en œuvre pour transformer et conserver les aliments.</span></div>
+    </div>
+    <div class="doublon-block">
+      <label class="edd-row" id="row-27" onclick="toggle('27',event)"><span class="num">27</span><div class="cb-wrap"><input type="checkbox" id="cb-27" data-num="27" data-text="Distinguer les aliments bruts des aliments transformés et ultra transformés, identifier leurs effets sur la santé." onchange="updateCount()"></div><span class="edd-text">Distinguer les aliments bruts des aliments transformés et ultra transformés, identifier leurs effets sur la santé.</span></label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Sciences et technologie</span><span class="disc-text">Alimentation humaine — identifier des comportements favorables à la santé (composition des aliments, adéquation entre apports et besoins).</span></div>
+    </div>
+    <div class="attendu"><span class="num">28</span><span class="attendu-text">Distinguer ce qui relève de la connaissance scientifique, de la croyance ou de la simple opinion en matière d'alimentation et de santé.</span></div>
+    <div class="doublon-block">
+      <label class="edd-row" id="row-29" onclick="toggle('29',event)"><span class="num">29</span><div class="cb-wrap"><input type="checkbox" id="cb-29" data-num="29" data-text="Identifier des comportements alimentaires favorables à sa santé." onchange="updateCount()"></div><span class="edd-text">Identifier des comportements alimentaires favorables à sa santé.</span></label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Sciences et technologie</span><span class="disc-text">Alimentation humaine — identifier des comportements favorables à la santé (composition des aliments, adéquation entre apports et besoins).</span></div>
+    </div>
+  </div>
+  <div class="subtheme">
+    <div class="subtheme-title">2.3 · Consommation alimentaire responsable</div>
+    <div class="attendu"><span class="num">30</span><span class="attendu-text">Proposer une solution concrète à l'échelle de l'école ou du collège pour réduire le gaspillage alimentaire.</span></div>
+    <div class="attendu"><span class="num">31</span><span class="attendu-text">Envisager des actions à l'échelle de la commune en lien avec les acteurs impliqués dans la lutte contre le gaspillage alimentaire.</span></div>
+    <div class="attendu"><span class="num">32</span><span class="attendu-text">Identifier et justifier les écogestes pour une consommation alimentaire responsable (réduction des déchets, lutte contre le gaspillage, réduction des émissions de gaz à effet de serre, prise en compte du bien-être animal, etc.).</span></div>
+  </div>
+</div>
+
+<!-- THÈME 3 -->
+<div class="theme">
+  <div class="theme-header"><h2>Thème 3 — Eau et changement climatique</h2><span class="theme-count">13 attendus</span></div>
+  <div class="subtheme">
+    <div class="subtheme-title">3.1 · Le cycle de l'eau</div>
+    <div class="attendu"><span class="num">33</span><span class="attendu-text">Représenter le cycle de l'eau et expliquer son fonctionnement systémique.</span></div>
+    <div class="doublon-block">
+      <label class="edd-row" id="row-34" onclick="toggle('34',event)"><span class="num">34</span><div class="cb-wrap"><input type="checkbox" id="cb-34" data-num="34" data-text="Différencier la météorologie du climat." onchange="updateCount()"></div><span class="edd-text">Différencier la météorologie du climat.</span></label>
+      <div class="disc-row"><span class="disc-source">Doublon quasi-identique — Sciences et technologie</span><span class="disc-text">Différencier la météorologie du climat.</span></div>
+    </div>
+    <div class="attendu"><span class="num">35</span><span class="attendu-text">Repérer des différences de climat et les mettre en lien avec le cycle de l'eau.</span></div>
+  </div>
+  <div class="subtheme">
+    <div class="subtheme-title">3.2 · Les usages de l'eau</div>
+    <div class="attendu"><span class="num">36</span><span class="attendu-text">Relier le cycle de l'eau avec les usages de l'eau par les sociétés humaines.</span></div>
+    <div class="attendu"><span class="num">37</span><span class="attendu-text">Repérer des écarts, à l'échelle mondiale, entre la disponibilité de l'eau et ses usages.</span></div>
+    <div class="attendu"><span class="num">38</span><span class="attendu-text">Repérer et identifier des acteurs locaux impliqués dans la gestion de la ressource en eau dans son environnement proche.</span></div>
+    <div class="attendu"><span class="num">39</span><span class="attendu-text">Pratiquer une démarche d'investigation en lien avec la disponibilité ou la qualité des eaux locales.</span></div>
+    <div class="attendu"><span class="num">40</span><span class="attendu-text">Repérer des conflits d'usages de l'eau et identifier les valeurs mises en jeu (solidarité, équité, justice).</span></div>
+    <div class="attendu"><span class="num">41</span><span class="attendu-text">Identifier l'eau comme un bien commun à préserver.</span></div>
+  </div>
+  <div class="subtheme">
+    <div class="subtheme-title">3.3 · Gestion durable de l'eau</div>
+    <div class="internal-block">
+      <div class="internal-row"><span class="num">42</span><span class="internal-text">Repérer et identifier des acteurs locaux impliqués dans la gestion de la ressource en eau dans son environnement proche.</span></div>
+      <div class="internal-note">⚠ Doublon interne — identique au n°38 (3.2). À fusionner ou supprimer l'un des deux.</div>
+    </div>
+    <div class="attendu"><span class="num">43</span><span class="attendu-text">Identifier des valeurs mises en jeu (solidarité, équité, justice) dans les questions de gestion et de partage de l'eau.</span></div>
+    <div class="attendu"><span class="num">44</span><span class="attendu-text">Proposer des actions pour sensibiliser la population locale aux enjeux de l'eau en tant que bien commun, à préserver et à partager.</span></div>
+    <div class="attendu"><span class="num">45</span><span class="attendu-text">Proposer des actions pour limiter les impacts des activités humaines sur l'eau qui dépassent le cadre de l'école.</span></div>
+  </div>
+</div>
+
+<!-- THÈME 4 -->
+<div class="theme">
+  <div class="theme-header"><h2>Thème 4 — Gestion durable des ressources naturelles</h2><span class="theme-count">8 attendus</span></div>
+  <div class="subtheme">
+    <div class="subtheme-title">4.1 · Diversité et accessibilité des ressources</div>
+    <div class="doublon-block">
+      <label class="edd-row" id="row-46" onclick="toggle('46',event)"><span class="num">46</span><div class="cb-wrap"><input type="checkbox" id="cb-46" data-num="46" data-text="Caractériser les spécificités de différents types de ressources et leur disponibilité." onchange="updateCount()"></div><span class="edd-text">Caractériser les spécificités de différents types de ressources et leur disponibilité.</span></label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Sciences et technologie</span><span class="disc-text">Rechercher et exploiter des informations relatives aux ressources en énergie et à leur utilisation en exerçant son esprit critique.</span></div>
+    </div>
+    <div class="doublon-block">
+      <label class="edd-row" id="row-47" onclick="toggle('47',event)"><span class="num">47</span><div class="cb-wrap"><input type="checkbox" id="cb-47" data-num="47" data-text="Pratiquer une démarche d'investigation pour distinguer les ressources renouvelables et les ressources non renouvelables." onchange="updateCount()"></div><span class="edd-text">Pratiquer une démarche d'investigation pour distinguer les ressources renouvelables et les ressources non renouvelables.</span></label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Sciences et technologie</span><span class="disc-text">Rechercher et exploiter des informations relatives aux ressources en énergie et à leur utilisation en exerçant son esprit critique.</span></div>
+    </div>
+  </div>
+  <div class="subtheme">
+    <div class="subtheme-title">4.2 · Exploitation et gestion des ressources</div>
+    <div class="attendu"><span class="num">48</span><span class="attendu-text">Représenter par des schémas et diagrammes des consommations en énergie, eau et sol pour comprendre les enjeux liés à leur gestion.</span></div>
+    <div class="attendu"><span class="num">49</span><span class="attendu-text">Expliquer les effets de l'exploitation de ces ressources sur l'environnement.</span></div>
+    <div class="attendu"><span class="num">50</span><span class="attendu-text">Pratiquer une démarche d'investigation pour comprendre les bénéfices d'une gestion raisonnée de ces ressources.</span></div>
+  </div>
+  <div class="subtheme">
+    <div class="subtheme-title">4.3 · Usages et partage des ressources</div>
+    <div class="attendu"><span class="num">51</span><span class="attendu-text">Repérer des complémentarités et des mises en tension possibles entre des enjeux éthiques, environnementaux et sociaux liés à l'usage des ressources.</span></div>
+    <div class="attendu"><span class="num">52</span><span class="attendu-text">Identifier et justifier des écogestes en lien avec l'usage des ressources.</span></div>
+    <div class="attendu"><span class="num">53</span><span class="attendu-text">Participer à une action collective concrète pour une consommation raisonnée et un partage éthique des ressources.</span></div>
+  </div>
+</div>
+
+<!-- THÈME 5 -->
+<div class="theme">
+  <div class="theme-header"><h2>Thème 5 — Aménagement durable des territoires</h2><span class="theme-count">12 attendus</span></div>
+  <div class="subtheme">
+    <div class="subtheme-title">5.1 · Mieux habiter les villes</div>
+    <div class="doublon-block">
+      <label class="edd-row" id="row-54" onclick="toggle('54',event)"><span class="num">54</span><div class="cb-wrap"><input type="checkbox" id="cb-54" data-num="54" data-text="Décrire et analyser les paysages urbains et leur extension." onchange="updateCount()"></div><span class="edd-text">Décrire et analyser les paysages urbains et leur extension.</span></label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Géographie</span><span class="disc-text">Reconnaître des paysages variés et les relier à leurs caractéristiques géographiques et humaines.</span></div>
+    </div>
+    <div class="doublon-block">
+      <label class="edd-row" id="row-55" onclick="toggle('55',event)"><span class="num">55</span><div class="cb-wrap"><input type="checkbox" id="cb-55" data-num="55" data-text="Identifier le rôle de l'urbanisation dans le changement climatique (chauffage, transports, artificialisation des sols) et dans la pollution de l'air." onchange="updateCount()"></div><span class="edd-text">Identifier le rôle de l'urbanisation dans le changement climatique (chauffage, transports, artificialisation des sols) et dans la pollution de l'air.</span></label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Sciences et technologie</span><span class="disc-text">Construire une argumentation scientifique pour expliquer le réchauffement climatique actuel.</span></div>
+    </div>
+    <div class="attendu"><span class="num">56</span><span class="attendu-text">Identifier, en milieu urbain, les actions qui peuvent être mises en place face au changement climatique (stratégies d'atténuation et d'adaptation) d'une part, et pour réduire la pollution de l'air d'autre part.</span></div>
+    <div class="attendu"><span class="num">57</span><span class="attendu-text">Relier la question de l'habiter en ville à différents objectifs de développement durable.</span></div>
+    <div class="attendu"><span class="num">58</span><span class="attendu-text">Représenter des possibles pour la ville de demain par la réalisation de maquettes, schémas ou dessins.</span></div>
+  </div>
+  <div class="subtheme">
+    <div class="subtheme-title">5.2 · Résilience face aux risques</div>
+    <div class="doublon-block">
+      <label class="edd-row" id="row-59" onclick="toggle('59',event)"><span class="num">59</span><div class="cb-wrap"><input type="checkbox" id="cb-59" data-num="59" data-text="Connaître des manifestations de l'activité interne et externe de la Terre, déterminer les risques et les modalités de prévention associés." onchange="updateCount()"></div><span class="edd-text">Connaître des manifestations de l'activité interne et externe de la Terre, déterminer les risques et les modalités de prévention associés.</span></label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Sciences et technologie</span><span class="disc-text">Identifier l'activité de la planète Terre et ses conséquences.</span></div>
+    </div>
+    <div class="doublon-block">
+      <label class="edd-row" id="row-60" onclick="toggle('60',event)"><span class="num">60</span><div class="cb-wrap"><input type="checkbox" id="cb-60" data-num="60" data-text="Savoir différencier les risques qui relèvent du changement climatique et ceux qui n'en relèvent pas (risques sismiques)." onchange="updateCount()"></div><span class="edd-text">Savoir différencier les risques qui relèvent du changement climatique et ceux qui n'en relèvent pas (risques sismiques).</span></label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Sciences et technologie</span><span class="disc-text">Construire une argumentation scientifique pour expliquer le réchauffement climatique actuel.</span></div>
+    </div>
+    <div class="attendu"><span class="num">61</span><span class="attendu-text">Expliquer la vulnérabilité des littoraux en lien avec le changement climatique.</span></div>
+    <div class="attendu"><span class="num">62</span><span class="attendu-text">Participer à une action concrète de transformation ou préservation de son environnement proche pour réduire les risques.</span></div>
+  </div>
+  <div class="subtheme">
+    <div class="subtheme-title">5.3 · Mobilités et transports</div>
+    <div class="doublon-block">
+      <label class="edd-row" id="row-63" onclick="toggle('63',event)"><span class="num">63</span><div class="cb-wrap"><input type="checkbox" id="cb-63" data-num="63" data-text="Analyser un besoin en matière de transports et les réponses apportées à ce besoin." onchange="updateCount()"></div><span class="edd-text">Analyser un besoin en matière de transports et les réponses apportées à ce besoin.</span></label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — Sciences et technologie</span><span class="disc-text">Identifier un besoin exprimé par la société et lui associer des objets techniques permettant d'y répondre.</span></div>
+    </div>
+    <div class="attendu"><span class="num">64</span><span class="attendu-text">Différencier des choix possibles de moyens de déplacement en fonction de leur impact sur la santé et sur l'environnement.</span></div>
+    <div class="attendu"><span class="num">65</span><span class="attendu-text">Identifier et justifier le choix d'un moyen de transport durable dans une situation donnée.</span></div>
+  </div>
+</div>
+
+<!-- THÈME 6 -->
+<div class="theme">
+  <div class="theme-header"><h2>Thème 6 — Numérique</h2><span class="theme-count">8 attendus</span></div>
+  <div class="subtheme">
+    <div class="subtheme-title">6.1 · Outil d'élaboration des savoirs</div>
+    <div class="attendu"><span class="num">66</span><span class="attendu-text">Participer à un diagnostic de son lieu de vie avec des outils numériques, en caractériser les spécificités au regard des ODD et ainsi repérer les principaux enjeux de transition écologique.</span></div>
+    <div class="attendu"><span class="num">67</span><span class="attendu-text">Estimer son empreinte carbone en utilisant un outil de simulation en ligne dans une perspective d'éducation au choix.</span></div>
+    <div class="attendu"><span class="num">68</span><span class="attendu-text">Pratiquer une démarche d'investigation sur un enjeu de développement durable en s'appuyant sur Internet, distinguer les connaissances des opinions et justifier son point de vue à l'aide des informations collectées.</span></div>
+  </div>
+  <div class="subtheme">
+    <div class="subtheme-title">6.2 · Usages quotidiens du numérique</div>
+    <div class="attendu"><span class="num">69</span><span class="attendu-text">Identifier des enjeux de citoyenneté et de santé liés aux usages du numérique.</span></div>
+    <div class="doublon-block">
+      <label class="edd-row" id="row-70" onclick="toggle('70',event)"><span class="num">70</span><div class="cb-wrap"><input type="checkbox" id="cb-70" data-num="70" data-text="Adopter des comportements responsables et respectueux lors de l'utilisation d'outils numériques." onchange="updateCount()"></div><span class="edd-text">Adopter des comportements responsables et respectueux lors de l'utilisation d'outils numériques.</span></label>
+      <div class="disc-row"><span class="disc-source">Doublon avec — EMC</span><span class="disc-text">Adopter une attitude et un langage adaptés dans le rapport aux autres ; avoir conscience de sa responsabilité individuelle.</span></div>
+    </div>
+  </div>
+  <div class="subtheme">
+    <div class="subtheme-title">6.3 · Enjeux environnementaux du numérique</div>
+    <div class="attendu"><span class="num">71</span><span class="attendu-text">Pratiquer une démarche d'investigation pour estimer l'empreinte carbone de quelques objets numériques en utilisant des simulateurs et convertisseurs numériques fiables.</span></div>
+    <div class="attendu"><span class="num">72</span><span class="attendu-text">Repérer des outils numériques de simulation pouvant servir d'aide à la décision en termes de comportements écoresponsables, afin de réduire les incidences environnementales de ses gestes.</span></div>
+    <div class="attendu"><span class="num">73</span><span class="attendu-text">Envisager des actions et s'engager dans le cadre d'un évènement visant à promouvoir des usages du numérique écoresponsables et citoyens.</span></div>
+  </div>
+</div>
+
+<footer>
+  <span>73 attendus · 25 doublons possibles · 1 doublon interne (n°38=n°42)</span>
+  <span>EDD Cycle 3 · MEN octobre 2024</span>
+</footer>
+
+<div class="sticky-bar">
+  <span class="bar-info" id="count-info">0 / 25 doublons EDD sélectionnés</span>
+  <button class="btn-send" onclick="sendSelection()">Envoyer la sélection à Claude</button>
+</div>
+
+<script>
+const DOUBLON_NUMS = ['01','02','03','05','06','08','09','19','20','21','22','23','25','26','27','29','34','46','47','54','55','59','60','63','70'];
+
+function toggle(num, e) {
+  if (e.target.tagName === 'INPUT') return;
+  const cb = document.getElementById('cb-' + num);
+  cb.checked = !cb.checked;
+  updateRow(num);
+  updateCount();
+}
+function updateRow(num) {
+  const row = document.getElementById('row-' + num);
+  const cb = document.getElementById('cb-' + num);
+  if (row) row.classList.toggle('selected', cb.checked);
+}
+function updateCount() {
+  DOUBLON_NUMS.forEach(n => updateRow(n));
+  const checked = document.querySelectorAll('input[type="checkbox"]:checked').length;
+  document.getElementById('count-info').textContent = checked + ' / ' + DOUBLON_NUMS.length + ' doublons EDD sélectionnés';
+}
+function sendSelection() {
+  const kept = [], dropped = [];
+  DOUBLON_NUMS.forEach(num => {
+    const cb = document.getElementById('cb-' + num);
+    if (cb) (cb.checked ? kept : dropped).push({ num, text: cb.dataset.text });
+  });
+  const lines = ['Voici ma sélection pour les attendus EDD Cycle 3 (doublons uniquement) :\n'];
+  lines.push('EDD DOUBLONS À GARDER :');
+  if (kept.length === 0) lines.push('(aucun)');
+  else kept.forEach(e => lines.push('- n°' + e.num + ' : ' + e.text));
+  lines.push('\nEDD DOUBLONS À EXCLURE :');
+  if (dropped.length === 0) lines.push('(aucun)');
+  else dropped.forEach(e => lines.push('- n°' + e.num + ' : ' + e.text));
+  lines.push('\nDoublon interne : n°42 est identique à n°38 — indique lequel supprimer (38 ou 42), ou si tu veux garder les deux.');
+  lines.push('\nRappel : les 47 attendus EDD sans doublon sont tous conservés d\'office. Les attendus disciplinaires ne changent pas.');
+  lines.push('\nGénère maintenant la liste EDD Cycle 3 actualisée.');
+  const msg = lines.join('\n');
+  if (typeof sendPrompt === 'function') sendPrompt(msg);
+  else if (window.parent && window.parent !== window) window.parent.postMessage({ type: 'sendPrompt', text: msg }, '*');
+  else {
+    const ta = document.createElement('textarea');
+    ta.value = msg;
+    ta.style.cssText = 'position:fixed;top:10px;left:10px;right:10px;height:220px;z-index:9999;font-size:11px;font-family:monospace;padding:8px;border:2px solid #2D5A3D;border-radius:4px;background:#fff;';
+    document.body.appendChild(ta); ta.select();
+    const note = document.createElement('div');
+    note.style.cssText = 'position:fixed;top:240px;left:10px;font-size:12px;z-index:9999;background:#2D5A3D;color:#fff;padding:6px 12px;border-radius:4px;';
+    note.textContent = 'Copie ce texte et colle-le dans la conversation Claude.';
+    document.body.appendChild(note);
+    setTimeout(() => { ta.remove(); note.remove(); }, 10000);
+  }
+}
+</script>
+</body>
+</html>
