@@ -397,7 +397,9 @@ function buildAttendusAccordion(items, container, multiCycle) {
       var lbl = document.createElement('label');
       lbl.className = 'check-item';
       var sd = a.sous_domaine ? '<strong>' + a.sous_domaine + '</strong> — ' : '';
-      lbl.innerHTML = '<input type="checkbox" name="attendu" value="' + a.id + '"> <span>' + sd + a.libelle + '</span>';
+      var typeColor = (a.type === 'disciplinaire') ? '#7B6EE0' : '#4a7c59';
+      var dot = '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:' + typeColor + ';flex-shrink:0;margin:3px 3px 0 0"></span>';
+      lbl.innerHTML = '<input type="checkbox" name="attendu" value="' + a.id + '"> ' + dot + ' <span>' + sd + a.libelle + '</span>';
       body.appendChild(lbl);
     });
     container.appendChild(body);
@@ -635,25 +637,40 @@ function buildDrawer(a) {
   h+=`<div class="drawer-section"><h3>Thématiques</h3><div class="badges-wrap">${badges(a.thematiques)}</div></div>`;
   h+=`<div class="drawer-section"><h3>Objectifs</h3><div class="badges-wrap">${badges(a.objectifs)}</div></div>`;
 
-  var edd_at=(a.attendus||[]).filter(function(at){return !at.type||at.type==='EDD';});
-  var disc_at=(a.attendus||[]).filter(function(at){return at.type==='disciplinaire';});
-  function fmtAttendus(items, badgeBg, badgeColor){
-    if(!items.length) return '<span style="color:var(--text-muted);font-size:.82rem">—</span>';
+  // Attendus melanges par domaine, code couleur par type
+  function fmtAttendus(items){
+    if(!items||!items.length) return '<span style="color:var(--text-muted);font-size:.82rem">—</span>';
+    // Grouper par cycle puis domaine
     var byCycle={};
-    items.forEach(function(at){ if(!byCycle[at.cycle_code]) byCycle[at.cycle_code]=[]; byCycle[at.cycle_code].push(at); });
+    items.forEach(function(at){
+      if(!byCycle[at.cycle_code]) byCycle[at.cycle_code]={};
+      var dom=at.domaine||'Autre';
+      if(!byCycle[at.cycle_code][dom]) byCycle[at.cycle_code][dom]=[];
+      byCycle[at.cycle_code][dom].push(at);
+    });
     var s='';
-    Object.keys(byCycle).forEach(function(code){
+    Object.keys(byCycle).sort().forEach(function(code){
       s+='<div class="attendu-cycle-title">'+code+'</div>';
-      byCycle[code].forEach(function(at){
-        var sd=at.sous_domaine?'<strong>'+at.sous_domaine+'</strong> — ':'';
-        var style=badgeBg?'style="background:'+badgeBg+';color:'+badgeColor+'"':'';
-        s+='<div class="attendu-row"><span class="badge attendu-dom" '+style+'>'+at.domaine+'</span><span>'+sd+at.libelle+'</span></div>';
+      var byDom=byCycle[code];
+      Object.keys(byDom).sort().forEach(function(dom){
+        byDom[dom].forEach(function(at){
+          var sd=at.sous_domaine?'<strong>'+at.sous_domaine+'</strong> — ':'';
+          var isEDD=!at.type||at.type==='EDD';
+          var dotColor=isEDD?'#4a7c59':'#7B6EE0';
+          var badgeBg=isEDD?'':'#EEEDFE';
+          var badgeColor=isEDD?'':'#534AB7';
+          var style=badgeBg?'style="background:'+badgeBg+';color:'+badgeColor+'"':'';
+          var dot='<span title="'+(isEDD?'EDD':'Disciplinaire')+'" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+dotColor+';flex-shrink:0;margin:3px 4px 0 0"></span>';
+          s+='<div class="attendu-row">'+dot+'<span class="badge attendu-dom" '+style+'>'+dom+'</span><span>'+sd+at.libelle+'</span></div>';
+        });
       });
     });
     return s;
   }
-  h+=`<div class="drawer-section"><h3>Attendus EDD</h3>`+fmtAttendus(edd_at,'','')+'</div>';
-  h+=`<div class="drawer-section"><h3>Attendus disciplinaires</h3>`+fmtAttendus(disc_at,'#EEEDFE','#534AB7')+'</div>';
+  h+=`<div class="drawer-section"><h3>Attendus <span style="font-size:.68rem;margin-left:6px;opacity:.7">` +
+    `<span style="display:inline-flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:50%;background:#4a7c59;display:inline-block"></span>EDD</span>` +
+    `&nbsp;&nbsp;<span style="display:inline-flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:50%;background:#7B6EE0;display:inline-block"></span>Disciplinaire</span>` +
+    `</span></h3>`+fmtAttendus(a.attendus)+'</div>';
 
   h+=`<div class="drawer-section"><h3>Tags</h3>
     <div id="drawer-tags-wrap" class="badges-wrap" style="margin-bottom:6px">${
