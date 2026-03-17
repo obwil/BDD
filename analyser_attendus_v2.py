@@ -32,15 +32,15 @@ GEMINI_MODEL = "gemini-2.5-flash"
 DELAI_ENTRE_APPELS = 15  # secondes entre appels
 
 # None = toutes les activites, ex: 5 = mode test
-LIMITE = None
+LIMITE = 3
 
 # True = retraiter meme les activites deja dans activite_cycle_analysee pour ce cycle
 FORCER_REANALYSE = False
 
 EXTENSIONS_SUPPORTEES = {".pdf", ".jpg", ".jpeg", ".png", ".docx", ".txt"}
 
-SYSTEM_PROMPT = """Tu es un assistant specialise en pedagogie de la nature et en education a l'environnement.
-Tu analyses des fiches d'activites pedagogiques nature et tu extrais des informations structurees.
+SYSTEM_PROMPT = """Tu es un assistant specialise en pedagogie de la nature, en education a l'environnement et en developpement de l'enfant.
+Tu analyses des fiches d'activites pedagogiques nature pour evaluer leur pertinence selon le cycle scolaire et extraire des informations structurees.
 Tu reponds UNIQUEMENT en JSON valide, sans aucun texte autour, sans balises markdown.
 """
 
@@ -179,7 +179,101 @@ def construire_prompt(activite_nom, referentiel):
 
     ref_text = "\n".join(fmt_attendu(a) for a in referentiel)
 
+    profils_cycle = {
+        "1": {
+            "label": "3-6 ans (maternelle / Cycle 1)",
+            "peut": [
+                "Observer, manipuler, explorer avec les sens (toucher, voir, ecouter, sentir, gouter)",
+                "S'exprimer oralement et raconter",
+                "Imiter, mimer, jouer a faire semblant (jeu symbolique a son apogee)",
+                "Participer a des jeux simples avec des regles orales courtes",
+                "Dessiner, peindre, modelager, construire avec des materiaux",
+                "Reconnaitre et nommer des elements naturels observes directement",
+                "Se deplacer dans des environnements varies (courir, sauter, grimper)",
+                "Cooperer dans de petits groupes avec accompagnement adulte",
+                "Formuler des questions simples (stade du 'pourquoi ?')",
+                "Comprendre des consignes orales simples",
+            ],
+            "ne_peut_pas": [
+                "Lire de maniere autonome (ne sait pas encore lire)",
+                "Ecrire de maniere autonome (premiers essais seulement vers 5-6 ans)",
+                "Comprendre des concepts abstraits (statistiques, geopolitique, cycles biogeochimiques)",
+                "Raisonner sur plusieurs criteres simultanement (pensee centree sur un seul aspect)",
+                "Analyser des documents ecrits, des graphiques ou des tableaux",
+                "Mener une demarche d'investigation autonome avec hypotheses",
+                "Comprendre des relations cause-effet complexes et distantes",
+                "Repondre a des QCM ecrits ou suivre des reglements de jeu ecrits complexes",
+                "Calculer, compter au-dela de 10-20, realiser des operations",
+            ],
+            "pensee": "Pensee preoperatoire (Piaget) : egocentrique, magique, animiste, centree sur le concret immediat et l'observation sensorielle directe. Le jeu symbolique est dominant.",
+        },
+        "2": {
+            "label": "6-9 ans (CP, CE1, CE2 / Cycle 2)",
+            "peut": [
+                "Lire des textes simples (acquisition progressive de la lecture au CP)",
+                "Ecrire des textes courts avec aide",
+                "Suivre des regles de jeu ecrites simples",
+                "Raisonner sur des situations concretes et manipulables",
+                "Comparer, classer, ordonner des objets selon plusieurs criteres",
+                "Mener de petites investigations simples avec guidage",
+                "Comprendre des relations cause-effet directes et observables",
+                "Cooperer en equipe avec des roles definis",
+                "Utiliser un vocabulaire scientifique de base",
+                "Realiser des dessins d'observation, des croquis simples",
+                "Comprendre les saisons, le cycle de l'eau, les chaines alimentaires simples",
+            ],
+            "ne_peut_pas": [
+                "Lire et analyser des documents complexes de maniere autonome (surtout en debut de cycle)",
+                "Mener une demarche scientifique completement autonome",
+                "Comprendre des statistiques, pourcentages, donnees chiffrees complexes",
+                "Argumenter avec des sources multiples",
+                "Realiser des syntheses ecrites elaborees",
+                "Aborder des enjeux geopolitiques mondiaux ou des concepts tres abstraits",
+                "Comprendre des echelles de temps geologiques ou des mecanismes systemiques complexes",
+            ],
+            "pensee": "Pensee des operations concretes (Piaget) : reversibilite, decentration, conservation. Raisonnement inductif a partir du concret. Debut du travail ecrit autonome.",
+        },
+        "3": {
+            "label": "9-12 ans (CM1, CM2, 6e / Cycle 3)",
+            "peut": [
+                "Lire et comprendre des textes documentaires de maniere autonome",
+                "Rediger des textes structures et argumentes",
+                "Mener une demarche d'investigation complete (hypothese, experimentation, conclusion)",
+                "Analyser des documents (textes, cartes, graphiques, images)",
+                "Raisonner de maniere abstraite et sur plusieurs criteres simultanes",
+                "Comprendre des relations systemiques et des mecanismes complexes",
+                "Argumenter, debattre, justifier un point de vue",
+                "Utiliser des outils de mesure et de representation (boussole, thermometre, carte)",
+                "Situer des phenomenes dans le temps long (histoire, temps geologiques)",
+                "Comprendre des enjeux a differentes echelles (local, national, mondial)",
+                "Distinguer fait scientifique et opinion",
+                "Travailler en autonomie sur des projets de longue duree",
+            ],
+            "ne_peut_pas": [
+                "Mener des raisonnements hypothetico-deductifs purs et abstraits (commence a emerger seulement)",
+                "Apprehender des enjeux geopolitiques tres complexes sans ancrage concret",
+            ],
+            "pensee": "Debut des operations formelles (Piaget) : pensee abstraite emergente, esprit critique, capacite a raisonner sur des possibles. Autonomie croissante dans les apprentissages.",
+        },
+    }
+
+    profil = profils_cycle.get(str(CYCLE), {})
+    label = profil.get("label", f"Cycle {CYCLE}")
+    peut = "\n".join(f"  + {x}" for x in profil.get("peut", []))
+    ne_peut_pas = "\n".join(f"  - {x}" for x in profil.get("ne_peut_pas", []))
+    pensee = profil.get("pensee", "")
+
     return f"""Tu vas analyser la fiche descriptive de l'activite pedagogique nature intitulee : << {activite_nom} >>.
+
+=== PROFIL DEVELOPPEMENT : {label} ===
+
+Ce que les enfants de ce cycle PEUVENT faire :
+{peut}
+
+Ce que les enfants de ce cycle NE PEUVENT PAS faire ou NE SAVENT PAS encore :
+{ne_peut_pas}
+
+Stade cognitif : {pensee}
 
 === ATTENDUS SCOLAIRES DISPONIBLES (Cycle {CYCLE}) ===
 Les attendus sont de deux types :
@@ -190,15 +284,50 @@ Les attendus sont de deux types :
 
 === INSTRUCTIONS ===
 
-En te basant UNIQUEMENT sur le contenu des fichiers fournis, identifie les attendus directement travailles
-par cette activite et retourne-les en JSON :
+ETAPE 1 — VERIFIER LA PERTINENCE DU CYCLE
+En te basant sur le profil developpement ci-dessus, analyse precisement CE QUE L'ENFANT
+DOIT FAIRE CONCRETEMENT dans cette activite (pas le theme general, pas le format de la fiche).
 
-{{
-  "attendu_ids": [liste des id d'attendus correspondants]
-}}
+METHODE : identifie les mecaniques concretes de l'activite :
+- L'enfant doit-il lire des cartes, des consignes ecrites, des QCM ?
+- L'enfant doit-il ecrire, noter, remplir quelque chose ?
+- L'enfant doit-il comprendre des statistiques, pourcentages, donnees chiffrees ?
+- L'enfant doit-il raisonner de maniere abstraite sur des concepts complexes ?
+- L'enfant doit-il suivre des regles de jeu ecrites et complexes ?
 
-REGLES :
+PRINCIPE FONDAMENTAL :
+Le format ou l'etiquette d'une activite (jeu, atelier, sortie, conte, manipulation...)
+ne garantit pas son adaptation au cycle. Seules les mecaniques concretes que l'enfant
+doit realiser permettent de juger. Une meme etiquette peut designer des activites
+adaptees ou inadaptees selon ce que l'enfant fait reellement.
+
+Retourne immediatement {{"attendu_ids": []}} si l'activite necessite que l'enfant :
+- Lise des textes, cartes ou consignes ecrites de maniere autonome (pour C1)
+- Reponde a des QCM ecrits ou des questions sur cartes a lire (pour C1)
+- Comprenne des statistiques, pourcentages ou donnees geographiques/economiques (pour C1 et C2 jeune)
+- Raisonne sur des concepts systemiques abstraits hors de portee du stade cognitif
+- Suive des regles de jeu ecrites complexes en lisant lui-meme (pour C1)
+
+Attention : le fait que la FICHE soit ecrite en langage adulte ne signifie pas que l'ACTIVITE
+est inadaptee. C'est ce que l'enfant fait concretement qui compte, pas le langage de la fiche.
+
+FORMAT DE REPONSE OBLIGATOIRE :
+Tu dois repondre en deux blocs dans cet ordre exact :
+
+BLOC 1 — RAISONNEMENT (texte libre, 3 a 5 phrases maximum) :
+Decris en quelques phrases :
+1. Ce que l'enfant fait concretement dans cette activite (mecaniques reelles)
+2. Pourquoi c'est adapte ou inadapte au Cycle {CYCLE} ({label})
+3. Ta conclusion : adapte ou inadapte
+
+BLOC 2 — JSON (obligatoire, meme si le tableau est vide) :
+```json
+{{"attendu_ids": [liste des id ou tableau vide]}}
+```
+
+REGLES pour le BLOC 2 :
 - Ne propose que des IDs qui existent dans le referentiel fourni ci-dessus.
+- Si l'activite est inadaptee au cycle (conclu dans le BLOC 1), retourne {{"attendu_ids": []}}.
 - Sois TRES selectif : ne retiens que les attendus qui correspondent DIRECTEMENT et PRECISEMENT
   a ce que l'activite fait concretement -- pas a ce qu'elle pourrait theoriquement aborder.
 - Un attendu ne doit etre retenu que si un animateur pourrait affirmer sans hesitation que
@@ -206,9 +335,8 @@ REGLES :
 - Si l'activite est simple et ciblee, 1 ou 2 attendus suffisent.
 - Ne retiens jamais un attendu par defaut ou parce qu'il est vaguement lie au theme :
   en cas de doute, ne le retiens pas.
-- Maximum 6 attendus au total (EDD + disciplinaires confondus).
-- Si aucun attendu ne correspond clairement, retourne un tableau vide [].
-- Le JSON doit etre valide et complet. Aucun texte en dehors du JSON.
+- Maximum 10 attendus au total (EDD + disciplinaires confondus).
+- Si aucun attendu ne correspond clairement, retourne {{"attendu_ids": []}}.
 """
 
 # =============================================================================
@@ -265,17 +393,54 @@ def analyser_activite(activite_nom, fichiers, referentiel):
             else:
                 raise
 
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError:
-        if "```" in raw:
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-        data = json.loads(raw.strip())
+    import re as _re
 
+    log_path = Path(__file__).parent / 'analyse_raisonnements.log'
+    raisonnement = ''
+    data = None
+
+    if '```json' in raw:
+        parties = raw.split('```json')
+        raisonnement = parties[0].strip()
+        json_str = parties[1].split('```')[0].strip()
+        try:
+            data = json.loads(json_str)
+        except Exception:
+            data = {'attendu_ids': []}
+    elif '```' in raw:
+        parties = raw.split('```')
+        raisonnement = parties[0].strip()
+        partie = parties[1]
+        if partie.startswith('json'):
+            partie = partie[4:]
+        try:
+            data = json.loads(partie.strip())
+        except Exception:
+            data = {'attendu_ids': []}
+    else:
+        try:
+            data = json.loads(raw.strip())
+        except Exception:
+            data = {'attendu_ids': []}
+            raisonnement = raw.strip()
+
+    if not raisonnement and isinstance(data, dict):
+        raisonnement = str(data.get('raisonnement', '') or data.get('reasoning', ''))
+
+    for prefix in ['BLOC 1 - RAISONNEMENT', 'BLOC 1 — RAISONNEMENT', 'BLOC 1', 'RAISONNEMENT']:
+        if raisonnement.upper().startswith(prefix):
+            raisonnement = raisonnement[len(prefix):].strip().lstrip('-— ').strip()
+            break
+
+    if raisonnement:
+        with open(log_path, 'a', encoding='utf-8') as f:
+            f.write('\n=== ' + activite_nom + ' ===\n')
+            f.write(raisonnement + '\n')
+
+    if not isinstance(data, dict):
+        data = {'attendu_ids': []}
     if isinstance(data, list):
-        data = {"attendu_ids": [x.get("attendu_id") for x in data if isinstance(x, dict) and "attendu_id" in x]}
+        data = {'attendu_ids': [x.get('attendu_id') for x in data if isinstance(x, dict) and 'attendu_id' in x]}
 
     return data
 

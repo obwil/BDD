@@ -6,5 +6,7 @@ if "%GEMINI_API_KEY%"=="" (
     exit /b 1
 )
 pip show google-generativeai >nul 2>&1 || pip install google-generativeai python-docx --break-system-packages --quiet
+set PYTHONIOENCODING=utf-8
+chcp 65001 >nul
 python "%~dp0analyser_attendus_v2.py"
 pause
