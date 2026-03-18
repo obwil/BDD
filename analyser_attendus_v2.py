@@ -72,8 +72,10 @@ def activites_a_traiter(conn, cycle_id, forcer=False):
             "SELECT id, nom, chemin_dossier FROM activite ORDER BY nom"
         ).fetchall()]
     else:
+        # Exclure uniquement les activites avec statut ok ou prohibited.
+        # Les erreur_parsing sont retraitees automatiquement.
         deja = {r[0] for r in conn.execute(
-            "SELECT activite_id FROM activite_cycle_analysee WHERE cycle_id = ?",
+            "SELECT activite_id FROM activite_cycle_analysee WHERE cycle_id = ? AND statut != 'erreur_parsing'",
             (cycle_id,)
         ).fetchall()}
         rows = conn.execute(
@@ -82,35 +84,36 @@ def activites_a_traiter(conn, cycle_id, forcer=False):
         return [dict(r) for r in rows if r["id"] not in deja]
 
 
-def enregistrer_resultats(conn, activite_id, cycle_id, attendu_ids, ids_valides):
-    attendu_ids = [aid for aid in attendu_ids if aid in ids_valides]
+def enregistrer_resultats(conn, activite_id, cycle_id, attendu_ids, ids_valides, statut='ok'):
+    # statut : 'ok' | 'erreur_parsing' | 'prohibited'
+    # Seul 'ok' insere des attendus. Les autres statuts marquent l'activite sans attendus.
+    if statut == 'ok':
+        attendu_ids = [aid for aid in attendu_ids if aid in ids_valides]
+        for aid in attendu_ids:
+            try:
+                conn.execute(
+                    "INSERT OR IGNORE INTO activite_attendu (activite_id, attendu_id) VALUES (?, ?)",
+                    (activite_id, aid)
+                )
+            except Exception as e:
+                print(f"    ATTENTION : attendu {aid} : {e}")
 
-    for aid in attendu_ids:
-        try:
-            conn.execute(
-                "INSERT OR IGNORE INTO activite_attendu (activite_id, attendu_id) VALUES (?, ?)",
-                (activite_id, aid)
-            )
-        except Exception as e:
-            print(f"    ATTENTION : attendu {aid} : {e}")
+        if attendu_ids:
+            placeholders = ",".join("?" * len(attendu_ids))
+            cycle_ids = [r[0] for r in conn.execute(
+                f"SELECT DISTINCT cycle_id FROM attendu_scolaire WHERE id IN ({placeholders})",
+                attendu_ids
+            ).fetchall()]
+            for cid in cycle_ids:
+                conn.execute(
+                    "INSERT OR IGNORE INTO activite_cycle (activite_id, cycle_id) VALUES (?, ?)",
+                    (activite_id, cid)
+                )
 
-    # Cycles derives automatiquement depuis les attendus
-    if attendu_ids:
-        placeholders = ",".join("?" * len(attendu_ids))
-        cycle_ids = [r[0] for r in conn.execute(
-            f"SELECT DISTINCT cycle_id FROM attendu_scolaire WHERE id IN ({placeholders})",
-            attendu_ids
-        ).fetchall()]
-        for cid in cycle_ids:
-            conn.execute(
-                "INSERT OR IGNORE INTO activite_cycle (activite_id, cycle_id) VALUES (?, ?)",
-                (activite_id, cid)
-            )
-
-    # Marquer comme analysee pour ce cycle
+    # Marquer comme analysee avec le statut (INSERT OR REPLACE pour mise a jour eventuelle)
     conn.execute(
-        "INSERT OR IGNORE INTO activite_cycle_analysee (activite_id, cycle_id) VALUES (?, ?)",
-        (activite_id, cycle_id)
+        "INSERT OR REPLACE INTO activite_cycle_analysee (activite_id, cycle_id, statut) VALUES (?, ?, ?)",
+        (activite_id, cycle_id, statut)
     )
     conn.commit()
 
@@ -383,7 +386,7 @@ def analyser_activite(activite_nom, fichiers, referentiel):
             is_rate = "rate_limit" in msg or "429" in msg or "quota" in msg.lower() or "Resource" in msg
             if is_prohibited:
                 print(f"  PROHIBITED_CONTENT : activite marquee analysee (0 attendus).")
-                return {"attendu_ids": []}
+                return {"attendu_ids": [], "_statut": "prohibited"}
             if is_rate:
                 attente = 60 * (tentative + 1)
                 print(f"  Rate limit. Attente {attente}s (tentative {tentative+1}/{MAX_RETRIES})...")
@@ -406,7 +409,7 @@ def analyser_activite(activite_nom, fichiers, referentiel):
         try:
             data = json.loads(json_str)
         except Exception:
-            data = {'attendu_ids': []}
+            data = {'attendu_ids': [], '_statut': 'erreur_parsing'}
     elif '```' in raw:
         parties = raw.split('```')
         raisonnement = parties[0].strip()
@@ -416,13 +419,24 @@ def analyser_activite(activite_nom, fichiers, referentiel):
         try:
             data = json.loads(partie.strip())
         except Exception:
-            data = {'attendu_ids': []}
+            data = {'attendu_ids': [], '_statut': 'erreur_parsing'}
     else:
         try:
             data = json.loads(raw.strip())
         except Exception:
-            data = {'attendu_ids': []}
-            raisonnement = raw.strip()
+            # Gemini retourne raisonnement + JSON colles sans separateur markdown
+            idx = raw.find('{"attendu_ids"')
+            if idx == -1:
+                idx = raw.find('{ "attendu_ids"')
+            if idx != -1:
+                raisonnement = raw[:idx].strip()
+                try:
+                    data = json.loads(raw[idx:].strip())
+                except Exception:
+                    data = {'attendu_ids': [], '_statut': 'erreur_parsing'}
+            else:
+                data = {'attendu_ids': [], '_statut': 'erreur_parsing'}
+                raisonnement = raw.strip()
 
     if not raisonnement and isinstance(data, dict):
         raisonnement = str(data.get('raisonnement', '') or data.get('reasoning', ''))
@@ -438,7 +452,7 @@ def analyser_activite(activite_nom, fichiers, referentiel):
             f.write(raisonnement + '\n')
 
     if not isinstance(data, dict):
-        data = {'attendu_ids': []}
+        data = {'attendu_ids': [], '_statut': 'erreur_parsing'}
     if isinstance(data, list):
         data = {'attendu_ids': [x.get('attendu_id') for x in data if isinstance(x, dict) and 'attendu_id' in x]}
 
@@ -452,6 +466,11 @@ def main():
     print("=" * 60)
     print(f"ANALYSE ATTENDUS V2 — CYCLE {CYCLE}")
     print("=" * 60)
+
+    log_path = Path(__file__).parent / 'analyse_raisonnements.log'
+    with open(log_path, 'w', encoding='utf-8') as f:
+        f.write(f"=== ANALYSE CYCLE {CYCLE} — {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
+    print(f"  Log reinitialise : {log_path.name}")
 
     if not DB_PATH.exists():
         print(f"ERREUR : Base SQLite introuvable : {DB_PATH}")
@@ -537,9 +556,15 @@ def main():
             if not isinstance(attendu_ids, list):
                 attendu_ids = []
             attendu_ids = [int(aid) for aid in attendu_ids if str(aid).isdigit() or isinstance(aid, int)]
+            statut = resultats.get("_statut", "ok")
 
-            enregistrer_resultats(conn, act["id"], cycle_id, attendu_ids, ids_valides)
-            print(f"  OK : {len(attendu_ids)} attendu(s) associe(s)")
+            enregistrer_resultats(conn, act["id"], cycle_id, attendu_ids, ids_valides, statut)
+            if statut == "erreur_parsing":
+                print(f"  ERREUR_PARSING : activite marquee, sera retraitee avec FORCER_REANALYSE")
+            elif statut == "prohibited":
+                print(f"  PROHIBITED : activite marquee (0 attendus)")
+            else:
+                print(f"  OK : {len(attendu_ids)} attendu(s) associe(s)")
             succes += 1
 
         except Exception as e:

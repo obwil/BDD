@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bibliothèque d'activités nature</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f5f5f0; --surface: #ffffff; --surface2: #f0efe8;
+      --border: #d8d6cc; --text: #2a2a25; --text-muted: #7a7a72;
+      --accent: #4a7c59; --accent-light: #d4e8db; --accent-dark: #2e5238;
+      --radius: 8px; --shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+    header { background: var(--accent-dark); color: white; padding: 14px 24px; display: flex; align-items: center; gap: 12px; }
+    header h1 { font-size: 1.1rem; font-weight: 600; }
+    .stat { font-size: .8rem; opacity: .7; margin-left: auto; }
+    .app { display: flex; flex: 1; min-height: 0; }
+
+    /* SIDEBAR */
+    .sidebar { width: 290px; min-width: 250px; background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 18px; }
+    .sidebar-section { display: flex; flex-direction: column; gap: 6px; }
+    .sidebar-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--text-muted); }
+    select { width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: .85rem; background: var(--surface); color: var(--text); }
+    select:focus { outline: none; border-color: var(--accent); }
+    .check-group { display: flex; flex-direction: column; gap: 4px; }
+    .check-item { display: flex; align-items: flex-start; gap: 6px; font-size: .83rem; cursor: pointer; padding: 2px 0; line-height: 1.35; }
+    .check-item input { accent-color: var(--accent); margin-top: 3px; flex-shrink: 0; }
+    .month-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; }
+    .month-btn { padding: 4px 2px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); font-size: .75rem; cursor: pointer; text-align: center; }
+    .month-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+    /* ARBRE */
+    .tree-wrap { border: 1px solid var(--border); border-radius: var(--radius); max-height: 280px; overflow-y: auto; padding: 5px; }
+    .tree-actions { display: flex; gap: 8px; margin-bottom: 4px; }
+    .tree-btn { font-size: .72rem; color: var(--accent); background: none; border: none; cursor: pointer; }
+    .tree-btn:hover { text-decoration: underline; }
+    .tree-node { }
+    .tree-row { display: flex; align-items: center; gap: 3px; padding: 2px 3px; border-radius: 4px; }
+    .tree-row:hover { background: var(--accent-light); }
+    .tree-chevron { font-size: .6rem; width: 12px; text-align: center; color: var(--text-muted); flex-shrink: 0; transition: transform .15s; cursor: pointer; }
+    .tree-node.open > .tree-row .tree-chevron { transform: rotate(90deg); }
+    .tree-check { accent-color: var(--accent); flex-shrink: 0; cursor: pointer; }
+    .tree-text { font-size: .82rem; line-height: 1.3; flex: 1; cursor: pointer; }
+    .tree-children { display: none; padding-left: 13px; }
+    .tree-node.open > .tree-children { display: block; }
+
+    /* ATTENDUS */
+    .attendus-group-title { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); margin: 8px 0 3px; }
+    .attendus-type-title { font-size: .71rem; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; padding: 3px 6px; border-radius: 4px; margin: 10px 0 4px; display: block; }
+    .attendus-type-title.edd  { color: #0F6E56; background: #E1F5EE; }
+    .attendus-type-title.disc { color: #534AB7; background: #EEEDFE; }
+    .attendus-domaine-header { display: flex; align-items: center; gap: 4px; cursor: pointer; padding: 3px 4px; border-radius: 4px; user-select: none; }
+    .attendus-domaine-header:hover { background: var(--surface2); }
+    .attendus-domaine-label { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); flex: 1; }
+    .attendus-domaine-chev { font-size: .55rem; color: var(--text-muted); transition: transform .15s; flex-shrink: 0; }
+    .attendus-domaine-body { display: none; padding-left: 4px; }
+    .attendus-domaine-body.open { display: block; }
+
+    /* BOUTONS */
+    .btn { padding: 7px 14px; border: none; border-radius: var(--radius); font-size: .85rem; cursor: pointer; font-weight: 500; }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { background: var(--accent-dark); }
+    .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-ghost:hover { background: var(--surface2); }
+
+    /* MAIN */
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .toolbar { padding: 12px 20px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .search-input { flex: 1; min-width: 200px; max-width: 380px; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: .85rem; }
+    .search-input:focus { outline: none; border-color: var(--accent); }
+    .search-mode-select { padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: .82rem; background: var(--surface); color: var(--text); width: auto; }
+    .search-mode-select:focus { outline: none; border-color: var(--accent); }
+    .result-count { font-size: .82rem; color: var(--text-muted); margin-left: auto; }
+    .results { flex: 1; overflow-y: auto; padding: 14px 18px; display: flex; flex-direction: column; gap: 9px; }
+
+    /* CARDS */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 13px 15px; cursor: pointer; transition: box-shadow .15s, border-color .15s; }
+    .card:hover { box-shadow: var(--shadow); border-color: var(--accent); }
+    .card-title { font-size: .95rem; font-weight: 600; margin-bottom: 5px; }
+    .card-meta { font-size: .78rem; color: var(--text-muted); display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 5px; }
+    .card-desc { font-size: .81rem; color: var(--text-muted); line-height: 1.45; }
+    .badge { font-size: .7rem; padding: 2px 7px; border-radius: 20px; background: #e8f0e9; color: #2e5238; font-weight: 500; }
+    .badge.attendu-dom { background: #f0ebe0; color: #5c3e10; font-size: .68rem; white-space: nowrap; }
+
+    /* PAGINATION */
+    .pagination { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 0; }
+    .page-info { font-size: .82rem; color: var(--text-muted); }
+
+    /* DRAWER */
+    .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 100; }
+    .overlay.open { display: block; }
+    .drawer { position: fixed; right: -600px; top: 0; bottom: 0; width: 560px; max-width: 95vw; background: var(--surface); box-shadow: -4px 0 24px rgba(0,0,0,.12); z-index: 101; overflow-y: auto; transition: right .2s; padding: 24px; display: flex; flex-direction: column; gap: 15px; }
+    .drawer.open { right: 0; }
+    .drawer-close { position: absolute; top: 14px; right: 14px; background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--text-muted); }
+    .drawer h2 { font-size: 1.1rem; font-weight: 700; padding-right: 36px; line-height: 1.4; }
+    .drawer-section { display: flex; flex-direction: column; gap: 7px; }
+    .drawer-section h3 { font-size: .72rem; text-transform: uppercase; letter-spacing: .8px; color: var(--text-muted); font-weight: 700; border-top: 1px solid var(--border); padding-top: 10px; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .info-item { background: var(--surface2); border-radius: 6px; padding: 8px 10px; }
+    .info-item .key { font-size: .7rem; color: var(--text-muted); margin-bottom: 2px; }
+    .info-item .val { font-size: .87rem; font-weight: 500; }
+    .badges-wrap { display: flex; flex-wrap: wrap; gap: 5px; }
+    .open-folder-btn { display: inline-flex; align-items: center; gap: 6px; font-size: .82rem; color: var(--accent); border: 1px solid var(--accent); background: none; padding: 6px 12px; border-radius: var(--radius); cursor: pointer; }
+    .open-folder-btn:hover { background: var(--accent-light); }
+    .attendu-row { font-size: .8rem; padding: 4px 0; border-bottom: 1px solid var(--border); display: flex; gap: 7px; align-items: baseline; line-height: 1.4; }
+    .edit-field { width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: .85rem; background: var(--surface); color: var(--text); font-family: inherit; }
+    .edit-field:focus { outline: none; border-color: var(--accent); }
+    textarea.edit-field { resize: vertical; min-height: 80px; line-height: 1.5; }
+    .edit-row { display: flex; gap: 8px; align-items: center; }
+    .edit-check-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+    .edit-section-title { font-size: .72rem; text-transform: uppercase; letter-spacing: .8px; color: var(--text-muted); font-weight: 700; border-top: 1px solid var(--border); padding-top: 10px; margin-bottom: 4px; }
+    .btn-edit { display: inline-flex; align-items: center; gap: 5px; font-size: .82rem; color: var(--accent); border: 1px solid var(--accent); background: none; padding: 5px 11px; border-radius: var(--radius); cursor: pointer; }
+    .btn-edit:hover { background: var(--accent-light); }
+    .btn-save { background: var(--accent); color: white; border: none; padding: 7px 16px; border-radius: var(--radius); font-size: .85rem; cursor: pointer; font-weight: 600; }
+    .btn-save:hover { background: var(--accent-dark); }
+    .btn-cancel { background: none; border: 1px solid var(--border); padding: 7px 14px; border-radius: var(--radius); font-size: .85rem; cursor: pointer; }
+    .edit-tree-wrap { border: 1px solid var(--border); border-radius: var(--radius); max-height: 220px; overflow-y: auto; padding: 5px; }
+    .save-success { font-size: .82rem; color: var(--accent); padding: 4px 0; }
+    .save-error { font-size: .82rem; color: #c0392b; padding: 4px 0; }
+    .attendu-row:last-child { border-bottom: none; }
+    .attendu-cycle-title { font-size: .72rem; font-weight: 700; color: var(--accent-dark); margin: 8px 0 3px; }
+    .filter-pick-btn { width:100%; padding:7px 10px; border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); font-size:.85rem; cursor:pointer; display:flex; align-items:center; text-align:left; }
+    .filter-pick-btn:hover { border-color:var(--accent); }
+    .filter-pick-btn.active { border-color:var(--accent); background:var(--accent-light); color:var(--accent-dark); font-weight:600; }
+
+    /* MODALE ARBRE */
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:200; align-items:center; justify-content:center; }
+    .modal-overlay.open { display:flex; }
+    .modal-box { background:var(--surface); border-radius:12px; width:560px; max-width:94vw; max-height:85vh; display:flex; flex-direction:column; box-shadow:0 8px 40px rgba(0,0,0,.18); overflow:hidden; }
+    .modal-header { padding:16px 20px 12px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; }
+    .modal-header h3 { font-size:1rem; font-weight:700; flex:1; }
+    .modal-search { padding:6px 10px; border:1px solid var(--border); border-radius:var(--radius); font-size:.84rem; width:100%; margin-bottom:0; }
+    .modal-search:focus { outline:none; border-color:var(--accent); }
+    .modal-close { background:none; border:none; font-size:1.3rem; cursor:pointer; color:var(--text-muted); padding:0 4px; }
+    .modal-actions { display:flex; gap:8px; padding:8px 20px; border-bottom:1px solid var(--border); }
+    .modal-tree { flex:1; overflow-y:auto; padding:10px 16px; }
+    .modal-footer { padding:12px 20px; border-top:1px solid var(--border); display:flex; gap:8px; justify-content:flex-end; }
+
+    /* Noeuds arbre modale */
+    .mnode { }
+    .mrow { display:flex; align-items:center; padding:4px 6px; border-radius:6px; cursor:pointer; gap:6px; }
+    .mrow:hover { background:var(--accent-light); }
+    .mrow.selected { background:var(--accent); color:white; }
+    .mrow.selected .mchev { color:white; }
+    .mchev { font-size:.6rem; width:14px; text-align:center; color:var(--text-muted); flex-shrink:0; transition:transform .15s; }
+    .mnode.open > .mrow .mchev { transform:rotate(90deg); }
+    .mrow.selected .mchev { transform: none; }
+    .mnode.open > .mrow.selected .mchev { transform:rotate(90deg); }
+    .mlabel { font-size:.85rem; line-height:1.35; flex:1; }
+    .mchildren { display:none; padding-left:16px; }
+    .mnode.open > .mchildren { display:block; }
+
+    .empty { text-align: center; color: var(--text-muted); padding: 60px 20px; font-size: .9rem; }
+    .loading { text-align: center; padding: 40px; color: var(--text-muted); }
+  </style>
+</head>
+<body>
+
+<header>
+  <span style="font-size:1.3rem">🌿</span>
+  <h1>Bibliothèque d'activités nature</h1>
+  <span class="stat" id="header-stat"></span>
+</header>
+
+<div class="app">
+  <aside class="sidebar">
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Lieu</div>
+      <select id="f-lieu">
+        <option value="">Tous</option>
+        <option value="Intérieur">Intérieur</option>
+        <option value="Extérieur">Extérieur</option>
+        <option value="Intérieur/Extérieur">Intérieur / Extérieur</option>
+      </select>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Météo</div>
+      <div class="check-group">
+        <label class="check-item"><input type="checkbox" name="meteo" value="nuage"> ☁️ Nuageux</label>
+        <label class="check-item"><input type="checkbox" name="meteo" value="soleil"> ☀️ Soleil</label>
+        <label class="check-item"><input type="checkbox" name="meteo" value="pluie"> 🌧️ Pluie</label>
+        <label class="check-item"><input type="checkbox" name="meteo" value="vent"> 💨 Vent</label>
+        <label class="check-item"><input type="checkbox" name="meteo" value="nuit"> 🌙 Nuit</label>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Mois</div>
+      <div class="month-grid">
+        <button class="month-btn" data-m="jan">Jan</button>
+        <button class="month-btn" data-m="fev">Fév</button>
+        <button class="month-btn" data-m="mar">Mar</button>
+        <button class="month-btn" data-m="avr">Avr</button>
+        <button class="month-btn" data-m="mai">Mai</button>
+        <button class="month-btn" data-m="jun">Jun</button>
+        <button class="month-btn" data-m="jul">Jul</button>
+        <button class="month-btn" data-m="aou">Aoû</button>
+        <button class="month-btn" data-m="sep">Sep</button>
+        <button class="month-btn" data-m="oct">Oct</button>
+        <button class="month-btn" data-m="nov">Nov</button>
+        <button class="month-btn" data-m="dec">Déc</button>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Format groupe</div>
+      <select id="f-groupe">
+        <option value="">Tous</option>
+        <option value="individuel">Individuel</option>
+        <option value="binôme">Binôme</option>
+        <option value="petit groupe">Petit groupe</option>
+        <option value="grand groupe">Grand groupe</option>
+      </select>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Déjà animé</div>
+      <div class="check-group">
+        <label class="check-item"><input type="radio" name="anime" value=""> Toutes</label>
+        <label class="check-item"><input type="radio" name="anime" value="1"> Déjà animées</label>
+        <label class="check-item"><input type="radio" name="anime" value="0"> Pas encore animées</label>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Thématique</div>
+      <button class="filter-pick-btn" id="btn-pick-them" onclick="openTreeModal('them')">
+        <span id="pick-them-label">Toutes</span> <span style="margin-left:auto;opacity:.5">▼</span>
+      </button>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Objectif</div>
+      <button class="filter-pick-btn" id="btn-pick-obj" onclick="openTreeModal('obj')">
+        <span id="pick-obj-label">Tous</span> <span style="margin-left:auto;opacity:.5">▼</span>
+      </button>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Cycle</div>
+      <div class="check-group" id="f-cycles"></div>
+    </div>
+
+    <div class="sidebar-section" id="section-attendus-edd" style="display:none">
+      <div class="sidebar-label">Attendus EDD</div>
+      <div id="f-attendus-edd"></div>
+    </div>
+    <div class="sidebar-section" id="section-attendus-disc" style="display:none">
+      <div class="sidebar-label">Attendus disciplinaires</div>
+      <div id="f-attendus-disc"></div>
+    </div>
+
+    <div class="sidebar-section" id="section-tags" style="display:none">
+      <div class="sidebar-label">Tags</div>
+      <div class="check-group" id="f-tags"></div>
+    </div>
+
+    <button class="btn btn-ghost" id="btn-reset">✕ Réinitialiser</button>
+  </aside>
+
+  <main class="main">
+    <div class="toolbar">
+      <input type="text" id="search-input" class="search-input" placeholder="Rechercher une activité…" />
+      <select id="search-mode" class="search-mode-select" title="Champ de recherche">
+        <option value="titre">Titre uniquement</option>
+        <option value="titre_desc">Titre + description</option>
+        <option value="objectif">Visée pédagogique</option>
+      </select>
+      <button class="btn btn-primary" id="btn-search">Rechercher</button>
+      <button class="btn btn-ghost" id="btn-reset-toolbar" onclick="resetAll()" title="Réinitialiser les filtres">✕</button>
+      <span class="result-count" id="result-count"></span>
+    </div>
+    <div class="results" id="results"><div class="loading">Chargement…</div></div>
+    <div class="pagination" id="pagination"></div>
+  </main>
+</div>
+
+<div class="overlay" id="overlay"></div>
+<div class="drawer" id="drawer">
+  <button class="drawer-close" id="drawer-close">✕</button>
+  <div id="drawer-content"></div>
+</div>
+
+<!-- Modale arbre thématique/objectif -->
+<div class="modal-overlay" id="tree-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="modal-title">Choisir une thématique</h3>
+      <input type="text" class="modal-search" id="modal-search" placeholder="Rechercher…" oninput="filterModal(this.value)">
+      <button class="modal-close" onclick="closeTreeModal()">✕</button>
+    </div>
+    <div class="modal-actions">
+      <button class="tree-btn" onclick="expandAllModal()">Tout déplier</button>
+      <button class="tree-btn" onclick="collapseAllModal()">Tout replier</button>
+      <button class="tree-btn" onclick="clearModalSelection()" style="margin-left:auto;color:#c0392b">Effacer</button>
+    </div>
+    <div class="modal-tree" id="modal-tree"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeTreeModal()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const S = {
+  q:'', lieu:'', meteo:[], mois:null, groupe:'',
+  thematique_id:null, objectif_id:null, cycle_ids:[], attendu_ids:[], tag_ids:[],
+  search_mode:'titre', anime:'',
+  limit:40, offset:0, total:0
+};
+
+const MOIS_NOMS  = ['jan','fev','mar','avr','mai','jun','jul','aou','sep','oct','nov','dec'];
+const MOIS_LAB   = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+const MOIS_COURT = ['J','F','M','A','M','J','J','A','S','O','N','D'];
+const METEO_ICO  = {nuage:'☁️', soleil:'☀️', pluie:'🌧️', vent:'💨', nuit:'🌙'};
+
+async function api(path) {
+  const r = await fetch(path);
+  if (!r.ok) throw new Error(r.status);
+  return r.json();
+}
+
+// ---- INIT ----
+async function init() {
+  try {
+    const s = await api('/api/stats');
+    document.getElementById('header-stat').textContent =
+      `${s.total_activites} activités · ${s.total_thematiques} thématiques`;
+  } catch(e){}
+
+  // Cycles
+  try {
+    const cycles = await api('/api/cycles');
+    const c = document.getElementById('f-cycles');
+    cycles.forEach(cy => {
+      const lbl = document.createElement('label');
+      lbl.className = 'check-item';
+      lbl.innerHTML = `<input type="checkbox" name="cycle" value="${cy.id}">
+        <span><strong>${cy.code}</strong> — ${cy.nom}
+        <span style="color:var(--text-muted);font-size:.73rem"> (${cy.ages})</span></span>`;
+      c.appendChild(lbl);
+    });
+  } catch(e){}
+
+  // Tags (filtre sidebar)
+  try {
+    const tags = await api('/api/tags');
+    const sec = document.getElementById('section-tags');
+    const c = document.getElementById('f-tags');
+    if (tags.length) {
+      tags.forEach(t => {
+        const lbl = document.createElement('label');
+        lbl.className = 'check-item';
+        lbl.innerHTML = `<input type="checkbox" name="tag" value="${t.id}"> ${t.nom}`;
+        c.appendChild(lbl);
+      });
+      sec.style.display = 'block';
+    }
+  } catch(e){}
+
+  // Pré-charger les arbres en cache pour la modale
+  try { treeCache.them = await api('/api/thematiques/arbre'); } catch(e){}
+  try { treeCache.obj  = await api('/api/objectifs/arbre');   } catch(e){}
+  bindEvents();
+  search();
+}
+
+// ---- ATTENDUS ----
+function buildAttendusAccordion(items, container, multiCycle) {
+  container.innerHTML = '';
+  const byDomaine = {};
+  items.forEach(function(a) {
+    var key = (multiCycle ? '[' + (a.cycle_code||'') + '] ' : '') + a.domaine;
+    if (!byDomaine[key]) byDomaine[key] = [];
+    byDomaine[key].push(a);
+  });
+  Object.keys(byDomaine).forEach(function(dom) {
+    var attendus = byDomaine[dom];
+    var header = document.createElement('div');
+    header.className = 'attendus-domaine-header';
+    var chev = document.createElement('span');
+    chev.className = 'attendus-domaine-chev';
+    chev.textContent = '▶';
+    var label = document.createElement('span');
+    label.className = 'attendus-domaine-label';
+    label.textContent = dom;
+    header.appendChild(chev);
+    header.appendChild(label);
+    container.appendChild(header);
+    var body = document.createElement('div');
+    body.className = 'attendus-domaine-body';
+    attendus.forEach(function(a) {
+      var lbl = document.createElement('label');
+      lbl.className = 'check-item';
+      var sd = a.sous_domaine ? '<strong>' + a.sous_domaine + '</strong> — ' : '';
+      lbl.innerHTML = '<input type="checkbox" name="attendu" value="' + a.id + '"> <span>' + sd + a.libelle + '</span>';
+      body.appendChild(lbl);
+    });
+    container.appendChild(body);
+    header.addEventListener('click', function() {
+      var open = body.classList.toggle('open');
+      chev.style.transform = open ? 'rotate(90deg)' : '';
+    });
+  });
+}
+
+async function chargerAttendus(cycleIds) {
+  var secEdd  = document.getElementById('section-attendus-edd');
+  var secDisc = document.getElementById('section-attendus-disc');
+  var cEdd    = document.getElementById('f-attendus-edd');
+  var cDisc   = document.getElementById('f-attendus-disc');
+  if (!cycleIds || !cycleIds.length) {
+    secEdd.style.display='none';  cEdd.innerHTML='';
+    secDisc.style.display='none'; cDisc.innerHTML='';
+    return;
+  }
+  try {
+    var allAttendus = [];
+    for (var i=0; i<cycleIds.length; i++) {
+      var attendus = await api('/api/cycles/' + cycleIds[i] + '/attendus');
+      attendus.forEach(function(a) { allAttendus.push(a); });
+    }
+    var multi = cycleIds.length > 1;
+    var edd  = allAttendus.filter(function(a){ return !a.type || a.type === 'EDD'; });
+    var disc = allAttendus.filter(function(a){ return a.type === 'disciplinaire'; });
+    if (edd.length)  { buildAttendusAccordion(edd,  cEdd,  multi); secEdd.style.display='block'; }
+    else             { cEdd.innerHTML='';  secEdd.style.display='none'; }
+    if (disc.length) { buildAttendusAccordion(disc, cDisc, multi); secDisc.style.display='block'; }
+    else             { cDisc.innerHTML=''; secDisc.style.display='none'; }
+  } catch(e){}
+}
+
+// ---- EVENTS ----
+function bindEvents() {
+  document.getElementById('btn-search').addEventListener('click', () => {
+    S.q = document.getElementById('search-input').value.trim();
+    S.search_mode = document.getElementById('search-mode').value;
+    S.offset=0; search();
+  });
+  document.getElementById('search-input').addEventListener('keydown', e => {
+    if(e.key==='Enter') document.getElementById('btn-search').click();
+  });
+  // Recherche automatique au changement de mode si une query est active
+  document.getElementById('search-mode').addEventListener('change', e => {
+    S.search_mode = e.target.value;
+    if(S.q) { S.offset=0; search(); }
+  });
+  document.getElementById('f-lieu').addEventListener('change', e => { S.lieu=e.target.value; S.offset=0; search(); });
+  document.getElementById('f-groupe').addEventListener('change', e => { S.groupe=e.target.value; S.offset=0; search(); });
+  document.querySelectorAll('input[name="anime"]').forEach(r => {
+    r.addEventListener('change', e => { S.anime=e.target.value; S.offset=0; search(); });
+  });
+
+  document.querySelectorAll('input[name="meteo"]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      S.meteo=[...document.querySelectorAll('input[name="meteo"]:checked')].map(x=>x.value);
+      S.offset=0; search();
+    });
+  });
+  document.querySelectorAll('.month-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const m=btn.dataset.m;
+      document.querySelectorAll('.month-btn').forEach(b=>b.classList.remove('active'));
+      if(S.mois===m){ S.mois=null; } else { S.mois=m; btn.classList.add('active'); }
+      S.offset=0; search();
+    });
+  });
+
+  document.getElementById('f-cycles').addEventListener('change', async e => {
+    if(e.target.name==='cycle'){
+      S.cycle_ids=[...document.querySelectorAll('input[name="cycle"]:checked')].map(x=>x.value);
+      S.attendu_ids=[]; S.offset=0;
+      await chargerAttendus(S.cycle_ids);
+      search();
+    }
+  });
+  ['f-attendus-edd','f-attendus-disc'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('change', function(e){
+      if(e.target.name==='attendu'){
+        S.attendu_ids=[...document.querySelectorAll('input[name="attendu"]:checked')].map(function(x){return x.value;});
+        S.offset=0; search();
+      }
+    });
+  });
+
+  document.getElementById('f-tags').addEventListener('change', () => {
+    S.tag_ids = [...document.querySelectorAll('input[name="tag"]:checked')].map(x=>x.value);
+    S.offset=0; search();
+  });
+  document.getElementById('btn-reset').addEventListener('click', resetAll);
+  document.getElementById('overlay').addEventListener('click', closeDrawer);
+  document.getElementById('drawer-close').addEventListener('click', closeDrawer);
+}
+
+function resetAll() {
+  S.q=''; S.lieu=''; S.meteo=[]; S.mois=null; S.groupe='';
+  S.thematique_id=null; S.objectif_id=null; S.cycle_ids=[]; S.attendu_ids=[]; S.offset=0;
+  S.search_mode='titre';
+  document.getElementById('search-input').value='';
+  document.getElementById('search-mode').value='titre';
+  document.getElementById('f-lieu').value='';
+  document.getElementById('f-groupe').value='';
+  document.querySelectorAll('input[name="meteo"]').forEach(cb=>cb.checked=false);
+  document.querySelectorAll('.month-btn').forEach(b=>b.classList.remove('active'));
+  S.cycle_ids=[]; S.attendu_ids=[];
+  document.querySelectorAll('input[name="cycle"]').forEach(r=>r.checked=false);
+  document.querySelectorAll('input[name="attendu"]').forEach(function(r){r.checked=false;});
+  document.getElementById('section-attendus-edd').style.display='none';
+  document.getElementById('section-attendus-disc').style.display='none';
+  document.getElementById('f-attendus-edd').innerHTML='';
+  document.getElementById('f-attendus-disc').innerHTML='';
+  S.anime=''; document.querySelectorAll('input[name="anime"]').forEach(r=>{ r.checked = r.value===''; });
+  S.tag_ids=[]; document.querySelectorAll('input[name="tag"]').forEach(cb=>cb.checked=false);
+  document.getElementById('btn-pick-them').classList.remove('active');
+  document.getElementById('btn-pick-obj').classList.remove('active');
+  document.getElementById('pick-them-label').textContent='Toutes';
+  document.getElementById('pick-obj-label').textContent='Tous';
+  search();
+}
+
+// ---- SEARCH ----
+async function search() {
+  const p = new URLSearchParams();
+  if(S.q) { p.set('q',S.q); p.set('search_mode', S.search_mode); }
+  if(S.lieu) p.set('lieu',S.lieu);
+  if(S.mois) p.set('mois',S.mois);
+  if(S.groupe) p.set('competence',S.groupe);
+  if(S.anime !== '') p.set('anime',S.anime);
+  if(S.thematique_id) p.set('thematique_id',S.thematique_id);
+  if(S.objectif_id) p.set('objectif_id',S.objectif_id);
+  if(S.attendu_ids.length) p.set('attendu_ids',S.attendu_ids.join(','));
+  if(S.tag_ids.length) p.set('tag_ids',S.tag_ids.join(','));
+  else if(S.cycle_ids.length) p.set('cycle_ids',S.cycle_ids.join(','));
+  if(S.meteo.length) p.set('meteo',S.meteo[0]);
+  p.set('limit',S.limit); p.set('offset',S.offset);
+
+  document.getElementById('results').innerHTML='<div class="loading">Recherche…</div>';
+  try {
+    const data = await api(`/api/activites?${p}`);
+    S.total=data.total; renderResults(data);
+  } catch(e){
+    document.getElementById('results').innerHTML=`<div class="empty">Erreur : ${e.message}</div>`;
+  }
+}
+
+// ---- RENDER ----
+function renderResults(data) {
+  document.getElementById('result-count').textContent=`${data.total} résultat${data.total>1?'s':''}`;
+  const cnt=document.getElementById('results');
+  if(!data.results.length){ cnt.innerHTML='<div class="empty">Aucune activité trouvée.</div>'; renderPagination(0); return; }
+  cnt.innerHTML='';
+  data.results.forEach(a => {
+    const card=document.createElement('div'); card.className='card';
+    const meteos=['nuage','soleil','pluie','vent','nuit'].filter(m=>a[`meteo_${m}`]).map(m=>METEO_ICO[m]).join(' ');
+    const mActifs=MOIS_NOMS.filter(m=>a[`mois_${m}`]);
+    const mStr=mActifs.length===12?"Toute l'année":mActifs.map(m=>MOIS_COURT[MOIS_NOMS.indexOf(m)]).join(' ');
+    card.innerHTML=`
+      <div class="card-title">${a.nom}</div>
+      <div class="card-meta">
+        ${a.lieu?`<span>📍 ${a.lieu}`:''}
+        ${meteos?`<span>${meteos}</span>`:''}
+        ${mStr?`<span>📅 ${mStr}</span>`:''}
+        ${a.duree_min?`<span>⏱ ${a.duree_min} min</span>`:''}
+        ${a.format_groupe?`<span>👥 ${a.format_groupe}</span>`:''}
+      </div>
+      ${a.description?`<div class="card-desc">${a.description.substring(0,160)}${a.description.length>160?'…':''}</div>`:''}`;
+    card.addEventListener('click',()=>openDrawer(a.id));
+    cnt.appendChild(card);
+  });
+  renderPagination(data.total);
+}
+
+function renderPagination(total) {
+  const el=document.getElementById('pagination');
+  const pages=Math.ceil(total/S.limit); const cur=Math.floor(S.offset/S.limit)+1;
+  if(pages<=1){el.innerHTML='';return;}
+  let h='';
+  if(S.offset>0) h+=`<button class="btn btn-ghost" onclick="goPage(${cur-2})">← Préc.</button>`;
+  h+=`<span class="page-info">Page ${cur} / ${pages}</span>`;
+  if(S.offset+S.limit<total) h+=`<button class="btn btn-ghost" onclick="goPage(${cur})">Suiv. →</button>`;
+  el.innerHTML=h;
+}
+function goPage(i){S.offset=i*S.limit;search();document.querySelector('.results').scrollTop=0;}
+
+// ---- DRAWER ----
+async function openDrawer(id) {
+  const c=document.getElementById('drawer-content');
+  c.innerHTML='<div class="loading">Chargement…</div>';
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('overlay').classList.add('open');
+  try {
+    const a=await api(`/api/activites/${id}`);
+    c.innerHTML=buildDrawer(a);
+    const btn=c.querySelector('.open-folder-btn');
+    if(btn) btn.addEventListener('click',()=>fetch(`/api/activites/${id}/ouvrir-dossier`).catch(()=>{}));
+    // Initialiser le select de tags rapides
+    await initDrawerTagSelect(id, a.tags);
+  } catch(e){ c.innerHTML=`<div class="empty">Erreur : ${e.message}</div>`; }
+}
+
+function closeDrawer(){
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('overlay').classList.remove('open');
+}
+
+function buildDrawer(a) {
+  const meteos=['nuage','soleil','pluie','vent','nuit'].filter(m=>a[`meteo_${m}`]).map(m=>`<span class="badge">${METEO_ICO[m]}</span>`).join('');
+  const mActifs=MOIS_NOMS.filter(m=>a[`mois_${m}`]);
+  const mStr=mActifs.length===12?"Toute l'année":mActifs.map(m=>MOIS_LAB[MOIS_NOMS.indexOf(m)]).join(', ');
+  const badges=(arr,k='nom')=>arr&&arr.length?arr.map(x=>`<span class="badge">${x[k]}</span>`).join(''):'<span style="color:var(--text-muted);font-size:.82rem">—</span>';
+
+  let h=`<h2>${a.nom}</h2>
+  <div style="margin-bottom:8px">
+    <button class="btn-edit" onclick="toggleEdit(${a.id})">✏️ Modifier</button>
+  </div>`;
+
+  h+=`<div class="drawer-section"><div class="info-grid">
+    <div class="info-item"><div class="key">Lieu</div><div class="val">${a.lieu||'—'}</div></div>
+    <div class="info-item"><div class="key">Durée</div><div class="val">${a.duree_min?a.duree_min+' min':'—'}</div></div>
+    <div class="info-item"><div class="key">Format</div><div class="val">${a.format_groupe||'—'}</div></div>
+    <div class="info-item"><div class="key">Animé</div><div class="val">${a.anime?'✓ Oui':'Non'}</div></div>
+  </div></div>`;
+
+  if(meteos) h+=`<div class="drawer-section"><h3>Météo</h3><div class="badges-wrap">${meteos}</div></div>`;
+  if(mStr)   h+=`<div class="drawer-section"><h3>Mois</h3><p style="font-size:.84rem">${mStr}</p></div>`;
+  if(a.description)   h+=`<div class="drawer-section"><h3>Description</h3><p style="font-size:.87rem;line-height:1.6">${a.description}</p></div>`;
+  if(a.objectif_texte) h+=`<div class="drawer-section"><h3>Visée pédagogique</h3><p style="font-size:.87rem;line-height:1.6">${a.objectif_texte}</p></div>`;
+  if(a.materiel_produit) h+=`<div class="drawer-section"><h3>Matériel produit</h3><p style="font-size:.87rem">${a.materiel_produit}</p></div>`;
+
+  h+=`<div class="drawer-section"><h3>Thématiques</h3><div class="badges-wrap">${badges(a.thematiques)}</div></div>`;
+  h+=`<div class="drawer-section"><h3>Objectifs</h3><div class="badges-wrap">${badges(a.objectifs)}</div></div>`;
+
+  var edd_at=(a.attendus||[]).filter(function(at){return !at.type||at.type==='EDD';});
+  var disc_at=(a.attendus||[]).filter(function(at){return at.type==='disciplinaire';});
+  function fmtAttendus(items, badgeBg, badgeColor){
+    if(!items.length) return '<span style="color:var(--text-muted);font-size:.82rem">—</span>';
+    var byCycle={};
+    items.forEach(function(at){ if(!byCycle[at.cycle_code]) byCycle[at.cycle_code]=[]; byCycle[at.cycle_code].push(at); });
+    var s='';
+    Object.keys(byCycle).forEach(function(code){
+      s+='<div class="attendu-cycle-title">'+code+'</div>';
+      byCycle[code].forEach(function(at){
+        var sd=at.sous_domaine?'<strong>'+at.sous_domaine+'</strong> — ':'';
+        var style=badgeBg?'style="background:'+badgeBg+';color:'+badgeColor+'"':'';
+        s+='<div class="attendu-row"><span class="badge attendu-dom" '+style+'>'+at.domaine+'</span><span>'+sd+at.libelle+'</span></div>';
+      });
+    });
+    return s;
+  }
+  h+=`<div class="drawer-section"><h3>Attendus EDD</h3>`+fmtAttendus(edd_at,'','')+'</div>';
+  h+=`<div class="drawer-section"><h3>Attendus disciplinaires</h3>`+fmtAttendus(disc_at,'#EEEDFE','#534AB7')+'</div>';
+
+  h+=`<div class="drawer-section"><h3>Tags</h3>
+    <div id="drawer-tags-wrap" class="badges-wrap" style="margin-bottom:6px">${
+      a.tags&&a.tags.length
+        ? a.tags.map(t=>`<span class="badge" style="background:#f0e8f5;color:#5c2d7a">${t.nom}</span>`).join('')
+        : '<span style="color:var(--text-muted);font-size:.82rem">Aucun tag</span>'
+    }</div>
+    <select id="drawer-tag-select" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius);font-size:.82rem;background:var(--surface);color:var(--text)">
+      <option value="">+ Ajouter un tag…</option>
+    </select>
+  </div>`;
+
+  if(a.relations&&a.relations.length){
+    h+=`<div class="drawer-section"><h3>Activités liées</h3>`;
+    a.relations.forEach(r=>{
+      h+=`<div style="font-size:.84rem;padding:3px 0;display:flex;gap:7px;align-items:center">
+        <span class="badge">${r.type_relation}</span>
+        <span style="cursor:pointer;color:var(--accent);text-decoration:underline" onclick="openDrawer(${r.id})">${r.nom}</span></div>`;
+    });
+    h+=`</div>`;
+  }
+
+  if(a.chemin_dossier){
+    h+=`<div class="drawer-section"><h3>Fichiers</h3>
+      <button class="open-folder-btn">📂 Ouvrir le dossier</button>
+      <div style="font-size:.72rem;color:var(--text-muted);margin-top:4px;word-break:break-all">${a.chemin_dossier}</div>
+    </div>`;
+  }
+  return h;
+}
+
+// ---- EDITION ----
+let currentActivite = null;
+
+async function toggleEdit(id) {
+  const [themes, objectifs, cycles] = await Promise.all([
+    api('/api/thematiques/arbre'),
+    api('/api/objectifs/arbre'),
+    api('/api/cycles')
+  ]);
+  const allAttendus = [];
+  for (const cy of cycles) {
+    const ats = await api(`/api/cycles/${cy.id}/attendus`);
+    ats.forEach(a => allAttendus.push(a));
+  }
+  const a = await api(`/api/activites/${id}`);
+  currentActivite = a;
+
+  const flat = (nodes, acc=[]) => { nodes.forEach(n => { acc.push(n); if(n.children) flat(n.children, acc); }); return acc; };
+  const allThemes = flat(themes);
+  const allObjectifs = flat(objectifs);
+  const selThemIds = new Set((a.thematiques||[]).map(x=>x.id));
+  const selObjIds  = new Set((a.objectifs||[]).map(x=>x.id));
+  const selAtIds   = new Set((a.attendus||[]).map(x=>x.id));
+  const MOIS_LIST  = ['jan','fev','mar','avr','mai','jun','jul','aou','sep','oct','nov','dec'];
+  const MOIS_FR    = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+
+  const makeCheckboxes = (items, selSet, name, labelFn) => items.map(x =>
+    `<label class="check-item"><input type="checkbox" name="${name}" value="${x.id}" ${selSet.has(x.id)?'checked':''}> ${labelFn(x)}</label>`
+  ).join('');
+
+  const attByDom = {};
+  allAttendus.forEach(a => {
+    const k = a.cycle_code + ' — ' + a.domaine;
+    if(!attByDom[k]) attByDom[k]=[];
+    attByDom[k].push(a);
+  });
+  let attHtml = '';
+  Object.entries(attByDom).forEach(([grp, items]) => {
+    attHtml += `<div style="font-size:.7rem;font-weight:700;color:var(--text-muted);margin:6px 0 2px;text-transform:uppercase">${grp}</div>`;
+    attHtml += items.map(x =>
+      `<label class="check-item" style="font-size:.78rem"><input type="checkbox" name="edit-attendu" value="${x.id}" ${selAtIds.has(x.id)?'checked':''}> <span><strong>${x.sous_domaine}</strong> — ${x.libelle}</span></label>`
+    ).join('');
+  });
+
+  const moisHtml = MOIS_LIST.map((m,i) =>
+    `<label class="check-item"><input type="checkbox" name="edit-mois" value="${m}" ${a['mois_'+m]?'checked':''}> ${MOIS_FR[i]}</label>`
+  ).join('');
+
+  document.getElementById('drawer-content').innerHTML = `
+    <h2 contenteditable="true" id="edit-nom" style="outline:1px dashed var(--border);padding:4px;border-radius:4px">${a.nom}</h2>
+
+    <div class="edit-section-title">Informations générales</div>
+    <div class="edit-check-grid" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:8px">
+      <label class="check-item"><input type="checkbox" id="edit-anime" ${a.anime?'checked':''}> Animé</label>
+    </div>
+    <div class="edit-row">
+      <div style="flex:1"><div style="font-size:.72rem;color:var(--text-muted);margin-bottom:3px">Lieu</div>
+        <select class="edit-field" id="edit-lieu">
+          <option value="">—</option>
+          <option value="Intérieur" ${a.lieu==='Intérieur'?'selected':''}>Intérieur</option>
+          <option value="Extérieur" ${a.lieu==='Extérieur'?'selected':''}>Extérieur</option>
+          <option value="Intérieur/Extérieur" ${a.lieu==='Intérieur/Extérieur'?'selected':''}>Intérieur/Extérieur</option>
+        </select>
+      </div>
+      <div style="flex:1"><div style="font-size:.72rem;color:var(--text-muted);margin-bottom:3px">Durée (min)</div>
+        <input type="number" class="edit-field" id="edit-duree" value="${a.duree_min||''}" min="0">
+      </div>
+      <div style="flex:1"><div style="font-size:.72rem;color:var(--text-muted);margin-bottom:3px">Format groupe</div>
+        <select class="edit-field" id="edit-format">
+          <option value="">—</option>
+          <option value="individuel" ${a.format_groupe==='individuel'?'selected':''}>Individuel</option>
+          <option value="binôme" ${a.format_groupe==='binôme'?'selected':''}>Binôme</option>
+          <option value="petit groupe" ${a.format_groupe==='petit groupe'?'selected':''}>Petit groupe</option>
+          <option value="grand groupe" ${a.format_groupe==='grand groupe'?'selected':''}>Grand groupe</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="edit-section-title">Description</div>
+    <textarea class="edit-field" id="edit-description" rows="4">${a.description||''}</textarea>
+
+    <div class="edit-section-title">Visée pédagogique</div>
+    <textarea class="edit-field" id="edit-objectif" rows="3">${a.objectif_texte||''}</textarea>
+
+    <div class="edit-section-title">Météo requise</div>
+    <div class="edit-check-grid">
+      <label class="check-item"><input type="checkbox" id="edit-soleil" ${a.meteo_soleil?'checked':''}> ☀️ Soleil nécessaire</label>
+      <label class="check-item"><input type="checkbox" id="edit-pluie" ${a.meteo_pluie?'checked':''}> 🌧️ Pluie nécessaire</label>
+      <label class="check-item"><input type="checkbox" id="edit-vent" ${a.meteo_vent?'checked':''}> 💨 Vent nécessaire</label>
+      <label class="check-item"><input type="checkbox" id="edit-nuage" ${a.meteo_nuage?'checked':''}> ☁️ Nuageux nécessaire</label>
+      <label class="check-item"><input type="checkbox" id="edit-nuit" ${a.meteo_nuit?'checked':''}> 🌙 Activité de nuit</label>
+    </div>
+
+    <div class="edit-section-title">Mois</div>
+    <div class="edit-check-grid">${moisHtml}</div>
+
+    <div class="edit-section-title">Thématiques</div>
+    <div class="edit-tree-wrap">${makeCheckboxes(allThemes, selThemIds, 'edit-them', x => x.nom)}</div>
+
+    <div class="edit-section-title">Objectifs pédagogiques</div>
+    <div class="edit-tree-wrap">${makeCheckboxes(allObjectifs, selObjIds, 'edit-obj', x => x.nom)}</div>
+
+    <div class="edit-section-title">Attendus scolaires</div>
+    <div class="edit-tree-wrap" style="max-height:300px">${attHtml}</div>
+
+    <div class="edit-section-title">Tags</div>
+    <div id="edit-tags-container" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px"></div>
+    <div style="display:flex;gap:6px">
+      <select id="edit-tag-select" class="edit-field" style="flex:1">
+        <option value="">— Ajouter un tag —</option>
+      </select>
+      <button onclick="addTagToEdit()" style="padding:6px 10px;background:var(--accent);color:white;border:none;border-radius:var(--radius);cursor:pointer;font-size:.82rem">+</button>
+      <button onclick="showCreateTag()" style="padding:6px 10px;border:1px solid var(--accent);color:var(--accent);background:none;border-radius:var(--radius);cursor:pointer;font-size:.82rem">Nouveau</button>
+    </div>
+    <div id="new-tag-form" style="display:none;margin-top:6px">
+      <input id="new-tag-input" class="edit-field" placeholder="Nom du tag" style="margin-bottom:4px">
+      <button onclick="createAndAddTag(${id})" style="padding:5px 10px;background:var(--accent);color:white;border:none;border-radius:var(--radius);cursor:pointer;font-size:.82rem">Créer et ajouter</button>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:12px;align-items:center">
+      <button class="btn-save" onclick="saveEdit(${id})">Enregistrer</button>
+      <button class="btn-cancel" onclick="openDrawer(${id})">Annuler</button>
+      <span id="save-status"></span>
+    </div>
+  `;
+}
+
+async function saveEdit(id) {
+  const getChecked = (name) => [...document.querySelectorAll(`input[name="${name}"]:checked`)].map(x => parseInt(x.value) || x.value);
+  const getMoisChecked = () => {
+    const MOIS = ['jan','fev','mar','avr','mai','jun','jul','aou','sep','oct','nov','dec'];
+    const checked = [...document.querySelectorAll('input[name="edit-mois"]:checked')].map(x=>x.value);
+    const obj = {};
+    MOIS.forEach(m => obj['mois_'+m] = checked.includes(m) ? 1 : 0);
+    return obj;
+  };
+
+  const payload = {
+    nom: document.getElementById('edit-nom').textContent.trim(),
+    description: document.getElementById('edit-description').value,
+    objectif_texte: document.getElementById('edit-objectif').value,
+    lieu: document.getElementById('edit-lieu').value,
+    duree_min: parseInt(document.getElementById('edit-duree').value) || null,
+    format_groupe: document.getElementById('edit-format').value || null,
+    anime: document.getElementById('edit-anime').checked ? 1 : 0,
+    meteo_soleil: document.getElementById('edit-soleil').checked ? 1 : 0,
+    meteo_pluie:  document.getElementById('edit-pluie').checked ? 1 : 0,
+    meteo_vent:   document.getElementById('edit-vent').checked ? 1 : 0,
+    meteo_nuage:  document.getElementById('edit-nuage').checked ? 1 : 0,
+    meteo_nuit:   document.getElementById('edit-nuit').checked ? 1 : 0,
+    thematique_ids: getChecked('edit-them'),
+    objectif_ids: getChecked('edit-obj'),
+    attendu_ids: getChecked('edit-attendu'),
+    tag_ids: editTagIds,
+    ...getMoisChecked()
+  };
+
+  const status = document.getElementById('save-status');
+  try {
+    const r = await fetch(`/api/activites/${id}`, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    if (!r.ok) throw new Error(await r.text());
+    status.className = 'save-success';
+    status.textContent = 'Enregistré !';
+    setTimeout(() => openDrawer(id), 800);
+    search();
+  } catch(e) {
+    status.className = 'save-error';
+    status.textContent = 'Erreur : ' + e.message;
+  }
+}
+
+// ---- MODALE ARBRE ----
+const treeCache = { them: [], obj: [] };
+let modalMode = 'them';
+let modalSelectedId = null;
+let modalSelectedNom = null;
+
+function openTreeModal(mode) {
+  modalMode = mode;
+  modalSelectedId   = mode === 'them' ? S.thematique_id : S.objectif_id;
+  modalSelectedNom  = null;
+  document.getElementById('modal-title').textContent = mode === 'them' ? 'Choisir une thématique' : 'Choisir un objectif';
+  document.getElementById('modal-search').value = '';
+  renderModalTree(treeCache[mode]);
+  document.getElementById('tree-modal').classList.add('open');
+}
+
+function closeTreeModal() {
+  document.getElementById('tree-modal').classList.remove('open');
+}
+
+function renderModalTree(nodes, container) {
+  const c = container || document.getElementById('modal-tree');
+  c.innerHTML = '';
+  nodes.forEach(n => c.appendChild(makeMNode(n)));
+}
+
+function makeMNode(node) {
+  const div = document.createElement('div');
+  div.className = 'mnode';
+  div.dataset.id = node.id;
+  div.dataset.nom = node.nom;
+
+  const row = document.createElement('div');
+  row.className = 'mrow' + (node.id === modalSelectedId ? ' selected' : '');
+
+  const chev = document.createElement('span');
+  chev.className = 'mchev';
+  chev.textContent = (node.children && node.children.length) ? '▶' : '';
+
+  const lbl = document.createElement('span');
+  lbl.className = 'mlabel';
+  lbl.textContent = node.nom;
+
+  row.append(chev, lbl);
+  div.appendChild(row);
+
+  if (node.children && node.children.length) {
+    const kids = document.createElement('div');
+    kids.className = 'mchildren';
+    node.children.forEach(ch => kids.appendChild(makeMNode(ch)));
+    div.appendChild(kids);
+    chev.addEventListener('click', e => { e.stopPropagation(); div.classList.toggle('open'); });
+  }
+
+  row.addEventListener('click', e => {
+    e.stopPropagation();
+    if (node.id === modalSelectedId) {
+      modalSelectedId = null;
+      modalSelectedNom = null;
+    } else {
+      modalSelectedId = node.id;
+      modalSelectedNom = node.nom;
+    }
+    document.querySelectorAll('#modal-tree .mrow').forEach(r => r.classList.remove('selected'));
+    if (modalSelectedId) row.classList.add('selected');
+    applyModalSelection();
+  });
+
+  return div;
+}
+
+function applyModalSelection() {
+  const stateKey = modalMode === 'them' ? 'thematique_id' : 'objectif_id';
+  const btnId    = modalMode === 'them' ? 'btn-pick-them' : 'btn-pick-obj';
+  const lblId    = modalMode === 'them' ? 'pick-them-label' : 'pick-obj-label';
+  const defLabel = modalMode === 'them' ? 'Toutes' : 'Tous';
+
+  S[stateKey] = modalSelectedId;
+  S.offset = 0;
+
+  const btn = document.getElementById(btnId);
+  const lbl = document.getElementById(lblId);
+  if (modalSelectedId) {
+    btn.classList.add('active');
+    lbl.textContent = modalSelectedNom || defLabel;
+  } else {
+    btn.classList.remove('active');
+    lbl.textContent = defLabel;
+  }
+  search();
+}
+
+function clearModalSelection() {
+  modalSelectedId = null; modalSelectedNom = null;
+  document.querySelectorAll('#modal-tree .mrow').forEach(r => r.classList.remove('selected'));
+  applyModalSelection();
+}
+
+function expandAllModal() {
+  document.querySelectorAll('#modal-tree .mnode').forEach(n => {
+    if (n.querySelector('.mchildren')) n.classList.add('open');
+  });
+}
+function collapseAllModal() {
+  document.querySelectorAll('#modal-tree .mnode').forEach(n => n.classList.remove('open'));
+}
+
+function filterModal(q) {
+  const nodes = document.querySelectorAll('#modal-tree .mnode');
+  if (!q) { nodes.forEach(n => { n.style.display=''; }); return; }
+  q = q.toLowerCase();
+  nodes.forEach(n => { n.style.display = 'none'; });
+  nodes.forEach(n => {
+    if (n.dataset.nom && n.dataset.nom.toLowerCase().includes(q)) {
+      n.style.display = '';
+      let p = n.parentElement;
+      while (p && p.id !== 'modal-tree') {
+        if (p.classList.contains('mnode')) { p.style.display=''; p.classList.add('open'); }
+        p = p.parentElement;
+      }
+    }
+  });
+}
+
+document.getElementById('tree-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('tree-modal')) closeTreeModal();
+});
+
+// ---- TAGS ----
+let editTagIds = [];
+let allTagsCache = [];
+
+async function loadAllTags() {
+  try { allTagsCache = await api('/api/tags'); return allTagsCache; } catch(e) { return []; }
+}
+
+async function populateTagSelect(activiteTags) {
+  editTagIds = (activiteTags||[]).map(t => t.id);
+  const tags = await loadAllTags();
+  const sel = document.getElementById('edit-tag-select');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— Ajouter un tag —</option>';
+  tags.forEach(t => {
+    const o = document.createElement('option');
+    o.value = t.id; o.textContent = t.nom;
+    sel.appendChild(o);
+  });
+  renderEditTags();
+}
+
+function renderEditTags() {
+  const c = document.getElementById('edit-tags-container');
+  if (!c) return;
+  c.innerHTML = '';
+  editTagIds.forEach(tid => {
+    const t = allTagsCache.find(x => x.id === tid || x.id === parseInt(tid));
+    if (!t) return;
+    const span = document.createElement('span');
+    span.style = 'background:#f0e8f5;color:#5c2d7a;padding:3px 10px;border-radius:20px;font-size:.78rem;display:flex;align-items:center;gap:5px';
+    span.innerHTML = `${t.nom} <button onclick="removeTagFromEdit(${t.id})" style="background:none;border:none;cursor:pointer;color:#5c2d7a;font-size:.9rem;padding:0">×</button>`;
+    c.appendChild(span);
+  });
+}
+
+function addTagToEdit() {
+  const sel = document.getElementById('edit-tag-select');
+  const val = parseInt(sel.value);
+  if (!val || editTagIds.includes(val)) return;
+  editTagIds.push(val);
+  sel.value = '';
+  renderEditTags();
+}
+
+function removeTagFromEdit(id) {
+  editTagIds = editTagIds.filter(x => x !== id);
+  renderEditTags();
+}
+
+function showCreateTag() {
+  const f = document.getElementById('new-tag-form');
+  f.style.display = f.style.display === 'none' ? 'block' : 'none';
+}
+
+async function createAndAddTag(activiteId) {
+  const input = document.getElementById('new-tag-input');
+  const nom = input.value.trim();
+  if (!nom) return;
+  try {
+    const r = await fetch('/api/tags', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({nom})
+    });
+    const tag = await r.json();
+    allTagsCache.push(tag);
+    editTagIds.push(tag.id);
+    input.value = '';
+    document.getElementById('new-tag-form').style.display = 'none';
+    const sel = document.getElementById('edit-tag-select');
+    const o = document.createElement('option');
+    o.value = tag.id; o.textContent = tag.nom;
+    sel.appendChild(o);
+    renderEditTags();
+  } catch(e) { alert('Erreur création tag'); }
+}
+
+const _toggleEditOrig = toggleEdit;
+toggleEdit = async function(id) {
+  await _toggleEditOrig(id);
+  const a = await api(`/api/activites/${id}`);
+  await populateTagSelect(a.tags);
+};
+
+// ---- TAGS RAPIDES DEPUIS LA FICHE ----
+async function initDrawerTagSelect(activiteId, activiteTags) {
+  const sel = document.getElementById('drawer-tag-select');
+  if (!sel) return;
+  const tags = await loadAllTags();
+  const assignedIds = new Set((activiteTags||[]).map(t => t.id));
+  sel.innerHTML = '<option value="">+ Ajouter un tag…</option>';
+  tags.filter(t => !assignedIds.has(t.id)).forEach(t => {
+    const o = document.createElement('option');
+    o.value = t.id; o.textContent = t.nom;
+    sel.appendChild(o);
+  });
+  sel.onchange = async () => {
+    const tagId = parseInt(sel.value);
+    if (!tagId) return;
+    await ajouterTagActivite(activiteId, tagId);
+  };
+}
+
+async function ajouterTagActivite(activiteId, tagId) {
+  // Récupérer les tags actuels
+  const a = await api(`/api/activites/${activiteId}`);
+  const tagIds = [...(a.tags||[]).map(t => t.id), tagId];
+  await fetch(`/api/activites/${activiteId}`, {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({tag_ids: tagIds})
+  });
+  // Rafraîchir la fiche
+  openDrawer(activiteId);
+  search();
+}
+
+async function retirerTagActivite(activiteId, tagId, btn) {
+  const a = await api(`/api/activites/${activiteId}`);
+  const tagIds = (a.tags||[]).map(t => t.id).filter(id => id !== tagId);
+  await fetch(`/api/activites/${activiteId}`, {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({tag_ids: tagIds})
+  });
+  openDrawer(activiteId);
+  search();
+}
+
+// ---- TAGS RAPIDES DEPUIS LA FICHE ----
+async function initDrawerTagSelect(activiteId, activiteTags) {
+  const sel = document.getElementById('drawer-tag-select');
+  if (!sel) return;
+  const tags = await loadAllTags();
+  const assignedIds = new Set((activiteTags||[]).map(t => t.id));
+  sel.innerHTML = '<option value="">+ Ajouter un tag…</option>';
+  tags.filter(t => !assignedIds.has(t.id)).forEach(t => {
+    const o = document.createElement('option');
+    o.value = t.id; o.textContent = t.nom;
+    sel.appendChild(o);
+  });
+  sel.onchange = async () => {
+    const tagId = parseInt(sel.value);
+    if (!tagId) return;
+    const a = await api(`/api/activites/${activiteId}`);
+    const tagIds = [...(a.tags||[]).map(t => t.id), tagId];
+    await fetch(`/api/activites/${activiteId}`, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({tag_ids: tagIds})
+    });
+    openDrawer(activiteId);
+    search();
+  };
+}
+
+async function retirerTagActivite(activiteId, tagId) {
+  const a = await api(`/api/activites/${activiteId}`);
+  const tagIds = (a.tags||[]).map(t => t.id).filter(id => id !== tagId);
+  await fetch(`/api/activites/${activiteId}`, {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({tag_ids: tagIds})
+  });
+  openDrawer(activiteId);
+  search();
+}
+
+init();
+</script>
+</body>
+</html>
