@@ -20,7 +20,7 @@ import openpyxl
 DB_PATH    = Path(__file__).parent / "activites.db"
 EXCEL_PATH = Path(r"C:\Users\moina\Dropbox\Animation\Activités v2\Activités v2 ajouts.xlsx")
 
-SIMULATION = True
+SIMULATION = False
 
 # Seuil de correspondance fuzzy (0.0 - 1.0)
 # En dessous de ce seuil, l'activite est ignoree avec un avertissement
