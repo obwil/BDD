@@ -1,0 +1,6 @@
+- possibilité de supprimer une activité et le dossier associé
+- Question de comment ajouter des activités pour un traitement complet
+- ajouter un triage en fonction du nombre de mois que peut se faire l'activité
+- modifier l'arborescence de thématiques
+- pouvoir changer le nom d'une thématique
+- réfléchir à éventuellement fusionner des activités

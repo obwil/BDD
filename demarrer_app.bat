@@ -10,5 +10,6 @@ if not exist "static\index.html" (
 )
 pip install fastapi uvicorn[standard] --break-system-packages --quiet
 start "" "http://localhost:8000"
+start "" "http://localhost:8000/static/dashboard_bdd.html"
 python -m uvicorn main:app --reload --host 127.0.0.1 --port 8000
 pause

@@ -26,7 +26,7 @@ DROPBOX_ACTIVITES = Path(r"C:\Users\moina\Dropbox\Animation\Activites v2")
 # =============================================================================
 
 # Cycle a analyser : 1, 2 ou 3
-CYCLE = 1
+CYCLE = 3
 
 GEMINI_MODEL = "gemini-2.5-flash"
 DELAI_ENTRE_APPELS = 15  # secondes entre appels

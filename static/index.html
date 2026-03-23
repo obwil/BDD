@@ -11,6 +11,7 @@
       --border: #d8d6cc; --text: #2a2a25; --text-muted: #7a7a72;
       --accent: #4a7c59; --accent-light: #d4e8db; --accent-dark: #2e5238;
       --radius: 8px; --shadow: 0 2px 8px rgba(0,0,0,0.08);
+      --excl: #c0392b; --excl-light: #fdecea;
     }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
     header { background: var(--accent-dark); color: white; padding: 14px 24px; display: flex; align-items: center; gap: 12px; }
@@ -29,28 +30,16 @@
     .check-item input { accent-color: var(--accent); margin-top: 3px; flex-shrink: 0; }
     .month-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; }
     .month-btn { padding: 4px 2px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); font-size: .75rem; cursor: pointer; text-align: center; }
-    .month-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+    .month-btn.active-incl { background: var(--accent); color: white; border-color: var(--accent); }
+    .month-btn.active-excl { background: var(--excl); color: white; border-color: var(--excl); }
 
     /* ARBRE */
     .tree-wrap { border: 1px solid var(--border); border-radius: var(--radius); max-height: 280px; overflow-y: auto; padding: 5px; }
     .tree-actions { display: flex; gap: 8px; margin-bottom: 4px; }
     .tree-btn { font-size: .72rem; color: var(--accent); background: none; border: none; cursor: pointer; }
     .tree-btn:hover { text-decoration: underline; }
-    .tree-node { }
-    .tree-row { display: flex; align-items: center; gap: 3px; padding: 2px 3px; border-radius: 4px; }
-    .tree-row:hover { background: var(--accent-light); }
-    .tree-chevron { font-size: .6rem; width: 12px; text-align: center; color: var(--text-muted); flex-shrink: 0; transition: transform .15s; cursor: pointer; }
-    .tree-node.open > .tree-row .tree-chevron { transform: rotate(90deg); }
-    .tree-check { accent-color: var(--accent); flex-shrink: 0; cursor: pointer; }
-    .tree-text { font-size: .82rem; line-height: 1.3; flex: 1; cursor: pointer; }
-    .tree-children { display: none; padding-left: 13px; }
-    .tree-node.open > .tree-children { display: block; }
 
     /* ATTENDUS */
-    .attendus-group-title { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); margin: 8px 0 3px; }
-    .attendus-type-title { font-size: .71rem; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; padding: 3px 6px; border-radius: 4px; margin: 10px 0 4px; display: block; }
-    .attendus-type-title.edd  { color: #0F6E56; background: #E1F5EE; }
-    .attendus-type-title.disc { color: #534AB7; background: #EEEDFE; }
     .attendus-domaine-header { display: flex; align-items: center; gap: 4px; cursor: pointer; padding: 3px 4px; border-radius: 4px; user-select: none; }
     .attendus-domaine-header:hover { background: var(--surface2); }
     .attendus-domaine-label { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); flex: 1; }
@@ -72,7 +61,21 @@
     .search-input:focus { outline: none; border-color: var(--accent); }
     .search-mode-select { padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: .82rem; background: var(--surface); color: var(--text); width: auto; }
     .search-mode-select:focus { outline: none; border-color: var(--accent); }
-    .result-count { font-size: .82rem; color: var(--text-muted); margin-left: auto; }
+    .result-count { font-size: .82rem; color: var(--text-muted); }
+    .cycle-counts { font-size: .78rem; color: var(--text-muted); white-space: nowrap; }
+    .sort-select { padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: .82rem; background: var(--surface); color: var(--text); width: auto; }
+
+    /* CHIPS */
+    .chips-bar { padding: 6px 20px 8px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .chips-bar:empty { display: none; }
+    .chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 20px; font-size: .75rem; font-weight: 600; cursor: default; border: 1px solid transparent; }
+    .chip.incl { background: var(--accent-light); color: var(--accent-dark); border-color: var(--accent); }
+    .chip.excl { background: var(--excl-light); color: var(--excl); border-color: var(--excl); }
+    .chip-toggle { background: none; border: none; cursor: pointer; font-size: .8rem; padding: 0 1px; line-height: 1; }
+    .chip-toggle:hover { opacity: .7; }
+    .chip-remove { background: none; border: none; cursor: pointer; font-size: .85rem; padding: 0; line-height: 1; opacity: .6; }
+    .chip-remove:hover { opacity: 1; }
+
     .results { flex: 1; overflow-y: auto; padding: 14px 18px; display: flex; flex-direction: column; gap: 9px; }
 
     /* CARDS */
@@ -121,9 +124,14 @@
     .save-error { font-size: .82rem; color: #c0392b; padding: 4px 0; }
     .attendu-row:last-child { border-bottom: none; }
     .attendu-cycle-title { font-size: .72rem; font-weight: 700; color: var(--accent-dark); margin: 8px 0 3px; }
-    .filter-pick-btn { width:100%; padding:7px 10px; border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); font-size:.85rem; cursor:pointer; display:flex; align-items:center; text-align:left; }
+    .filter-pick-btn { width:100%; padding:7px 10px; border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); font-size:.85rem; cursor:pointer; display:flex; align-items:center; text-align:left; gap:4px; }
     .filter-pick-btn:hover { border-color:var(--accent); }
-    .filter-pick-btn.active { border-color:var(--accent); background:var(--accent-light); color:var(--accent-dark); font-weight:600; }
+    .filter-pick-btn.active-incl { border-color:var(--accent); background:var(--accent-light); color:var(--accent-dark); font-weight:600; }
+    .filter-pick-btn.active-excl { border-color:var(--excl); background:var(--excl-light); color:var(--excl); font-weight:600; }
+    /* Bouton bascule +/- sur le filtre */
+    .toggle-mode-btn { flex-shrink:0; width:20px; height:20px; border-radius:50%; border:none; cursor:pointer; font-size:.8rem; font-weight:700; display:inline-flex; align-items:center; justify-content:center; line-height:1; }
+    .toggle-mode-btn.incl { background:var(--accent); color:white; }
+    .toggle-mode-btn.excl { background:var(--excl); color:white; }
 
     /* MODALE ARBRE */
     .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:200; align-items:center; justify-content:center; }
@@ -134,20 +142,21 @@
     .modal-search { padding:6px 10px; border:1px solid var(--border); border-radius:var(--radius); font-size:.84rem; width:100%; margin-bottom:0; }
     .modal-search:focus { outline:none; border-color:var(--accent); }
     .modal-close { background:none; border:none; font-size:1.3rem; cursor:pointer; color:var(--text-muted); padding:0 4px; }
-    .modal-actions { display:flex; gap:8px; padding:8px 20px; border-bottom:1px solid var(--border); }
+    .modal-actions { display:flex; gap:8px; padding:8px 20px; border-bottom:1px solid var(--border); flex-wrap:wrap; align-items:center; }
     .modal-tree { flex:1; overflow-y:auto; padding:10px 16px; }
     .modal-footer { padding:12px 20px; border-top:1px solid var(--border); display:flex; gap:8px; justify-content:flex-end; }
+    .modal-excl-toggle { margin-left:auto; display:flex; align-items:center; gap:6px; font-size:.78rem; }
+    .modal-excl-toggle input { accent-color:var(--excl); }
 
     /* Noeuds arbre modale */
     .mnode { }
     .mrow { display:flex; align-items:center; padding:4px 6px; border-radius:6px; cursor:pointer; gap:6px; }
     .mrow:hover { background:var(--accent-light); }
-    .mrow.selected { background:var(--accent); color:white; }
-    .mrow.selected .mchev { color:white; }
+    .mrow.selected-incl { background:var(--accent); color:white; }
+    .mrow.selected-excl { background:var(--excl-light); color:var(--excl); border:1px solid var(--excl); }
+    .mrow.selected-incl .mchev, .mrow.selected-excl .mchev { }
     .mchev { font-size:.6rem; width:14px; text-align:center; color:var(--text-muted); flex-shrink:0; transition:transform .15s; }
     .mnode.open > .mrow .mchev { transform:rotate(90deg); }
-    .mrow.selected .mchev { transform: none; }
-    .mnode.open > .mrow.selected .mchev { transform:rotate(90deg); }
     .mlabel { font-size:.85rem; line-height:1.35; flex:1; }
     .mchildren { display:none; padding-left:16px; }
     .mnode.open > .mchildren { display:block; }
@@ -229,14 +238,16 @@
     <div class="sidebar-section">
       <div class="sidebar-label">Thématique</div>
       <button class="filter-pick-btn" id="btn-pick-them" onclick="openTreeModal('them')">
-        <span id="pick-them-label">Toutes</span> <span style="margin-left:auto;opacity:.5">▼</span>
+        <span id="pick-them-label">Toutes</span>
+        <span style="margin-left:auto;opacity:.5">▼</span>
       </button>
     </div>
 
     <div class="sidebar-section">
       <div class="sidebar-label">Objectif</div>
       <button class="filter-pick-btn" id="btn-pick-obj" onclick="openTreeModal('obj')">
-        <span id="pick-obj-label">Tous</span> <span style="margin-left:auto;opacity:.5">▼</span>
+        <span id="pick-obj-label">Tous</span>
+        <span style="margin-left:auto;opacity:.5">▼</span>
       </button>
     </div>
 
@@ -271,9 +282,17 @@
         <option value="objectif">Visée pédagogique</option>
       </select>
       <button class="btn btn-primary" id="btn-search">Rechercher</button>
-      <button class="btn btn-ghost" id="btn-reset-toolbar" onclick="resetAll()" title="Réinitialiser les filtres">✕</button>
+      <button class="btn btn-ghost" id="btn-reset-toolbar" title="Réinitialiser les filtres">✕</button>
+      <select id="sort-select" class="sort-select" title="Tri">
+        <option value="nom">Alphabétique</option>
+        <option value="nb_attendus">Plus d'attendus</option>
+        <option value="nb_thematiques">Plus de thématiques</option>
+      </select>
       <span class="result-count" id="result-count"></span>
+      <span class="cycle-counts" id="cycle-counts"></span>
     </div>
+    <!-- Barre de chips filtres actifs -->
+    <div class="chips-bar" id="chips-bar"></div>
     <div class="results" id="results"><div class="loading">Chargement…</div></div>
     <div class="pagination" id="pagination"></div>
   </main>
@@ -296,7 +315,10 @@
     <div class="modal-actions">
       <button class="tree-btn" onclick="expandAllModal()">Tout déplier</button>
       <button class="tree-btn" onclick="collapseAllModal()">Tout replier</button>
-      <button class="tree-btn" onclick="clearModalSelection()" style="margin-left:auto;color:#c0392b">Effacer</button>
+      <button class="tree-btn" onclick="clearModalSelection()" style="color:#c0392b">Effacer</button>
+      <label class="modal-excl-toggle">
+        <input type="checkbox" id="modal-excl-check"> Mode exclusion
+      </label>
     </div>
     <div class="modal-tree" id="modal-tree"></div>
     <div class="modal-footer">
@@ -306,17 +328,28 @@
 </div>
 
 <script>
+// ============================================================================
+// ÉTAT GLOBAL
+// ============================================================================
 const S = {
-  q:'', lieu:'', meteo:[], mois:null, groupe:'',
-  thematique_id:null, objectif_id:null, cycle_ids:[], attendu_ids:[], tag_ids:[],
-  search_mode:'titre', anime:'',
+  q:'', lieu:'', meteo:[], mois:null, moisMode:'incl', groupe:'',
+  thematique_id:null, thematique_mode:'incl', thematique_nom:null,
+  objectif_id:null, objectif_mode:'incl', objectif_nom:null,
+  cycle_ids:[], attendu_ids:[], tag_ids:[],
+  search_mode:'titre', anime:'', sort:'nom',
   limit:40, offset:0, total:0
 };
+// Modes d'exclusion par type de filtre (pour les checkboxes)
+const METEO_MODES   = {}; // valeur => 'incl'|'excl'
+const ATTENDU_MODES = {}; // id => 'incl'|'excl'
+const TAG_MODES     = {}; // id => 'incl'|'excl'
+const CYCLE_MODES   = {}; // id => 'incl'|'excl'
 
 const MOIS_NOMS  = ['jan','fev','mar','avr','mai','jun','jul','aou','sep','oct','nov','dec'];
 const MOIS_LAB   = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
 const MOIS_COURT = ['J','F','M','A','M','J','J','A','S','O','N','D'];
 const METEO_ICO  = {nuage:'☁️', soleil:'☀️', pluie:'🌧️', vent:'💨', nuit:'🌙'};
+const METEO_LAB  = {nuage:'Nuageux', soleil:'Soleil', pluie:'Pluie', vent:'Vent', nuit:'Nuit'};
 
 async function api(path) {
   const r = await fetch(path);
@@ -324,7 +357,9 @@ async function api(path) {
   return r.json();
 }
 
-// ---- INIT ----
+// ============================================================================
+// INIT
+// ============================================================================
 async function init() {
   try {
     const s = await api('/api/stats');
@@ -337,16 +372,21 @@ async function init() {
     const cycles = await api('/api/cycles');
     const c = document.getElementById('f-cycles');
     cycles.forEach(cy => {
+      const wrap = document.createElement('div');
+      wrap.style = 'display:flex;align-items:flex-start;gap:4px;padding:2px 0';
       const lbl = document.createElement('label');
       lbl.className = 'check-item';
+      lbl.style.flex = '1';
       lbl.innerHTML = `<input type="checkbox" name="cycle" value="${cy.id}">
         <span><strong>${cy.code}</strong> — ${cy.nom}
         <span style="color:var(--text-muted);font-size:.73rem"> (${cy.ages})</span></span>`;
-      c.appendChild(lbl);
+      wrap.appendChild(lbl);
+      c.appendChild(wrap);
+      CYCLE_MODES[cy.id] = 'incl';
     });
   } catch(e){}
 
-  // Tags (filtre sidebar)
+  // Tags
   try {
     const tags = await api('/api/tags');
     const sec = document.getElementById('section-tags');
@@ -357,19 +397,44 @@ async function init() {
         lbl.className = 'check-item';
         lbl.innerHTML = `<input type="checkbox" name="tag" value="${t.id}"> ${t.nom}`;
         c.appendChild(lbl);
+        TAG_MODES[t.id] = 'incl';
       });
       sec.style.display = 'block';
     }
   } catch(e){}
 
-  // Pré-charger les arbres en cache pour la modale
+  // Cache arbres
   try { treeCache.them = await api('/api/thematiques/arbre'); } catch(e){}
   try { treeCache.obj  = await api('/api/objectifs/arbre');   } catch(e){}
+
   bindEvents();
+
+  // Lecture des paramètres URL (lien depuis dashboard)
+  applyURLParams();
+
   search();
 }
 
-// ---- ATTENDUS ----
+// ============================================================================
+// LECTURE PARAMS URL
+// ============================================================================
+function applyURLParams() {
+  const params = new URLSearchParams(window.location.search);
+  const attenduIds = params.get('attendu_ids');
+  if (attenduIds) {
+    const ids = attenduIds.split(',').map(x => x.trim()).filter(Boolean);
+    if (ids.length) {
+      S.attendu_ids = ids;
+      // On pré-coche les cycles nécessaires pour afficher la section
+      // Les checkboxes d'attendus seront créées après chargement async
+      // On déclenche une recherche filtrée directement via S.attendu_ids
+    }
+  }
+}
+
+// ============================================================================
+// ATTENDUS
+// ============================================================================
 function buildAttendusAccordion(items, container, multiCycle) {
   container.innerHTML = '';
   const byDomaine = {};
@@ -396,11 +461,14 @@ function buildAttendusAccordion(items, container, multiCycle) {
     attendus.forEach(function(a) {
       var lbl = document.createElement('label');
       lbl.className = 'check-item';
+      lbl.style = 'gap:6px;align-items:flex-start';
       var sd = a.sous_domaine ? '<strong>' + a.sous_domaine + '</strong> — ' : '';
       var typeColor = (a.type === 'disciplinaire') ? '#7B6EE0' : '#4a7c59';
       var dot = '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:' + typeColor + ';flex-shrink:0;margin:3px 3px 0 0"></span>';
-      lbl.innerHTML = '<input type="checkbox" name="attendu" value="' + a.id + '"> ' + dot + ' <span>' + sd + a.libelle + '</span>';
+      var checked = S.attendu_ids.includes(String(a.id)) || S.attendu_ids.includes(a.id) ? 'checked' : '';
+      lbl.innerHTML = '<input type="checkbox" name="attendu" value="' + a.id + '" ' + checked + '> ' + dot + ' <span>' + sd + a.libelle + '</span>';
       body.appendChild(lbl);
+      ATTENDU_MODES[a.id] = ATTENDU_MODES[a.id] || 'incl';
     });
     container.appendChild(body);
     header.addEventListener('click', function() {
@@ -436,7 +504,9 @@ async function chargerAttendus(cycleIds) {
   } catch(e){}
 }
 
-// ---- EVENTS ----
+// ============================================================================
+// EVENTS
+// ============================================================================
 function bindEvents() {
   document.getElementById('btn-search').addEventListener('click', () => {
     S.q = document.getElementById('search-input').value.trim();
@@ -446,10 +516,12 @@ function bindEvents() {
   document.getElementById('search-input').addEventListener('keydown', e => {
     if(e.key==='Enter') document.getElementById('btn-search').click();
   });
-  // Recherche automatique au changement de mode si une query est active
   document.getElementById('search-mode').addEventListener('change', e => {
     S.search_mode = e.target.value;
     if(S.q) { S.offset=0; search(); }
+  });
+  document.getElementById('sort-select').addEventListener('change', e => {
+    S.sort = e.target.value; S.offset=0; search();
   });
   document.getElementById('f-lieu').addEventListener('change', e => { S.lieu=e.target.value; S.offset=0; search(); });
   document.getElementById('f-groupe').addEventListener('change', e => { S.groupe=e.target.value; S.offset=0; search(); });
@@ -457,29 +529,57 @@ function bindEvents() {
     r.addEventListener('change', e => { S.anime=e.target.value; S.offset=0; search(); });
   });
 
+  // Météo — clic sur checkbox : cocher/décocher
+  // Clic sur l'icône/libellé : bascule mode incl/excl si déjà coché
   document.querySelectorAll('input[name="meteo"]').forEach(cb => {
     cb.addEventListener('change', () => {
       S.meteo=[...document.querySelectorAll('input[name="meteo"]:checked')].map(x=>x.value);
       S.offset=0; search();
     });
+    // Double-clic sur le label pour basculer le mode
+    cb.parentElement.addEventListener('dblclick', (e) => {
+      if (!cb.checked) return;
+      const val = cb.value;
+      METEO_MODES[val] = METEO_MODES[val] === 'excl' ? 'incl' : 'excl';
+      S.offset=0; search();
+    });
   });
+
   document.querySelectorAll('.month-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      const m=btn.dataset.m;
-      document.querySelectorAll('.month-btn').forEach(b=>b.classList.remove('active'));
-      if(S.mois===m){ S.mois=null; } else { S.mois=m; btn.classList.add('active'); }
+      const m = btn.dataset.m;
+      if (S.mois === m) {
+        // Déjà actif : bascule mode ou désactive
+        if (S.moisMode === 'incl') { S.moisMode = 'excl'; }
+        else { S.mois = null; S.moisMode = 'incl'; }
+      } else {
+        S.mois = m; S.moisMode = 'incl';
+      }
+      document.querySelectorAll('.month-btn').forEach(b => b.classList.remove('active-incl','active-excl'));
+      if (S.mois) btn.classList.add(S.moisMode === 'excl' ? 'active-excl' : 'active-incl');
       S.offset=0; search();
     });
   });
 
   document.getElementById('f-cycles').addEventListener('change', async e => {
     if(e.target.name==='cycle'){
-      S.cycle_ids=[...document.querySelectorAll('input[name="cycle"]:checked')].map(x=>x.value);
+      const checked = [...document.querySelectorAll('input[name="cycle"]:checked')];
+      S.cycle_ids = checked.map(x=>x.value);
       S.attendu_ids=[]; S.offset=0;
       await chargerAttendus(S.cycle_ids);
       search();
     }
   });
+
+  // Double-clic sur cycle pour basculer mode
+  document.getElementById('f-cycles').addEventListener('dblclick', e => {
+    const cb = e.target.closest('label')?.querySelector('input[name="cycle"]');
+    if (!cb || !cb.checked) return;
+    const id = cb.value;
+    CYCLE_MODES[id] = CYCLE_MODES[id] === 'excl' ? 'incl' : 'excl';
+    S.offset=0; search();
+  });
+
   ['f-attendus-edd','f-attendus-disc'].forEach(function(id){
     var el = document.getElementById(id);
     if (el) el.addEventListener('change', function(e){
@@ -488,57 +588,243 @@ function bindEvents() {
         S.offset=0; search();
       }
     });
+    if (el) el.addEventListener('dblclick', function(e){
+      const cb = e.target.closest('label')?.querySelector('input[name="attendu"]');
+      if (!cb || !cb.checked) return;
+      const id2 = cb.value;
+      ATTENDU_MODES[id2] = ATTENDU_MODES[id2] === 'excl' ? 'incl' : 'excl';
+      S.offset=0; search();
+    });
   });
 
   document.getElementById('f-tags').addEventListener('change', () => {
     S.tag_ids = [...document.querySelectorAll('input[name="tag"]:checked')].map(x=>x.value);
     S.offset=0; search();
   });
+  document.getElementById('f-tags').addEventListener('dblclick', e => {
+    const cb = e.target.closest('label')?.querySelector('input[name="tag"]');
+    if (!cb || !cb.checked) return;
+    const id = cb.value;
+    TAG_MODES[id] = TAG_MODES[id] === 'excl' ? 'incl' : 'excl';
+    S.offset=0; search();
+  });
+
   document.getElementById('btn-reset').addEventListener('click', resetAll);
+  document.getElementById('btn-reset-toolbar').addEventListener('click', resetAll);
   document.getElementById('overlay').addEventListener('click', closeDrawer);
   document.getElementById('drawer-close').addEventListener('click', closeDrawer);
 }
 
 function resetAll() {
-  S.q=''; S.lieu=''; S.meteo=[]; S.mois=null; S.groupe='';
-  S.thematique_id=null; S.objectif_id=null; S.cycle_ids=[]; S.attendu_ids=[]; S.offset=0;
-  S.search_mode='titre';
+  S.q=''; S.lieu=''; S.meteo=[]; S.mois=null; S.moisMode='incl'; S.groupe='';
+  S.thematique_id=null; S.thematique_mode='incl'; S.thematique_nom=null;
+  S.objectif_id=null; S.objectif_mode='incl'; S.objectif_nom=null;
+  S.cycle_ids=[]; S.attendu_ids=[]; S.tag_ids=[]; S.sort='nom'; S.offset=0;
+  S.search_mode='titre'; S.anime='';
+  Object.keys(METEO_MODES).forEach(k => { METEO_MODES[k]='incl'; });
+  Object.keys(ATTENDU_MODES).forEach(k => { ATTENDU_MODES[k]='incl'; });
+  Object.keys(TAG_MODES).forEach(k => { TAG_MODES[k]='incl'; });
+  Object.keys(CYCLE_MODES).forEach(k => { CYCLE_MODES[k]='incl'; });
   document.getElementById('search-input').value='';
   document.getElementById('search-mode').value='titre';
+  document.getElementById('sort-select').value='nom';
   document.getElementById('f-lieu').value='';
   document.getElementById('f-groupe').value='';
   document.querySelectorAll('input[name="meteo"]').forEach(cb=>cb.checked=false);
-  document.querySelectorAll('.month-btn').forEach(b=>b.classList.remove('active'));
-  S.cycle_ids=[]; S.attendu_ids=[];
+  document.querySelectorAll('.month-btn').forEach(b=>b.classList.remove('active-incl','active-excl'));
   document.querySelectorAll('input[name="cycle"]').forEach(r=>r.checked=false);
-  document.querySelectorAll('input[name="attendu"]').forEach(function(r){r.checked=false;});
+  document.querySelectorAll('input[name="attendu"]').forEach(r=>r.checked=false);
   document.getElementById('section-attendus-edd').style.display='none';
   document.getElementById('section-attendus-disc').style.display='none';
   document.getElementById('f-attendus-edd').innerHTML='';
   document.getElementById('f-attendus-disc').innerHTML='';
-  S.anime=''; document.querySelectorAll('input[name="anime"]').forEach(r=>{ r.checked = r.value===''; });
-  S.tag_ids=[]; document.querySelectorAll('input[name="tag"]').forEach(cb=>cb.checked=false);
-  document.getElementById('btn-pick-them').classList.remove('active');
-  document.getElementById('btn-pick-obj').classList.remove('active');
+  document.querySelectorAll('input[name="anime"]').forEach(r=>{ r.checked = r.value===''; });
+  document.querySelectorAll('input[name="tag"]').forEach(cb=>cb.checked=false);
+  const btnThem = document.getElementById('btn-pick-them');
+  const btnObj  = document.getElementById('btn-pick-obj');
+  btnThem.className='filter-pick-btn'; btnObj.className='filter-pick-btn';
   document.getElementById('pick-them-label').textContent='Toutes';
   document.getElementById('pick-obj-label').textContent='Tous';
   search();
 }
 
-// ---- SEARCH ----
+// ============================================================================
+// CHIPS — barre de filtres actifs
+// ============================================================================
+function buildChipsBar() {
+  const bar = document.getElementById('chips-bar');
+  bar.innerHTML = '';
+
+  const addChip = (label, mode, onToggle, onRemove) => {
+    const chip = document.createElement('span');
+    chip.className = 'chip ' + mode;
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'chip-toggle';
+    toggleBtn.title = mode === 'incl' ? 'Cliquer pour exclure' : 'Cliquer pour inclure';
+    toggleBtn.textContent = mode === 'incl' ? '+' : '−';
+    toggleBtn.addEventListener('click', onToggle);
+    const txt = document.createTextNode(' ' + label + ' ');
+    const rmBtn = document.createElement('button');
+    rmBtn.className = 'chip-remove';
+    rmBtn.title = 'Supprimer ce filtre';
+    rmBtn.textContent = '✕';
+    rmBtn.addEventListener('click', onRemove);
+    chip.append(toggleBtn, txt, rmBtn);
+    bar.appendChild(chip);
+  };
+
+  // Météo
+  S.meteo.forEach(m => {
+    const mode = METEO_MODES[m] || 'incl';
+    addChip(METEO_ICO[m] + ' ' + METEO_LAB[m], mode,
+      () => { METEO_MODES[m] = mode === 'incl' ? 'excl' : 'incl'; S.offset=0; search(); },
+      () => {
+        const cb = document.querySelector(`input[name="meteo"][value="${m}"]`);
+        if (cb) { cb.checked=false; }
+        S.meteo = S.meteo.filter(x=>x!==m); S.offset=0; search();
+      }
+    );
+  });
+
+  // Mois
+  if (S.mois) {
+    const idx = MOIS_NOMS.indexOf(S.mois);
+    const lab = idx >= 0 ? MOIS_LAB[idx] : S.mois;
+    addChip('📅 ' + lab, S.moisMode,
+      () => { S.moisMode = S.moisMode === 'incl' ? 'excl' : 'incl'; S.offset=0; search(); },
+      () => {
+        S.mois=null; S.moisMode='incl';
+        document.querySelectorAll('.month-btn').forEach(b=>b.classList.remove('active-incl','active-excl'));
+        S.offset=0; search();
+      }
+    );
+  }
+
+  // Thématique
+  if (S.thematique_id) {
+    addChip('🌿 ' + (S.thematique_nom||'Thématique'), S.thematique_mode,
+      () => { S.thematique_mode = S.thematique_mode==='incl'?'excl':'incl'; S.offset=0; search(); },
+      () => {
+        S.thematique_id=null; S.thematique_nom=null; S.thematique_mode='incl';
+        const b=document.getElementById('btn-pick-them');
+        b.className='filter-pick-btn';
+        document.getElementById('pick-them-label').textContent='Toutes';
+        S.offset=0; search();
+      }
+    );
+  }
+
+  // Objectif
+  if (S.objectif_id) {
+    addChip('🎯 ' + (S.objectif_nom||'Objectif'), S.objectif_mode,
+      () => { S.objectif_mode = S.objectif_mode==='incl'?'excl':'incl'; S.offset=0; search(); },
+      () => {
+        S.objectif_id=null; S.objectif_nom=null; S.objectif_mode='incl';
+        const b=document.getElementById('btn-pick-obj');
+        b.className='filter-pick-btn';
+        document.getElementById('pick-obj-label').textContent='Tous';
+        S.offset=0; search();
+      }
+    );
+  }
+
+  // Cycles
+  S.cycle_ids.forEach(cid => {
+    const mode = CYCLE_MODES[cid] || 'incl';
+    const cb = document.querySelector(`input[name="cycle"][value="${cid}"]`);
+    const lab = cb ? cb.closest('label').textContent.trim() : 'Cycle';
+    addChip(lab.substring(0,20), mode,
+      () => { CYCLE_MODES[cid] = mode==='incl'?'excl':'incl'; S.offset=0; search(); },
+      () => {
+        if (cb) cb.checked=false;
+        S.cycle_ids = S.cycle_ids.filter(x=>x!==cid);
+        chargerAttendus(S.cycle_ids); S.offset=0; search();
+      }
+    );
+  });
+
+  // Attendus
+  S.attendu_ids.forEach(aid => {
+    const mode = ATTENDU_MODES[aid] || 'incl';
+    const cb = document.querySelector(`input[name="attendu"][value="${aid}"]`);
+    const lab = cb ? cb.closest('label').textContent.trim().substring(0,30) : 'Attendu '+aid;
+    addChip(lab + '…', mode,
+      () => { ATTENDU_MODES[aid] = mode==='incl'?'excl':'incl'; S.offset=0; search(); },
+      () => {
+        if (cb) cb.checked=false;
+        S.attendu_ids = S.attendu_ids.filter(x=>x!==aid && x!==parseInt(aid));
+        S.offset=0; search();
+      }
+    );
+  });
+
+  // Tags
+  S.tag_ids.forEach(tid => {
+    const mode = TAG_MODES[tid] || 'incl';
+    const cb = document.querySelector(`input[name="tag"][value="${tid}"]`);
+    const lab = cb ? cb.closest('label').textContent.trim() : 'Tag';
+    addChip('🏷 ' + lab, mode,
+      () => { TAG_MODES[tid] = mode==='incl'?'excl':'incl'; S.offset=0; search(); },
+      () => {
+        if (cb) cb.checked=false;
+        S.tag_ids = S.tag_ids.filter(x=>x!==tid && x!==parseInt(tid));
+        S.offset=0; search();
+      }
+    );
+  });
+}
+
+// ============================================================================
+// SEARCH
+// ============================================================================
 async function search() {
+  buildChipsBar();
   const p = new URLSearchParams();
   if(S.q) { p.set('q',S.q); p.set('search_mode', S.search_mode); }
   if(S.lieu) p.set('lieu',S.lieu);
-  if(S.mois) p.set('mois',S.mois);
+  if(S.mois) {
+    if (S.moisMode === 'excl') p.set('exclude_mois', S.mois);
+    else p.set('mois', S.mois);
+  }
   if(S.groupe) p.set('competence',S.groupe);
   if(S.anime !== '') p.set('anime',S.anime);
-  if(S.thematique_id) p.set('thematique_id',S.thematique_id);
-  if(S.objectif_id) p.set('objectif_id',S.objectif_id);
-  if(S.attendu_ids.length) p.set('attendu_ids',S.attendu_ids.join(','));
-  if(S.tag_ids.length) p.set('tag_ids',S.tag_ids.join(','));
-  else if(S.cycle_ids.length) p.set('cycle_ids',S.cycle_ids.join(','));
-  if(S.meteo.length) p.set('meteo',S.meteo[0]);
+
+  // Thématique
+  if(S.thematique_id) {
+    if (S.thematique_mode === 'excl') p.set('exclude_thematique_id', S.thematique_id);
+    else p.set('thematique_id', S.thematique_id);
+  }
+  // Objectif
+  if(S.objectif_id) {
+    if (S.objectif_mode === 'excl') p.set('exclude_objectif_id', S.objectif_id);
+    else p.set('objectif_id', S.objectif_id);
+  }
+
+  // Météo — sépare incl / excl
+  const meteoIncl = S.meteo.filter(m => (METEO_MODES[m]||'incl')==='incl');
+  const meteoExcl = S.meteo.filter(m => (METEO_MODES[m]||'incl')==='excl');
+  if(meteoIncl.length) p.set('meteo', meteoIncl[0]); // l'API prend 1 valeur à la fois
+  if(meteoExcl.length) p.set('exclude_meteo', meteoExcl[0]);
+
+  // Attendus — sépare incl / excl
+  const attenduIncl = S.attendu_ids.filter(id => (ATTENDU_MODES[id]||'incl')==='incl');
+  const attenduExcl = S.attendu_ids.filter(id => (ATTENDU_MODES[id]||'incl')==='excl');
+  if(attenduIncl.length) p.set('attendu_ids', attenduIncl.join(','));
+  if(attenduExcl.length) p.set('exclude_attendu_ids', attenduExcl.join(','));
+
+  // Tags — sépare incl / excl
+  const tagIncl = S.tag_ids.filter(id => (TAG_MODES[id]||'incl')==='incl');
+  const tagExcl = S.tag_ids.filter(id => (TAG_MODES[id]||'incl')==='excl');
+  if(tagIncl.length) p.set('tag_ids', tagIncl.join(','));
+  if(tagExcl.length) p.set('exclude_tag_ids', tagExcl.join(','));
+
+  // Cycles — sépare incl / excl (seulement si pas d'attendu incl)
+  const cycleIncl = S.cycle_ids.filter(id => (CYCLE_MODES[id]||'incl')==='incl');
+  const cycleExcl = S.cycle_ids.filter(id => (CYCLE_MODES[id]||'incl')==='excl');
+  if(!attenduIncl.length && cycleIncl.length) p.set('cycle_ids', cycleIncl.join(','));
+  if(cycleExcl.length) p.set('exclude_cycle_ids', cycleExcl.join(','));
+
+  p.set('sort', S.sort);
   p.set('limit',S.limit); p.set('offset',S.offset);
 
   document.getElementById('results').innerHTML='<div class="loading">Recherche…</div>';
@@ -550,9 +836,21 @@ async function search() {
   }
 }
 
-// ---- RENDER ----
+// ============================================================================
+// RENDER
+// ============================================================================
 function renderResults(data) {
+  // Compteur résultats
   document.getElementById('result-count').textContent=`${data.total} résultat${data.total>1?'s':''}`;
+
+  // Compteurs cycles
+  if (data.cycle_counts) {
+    const parts = Object.entries(data.cycle_counts)
+      .filter(([,v]) => v > 0)
+      .map(([k,v]) => `${k}: ${v}`);
+    document.getElementById('cycle-counts').textContent = parts.length ? parts.join(' · ') : '';
+  }
+
   const cnt=document.getElementById('results');
   if(!data.results.length){ cnt.innerHTML='<div class="empty">Aucune activité trouvée.</div>'; renderPagination(0); return; }
   cnt.innerHTML='';
@@ -564,7 +862,7 @@ function renderResults(data) {
     card.innerHTML=`
       <div class="card-title">${a.nom}</div>
       <div class="card-meta">
-        ${a.lieu?`<span>📍 ${a.lieu}`:''}
+        ${a.lieu?`<span>📍 ${a.lieu}</span>`:''}
         ${meteos?`<span>${meteos}</span>`:''}
         ${mStr?`<span>📅 ${mStr}</span>`:''}
         ${a.duree_min?`<span>⏱ ${a.duree_min} min</span>`:''}
@@ -589,7 +887,9 @@ function renderPagination(total) {
 }
 function goPage(i){S.offset=i*S.limit;search();document.querySelector('.results').scrollTop=0;}
 
-// ---- DRAWER ----
+// ============================================================================
+// DRAWER
+// ============================================================================
 async function openDrawer(id) {
   const c=document.getElementById('drawer-content');
   c.innerHTML='<div class="loading">Chargement…</div>';
@@ -600,7 +900,6 @@ async function openDrawer(id) {
     c.innerHTML=buildDrawer(a);
     const btn=c.querySelector('.open-folder-btn');
     if(btn) btn.addEventListener('click',()=>fetch(`/api/activites/${id}/ouvrir-dossier`).catch(()=>{}));
-    // Initialiser le select de tags rapides
     await initDrawerTagSelect(id, a.tags);
   } catch(e){ c.innerHTML=`<div class="empty">Erreur : ${e.message}</div>`; }
 }
@@ -637,10 +936,8 @@ function buildDrawer(a) {
   h+=`<div class="drawer-section"><h3>Thématiques</h3><div class="badges-wrap">${badges(a.thematiques)}</div></div>`;
   h+=`<div class="drawer-section"><h3>Objectifs</h3><div class="badges-wrap">${badges(a.objectifs)}</div></div>`;
 
-  // Attendus melanges par domaine, code couleur par type
   function fmtAttendus(items){
     if(!items||!items.length) return '<span style="color:var(--text-muted);font-size:.82rem">—</span>';
-    // Grouper par cycle puis domaine
     var byCycle={};
     items.forEach(function(at){
       if(!byCycle[at.cycle_code]) byCycle[at.cycle_code]={};
@@ -702,7 +999,9 @@ function buildDrawer(a) {
   return h;
 }
 
-// ---- EDITION ----
+// ============================================================================
+// EDITION
+// ============================================================================
 let currentActivite = null;
 
 async function toggleEdit(id) {
@@ -742,7 +1041,7 @@ async function toggleEdit(id) {
   Object.entries(attByDom).forEach(([grp, items]) => {
     attHtml += `<div style="font-size:.7rem;font-weight:700;color:var(--text-muted);margin:6px 0 2px;text-transform:uppercase">${grp}</div>`;
     attHtml += items.map(x =>
-      `<label class="check-item" style="font-size:.78rem"><input type="checkbox" name="edit-attendu" value="${x.id}" ${selAtIds.has(x.id)?'checked':''}> <span><strong>${x.sous_domaine}</strong> — ${x.libelle}</span></label>`
+      `<label class="check-item" style="font-size:.78rem"><input type="checkbox" name="edit-attendu" value="${x.id}" ${selAtIds.has(x.id)?'checked':''}> <span><strong>${x.sous_domaine||''}</strong>${x.sous_domaine?' — ':''}${x.libelle}</span></label>`
     ).join('');
   });
 
@@ -877,18 +1176,24 @@ async function saveEdit(id) {
   }
 }
 
-// ---- MODALE ARBRE ----
+// ============================================================================
+// MODALE ARBRE
+// ============================================================================
 const treeCache = { them: [], obj: [] };
 let modalMode = 'them';
 let modalSelectedId = null;
 let modalSelectedNom = null;
+let modalExclMode = false;
 
 function openTreeModal(mode) {
   modalMode = mode;
-  modalSelectedId   = mode === 'them' ? S.thematique_id : S.objectif_id;
-  modalSelectedNom  = null;
+  modalSelectedId   = mode === 'them' ? S.thematique_id   : S.objectif_id;
+  modalSelectedNom  = mode === 'them' ? S.thematique_nom  : S.objectif_nom;
+  modalExclMode     = mode === 'them' ? S.thematique_mode==='excl' : S.objectif_mode==='excl';
   document.getElementById('modal-title').textContent = mode === 'them' ? 'Choisir une thématique' : 'Choisir un objectif';
   document.getElementById('modal-search').value = '';
+  document.getElementById('modal-excl-check').checked = modalExclMode;
+  document.getElementById('modal-excl-check').onchange = (e) => { modalExclMode = e.target.checked; };
   renderModalTree(treeCache[mode]);
   document.getElementById('tree-modal').classList.add('open');
 }
@@ -910,7 +1215,9 @@ function makeMNode(node) {
   div.dataset.nom = node.nom;
 
   const row = document.createElement('div');
-  row.className = 'mrow' + (node.id === modalSelectedId ? ' selected' : '');
+  const isSelected = node.id === modalSelectedId;
+  const selClass = isSelected ? (modalExclMode ? 'selected-excl' : 'selected-incl') : '';
+  row.className = 'mrow' + (selClass ? ' ' + selClass : '');
 
   const chev = document.createElement('span');
   chev.className = 'mchev';
@@ -940,8 +1247,11 @@ function makeMNode(node) {
       modalSelectedId = node.id;
       modalSelectedNom = node.nom;
     }
-    document.querySelectorAll('#modal-tree .mrow').forEach(r => r.classList.remove('selected'));
-    if (modalSelectedId) row.classList.add('selected');
+    document.querySelectorAll('#modal-tree .mrow').forEach(r => r.classList.remove('selected-incl','selected-excl'));
+    if (modalSelectedId) {
+      const cls = modalExclMode ? 'selected-excl' : 'selected-incl';
+      row.classList.add(cls);
+    }
     applyModalSelection();
   });
 
@@ -949,21 +1259,25 @@ function makeMNode(node) {
 }
 
 function applyModalSelection() {
-  const stateKey = modalMode === 'them' ? 'thematique_id' : 'objectif_id';
-  const btnId    = modalMode === 'them' ? 'btn-pick-them' : 'btn-pick-obj';
-  const lblId    = modalMode === 'them' ? 'pick-them-label' : 'pick-obj-label';
-  const defLabel = modalMode === 'them' ? 'Toutes' : 'Tous';
+  const stateKey    = modalMode === 'them' ? 'thematique_id'   : 'objectif_id';
+  const modeKey     = modalMode === 'them' ? 'thematique_mode' : 'objectif_mode';
+  const nomKey      = modalMode === 'them' ? 'thematique_nom'  : 'objectif_nom';
+  const btnId       = modalMode === 'them' ? 'btn-pick-them'   : 'btn-pick-obj';
+  const lblId       = modalMode === 'them' ? 'pick-them-label' : 'pick-obj-label';
+  const defLabel    = modalMode === 'them' ? 'Toutes' : 'Tous';
 
   S[stateKey] = modalSelectedId;
+  S[modeKey]  = modalExclMode ? 'excl' : 'incl';
+  S[nomKey]   = modalSelectedNom;
   S.offset = 0;
 
   const btn = document.getElementById(btnId);
   const lbl = document.getElementById(lblId);
   if (modalSelectedId) {
-    btn.classList.add('active');
-    lbl.textContent = modalSelectedNom || defLabel;
+    btn.className = 'filter-pick-btn active-' + S[modeKey];
+    lbl.textContent = (modalExclMode ? '− ' : '+ ') + (modalSelectedNom || defLabel);
   } else {
-    btn.classList.remove('active');
+    btn.className = 'filter-pick-btn';
     lbl.textContent = defLabel;
   }
   search();
@@ -971,7 +1285,7 @@ function applyModalSelection() {
 
 function clearModalSelection() {
   modalSelectedId = null; modalSelectedNom = null;
-  document.querySelectorAll('#modal-tree .mrow').forEach(r => r.classList.remove('selected'));
+  document.querySelectorAll('#modal-tree .mrow').forEach(r => r.classList.remove('selected-incl','selected-excl'));
   applyModalSelection();
 }
 
@@ -1005,7 +1319,9 @@ document.getElementById('tree-modal').addEventListener('click', e => {
   if (e.target === document.getElementById('tree-modal')) closeTreeModal();
 });
 
-// ---- TAGS ----
+// ============================================================================
+// TAGS
+// ============================================================================
 let editTagIds = [];
 let allTagsCache = [];
 
@@ -1090,52 +1406,6 @@ toggleEdit = async function(id) {
   await populateTagSelect(a.tags);
 };
 
-// ---- TAGS RAPIDES DEPUIS LA FICHE ----
-async function initDrawerTagSelect(activiteId, activiteTags) {
-  const sel = document.getElementById('drawer-tag-select');
-  if (!sel) return;
-  const tags = await loadAllTags();
-  const assignedIds = new Set((activiteTags||[]).map(t => t.id));
-  sel.innerHTML = '<option value="">+ Ajouter un tag…</option>';
-  tags.filter(t => !assignedIds.has(t.id)).forEach(t => {
-    const o = document.createElement('option');
-    o.value = t.id; o.textContent = t.nom;
-    sel.appendChild(o);
-  });
-  sel.onchange = async () => {
-    const tagId = parseInt(sel.value);
-    if (!tagId) return;
-    await ajouterTagActivite(activiteId, tagId);
-  };
-}
-
-async function ajouterTagActivite(activiteId, tagId) {
-  // Récupérer les tags actuels
-  const a = await api(`/api/activites/${activiteId}`);
-  const tagIds = [...(a.tags||[]).map(t => t.id), tagId];
-  await fetch(`/api/activites/${activiteId}`, {
-    method: 'PUT',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({tag_ids: tagIds})
-  });
-  // Rafraîchir la fiche
-  openDrawer(activiteId);
-  search();
-}
-
-async function retirerTagActivite(activiteId, tagId, btn) {
-  const a = await api(`/api/activites/${activiteId}`);
-  const tagIds = (a.tags||[]).map(t => t.id).filter(id => id !== tagId);
-  await fetch(`/api/activites/${activiteId}`, {
-    method: 'PUT',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({tag_ids: tagIds})
-  });
-  openDrawer(activiteId);
-  search();
-}
-
-// ---- TAGS RAPIDES DEPUIS LA FICHE ----
 async function initDrawerTagSelect(activiteId, activiteTags) {
   const sel = document.getElementById('drawer-tag-select');
   if (!sel) return;
@@ -1160,18 +1430,6 @@ async function initDrawerTagSelect(activiteId, activiteTags) {
     openDrawer(activiteId);
     search();
   };
-}
-
-async function retirerTagActivite(activiteId, tagId) {
-  const a = await api(`/api/activites/${activiteId}`);
-  const tagIds = (a.tags||[]).map(t => t.id).filter(id => id !== tagId);
-  await fetch(`/api/activites/${activiteId}`, {
-    method: 'PUT',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({tag_ids: tagIds})
-  });
-  openDrawer(activiteId);
-  search();
 }
 
 init();

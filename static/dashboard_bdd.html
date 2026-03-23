@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BDD Activités — Tableau de bord</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0F1117;
+  --surface: #1A1D27;
+  --surface2: #22263A;
+  --border: #2E3250;
+  --text: #E8EAF6;
+  --muted: #7B82A8;
+  --accent: #5C6BC0;
+  --accent2: #26C6DA;
+  --green: #66BB6A;
+  --amber: #FFA726;
+  --red: #EF5350;
+  --purple: #AB47BC;
+  --mono: 'IBM Plex Mono', monospace;
+  --sans: 'IBM Plex Sans', sans-serif;
+}
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+header {
+  padding: 20px 32px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 16px;
+}
+.logo { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; }
+header h1 { font-family: var(--mono); font-size: 15px; font-weight: 600; color: var(--text); }
+.stat-pills { display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+.pill {
+  font-family: var(--mono); font-size: 11px;
+  background: var(--surface2); border: 1px solid var(--border);
+  padding: 4px 10px; border-radius: 20px; color: var(--muted);
+}
+.pill span { color: var(--text); font-weight: 600; }
+
+nav {
+  display: flex; gap: 2px; padding: 12px 32px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.nav-btn {
+  font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
+  padding: 7px 14px; border-radius: 4px; border: 1px solid transparent;
+  background: none; color: var(--muted); cursor: pointer; transition: all .15s;
+}
+.nav-btn:hover { color: var(--text); background: var(--surface2); }
+.nav-btn.active { color: var(--accent2); border-color: var(--accent2); background: rgba(38,198,218,.08); }
+
+.page { display: none; padding: 28px 32px; }
+.page.active { display: block; }
+
+/* ---- KPI row ---- */
+.kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 28px; }
+.kpi {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  padding: 16px; display: flex; flex-direction: column; gap: 4px;
+}
+.kpi-val { font-family: var(--mono); font-size: 28px; font-weight: 600; }
+.kpi-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; }
+.kpi.green .kpi-val { color: var(--green); }
+.kpi.amber .kpi-val { color: var(--amber); }
+.kpi.blue .kpi-val { color: var(--accent2); }
+.kpi.red .kpi-val { color: var(--red); }
+.kpi.purple .kpi-val { color: var(--purple); }
+
+/* ---- Section layout ---- */
+.section-grid { display: grid; gap: 20px; }
+.grid-2 { grid-template-columns: 1fr 1fr; }
+.grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+.grid-60-40 { grid-template-columns: 3fr 2fr; }
+.grid-40-60 { grid-template-columns: 2fr 3fr; }
+
+.panel {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  overflow: hidden;
+}
+.panel-header {
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px; justify-content: space-between;
+}
+.panel-title { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+.panel-body { padding: 16px; }
+
+/* ---- Bar charts ---- */
+.bar-list { display: flex; flex-direction: column; gap: 7px; max-height: 400px; overflow-y: auto; }
+.bar-item { display: grid; grid-template-columns: 1fr 40px; gap: 6px; align-items: center; }
+.bar-label-wrap { display: flex; flex-direction: column; gap: 2px; }
+.bar-name { font-size: 11px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar-track { height: 5px; background: var(--surface2); border-radius: 3px; position: relative; margin-top: 2px; }
+.bar-fill { height: 100%; border-radius: 3px; transition: width .5s ease; }
+.bar-val { font-family: var(--mono); font-size: 11px; color: var(--muted); text-align: right; }
+.bar-item.zero .bar-name { color: var(--red); }
+.bar-item.zero .bar-val { color: var(--red); }
+
+/* ---- Tags per type ---- */
+.type-badge {
+  font-family: var(--mono); font-size: 9px; text-transform: uppercase;
+  padding: 1px 5px; border-radius: 3px; flex-shrink: 0;
+}
+.type-badge.edd { background: rgba(102,187,106,.15); color: var(--green); border: 1px solid rgba(102,187,106,.3); }
+.type-badge.disc { background: rgba(92,107,192,.15); color: #9FA8DA; border: 1px solid rgba(92,107,192,.3); }
+
+/* ---- Table ---- */
+.data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.data-table th {
+  font-family: var(--mono); font-size: 9px; text-transform: uppercase; letter-spacing: .1em;
+  color: var(--muted); padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; background: var(--surface);
+}
+.data-table td {
+  padding: 7px 10px; border-bottom: 1px solid rgba(46,50,80,.5);
+  vertical-align: top; line-height: 1.4;
+}
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: var(--surface2); }
+.table-wrap { max-height: 460px; overflow-y: auto; }
+
+/* ---- Heatmap ---- */
+.heatmap-grid { display: grid; gap: 2px; }
+.hm-cell {
+  border-radius: 2px; transition: opacity .2s;
+  cursor: default; position: relative;
+}
+.hm-cell:hover::after {
+  content: attr(data-tip);
+  position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+  background: #000; color: #fff; font-size: 10px; padding: 3px 7px; border-radius: 4px;
+  white-space: nowrap; z-index: 100; pointer-events: none;
+}
+
+/* ---- Distribution chart ---- */
+.distrib-chart { position: relative; height: 140px; }
+.distrib-svg { width: 100%; height: 100%; }
+
+/* ---- Pairs ---- */
+.pair-row {
+  display: flex; gap: 8px; align-items: flex-start;
+  padding: 8px 0; border-bottom: 1px solid rgba(46,50,80,.4);
+}
+.pair-row:last-child { border-bottom: none; }
+.pair-n {
+  font-family: var(--mono); font-size: 12px; color: var(--accent2);
+  min-width: 36px; text-align: right; font-weight: 600; padding-top: 1px;
+}
+.pair-badges { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.pair-badge {
+  font-size: 11px; line-height: 1.35;
+  padding: 3px 7px; border-radius: 4px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pair-badge.c1 { background: rgba(171,71,188,.12); color: #CE93D8; }
+.pair-badge.c2 { background: rgba(38,198,218,.10); color: var(--accent2); }
+.pair-badge.c3 { background: rgba(255,167,38,.10); color: var(--amber); }
+.pair-badge.edd { border-left: 2px solid var(--green); }
+.pair-badge.disc { border-left: 2px solid var(--accent); }
+.pairs-list { max-height: 500px; overflow-y: auto; }
+
+/* ---- Filters ---- */
+.filter-row { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.filter-btn {
+  font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .07em;
+  padding: 5px 10px; border-radius: 4px; border: 1px solid var(--border);
+  background: none; color: var(--muted); cursor: pointer; transition: all .12s;
+}
+.filter-btn:hover { color: var(--text); }
+.filter-btn.active.c1 { border-color: #CE93D8; color: #CE93D8; background: rgba(171,71,188,.1); }
+.filter-btn.active.c2 { border-color: var(--accent2); color: var(--accent2); background: rgba(38,198,218,.08); }
+.filter-btn.active.c3 { border-color: var(--amber); color: var(--amber); background: rgba(255,167,38,.08); }
+.filter-btn.active.edd { border-color: var(--green); color: var(--green); background: rgba(102,187,106,.08); }
+.filter-btn.active.disc { border-color: #9FA8DA; color: #9FA8DA; background: rgba(92,107,192,.08); }
+.filter-btn.active.all { border-color: var(--text); color: var(--text); background: rgba(232,234,246,.06); }
+
+/* ---- Search ---- */
+.search-input {
+  background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+  font-family: var(--sans); font-size: 12px;
+  padding: 7px 12px; border-radius: 6px; width: 100%; margin-bottom: 12px;
+}
+.search-input:focus { outline: none; border-color: var(--accent); }
+.search-input::placeholder { color: var(--muted); }
+
+/* ---- Zero badge ---- */
+.zero-pill { font-family: var(--mono); font-size: 10px; background: rgba(239,83,80,.15); color: var(--red); border: 1px solid rgba(239,83,80,.3); padding: 1px 6px; border-radius: 3px; }
+
+/* ---- Scrollbars ---- */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ---- Responsive ---- */
+@media (max-width: 900px) {
+  .grid-2, .grid-3, .grid-60-40, .grid-40-60 { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">BDD Activités Nature</div>
+    <h1>Tableau de bord analytique</h1>
+  </div>
+  <div class="stat-pills">
+    <div class="pill"><span>1 426</span> activités</div>
+    <div class="pill"><span>348</span> attendus</div>
+    <div class="pill"><span>17 867</span> associations</div>
+    <div class="pill"><span>298</span> thématiques</div>
+  </div>
+</header>
+
+<nav>
+  <button class="nav-btn active" onclick="goPage('overview')">Vue d'ensemble</button>
+  <button class="nav-btn" onclick="goPage('attendus')">Attendus scolaires</button>
+  <button class="nav-btn" onclick="goPage('pairs')">Co-occurrences</button>
+  <button class="nav-btn" onclick="goPage('thematiques')">Thématiques</button>
+  <button class="nav-btn" onclick="goPage('zeros')">Attendus jamais utilisés</button>
+</nav>
+
+<!-- ======================== PAGE 1 : OVERVIEW ======================== -->
+<div id="page-overview" class="page active">
+
+  <div class="kpi-row">
+    <div class="kpi blue"><div class="kpi-val">1 287</div><div class="kpi-label">Activités avec attendus</div></div>
+    <div class="kpi red"><div class="kpi-val">139</div><div class="kpi-label">Sans aucun attendu</div></div>
+    <div class="kpi amber"><div class="kpi-val">23</div><div class="kpi-label">Attendus jamais utilisés</div></div>
+    <div class="kpi green"><div class="kpi-val">17 867</div><div class="kpi-label">Liens activité→attendu</div></div>
+    <div class="kpi purple"><div class="kpi-val">13,9</div><div class="kpi-label">Moy. attendus / activité</div></div>
+  </div>
+
+  <div class="section-grid grid-60-40" style="margin-bottom:20px">
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">Distribution — nb d'attendus par activité</span></div>
+      <div class="panel-body">
+        <svg id="svg-distrib" width="100%" height="160" viewBox="0 0 700 160" preserveAspectRatio="none"></svg>
+        <div id="distrib-labels" style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;padding:0 2px"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">Attendus par cycle et type</span></div>
+      <div class="panel-body" id="cycle-breakdown"></div>
+    </div>
+  </div>
+
+  <div class="section-grid grid-2">
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">Top 15 attendus — nb d'activités couvertes</span></div>
+      <div class="panel-body"><div class="bar-list" id="top-attendus-list"></div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">Top 12 thématiques</span></div>
+      <div class="panel-body"><div class="bar-list" id="top-them-list"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================== PAGE 2 : ATTENDUS ======================== -->
+<div id="page-attendus" class="page">
+  <div class="filter-row">
+    <button class="filter-btn active all" onclick="filterAttendus('all',this)">Tous</button>
+    <button class="filter-btn c1" onclick="filterAttendus('C1',this)">C1</button>
+    <button class="filter-btn c2" onclick="filterAttendus('C2',this)">C2</button>
+    <button class="filter-btn c3" onclick="filterAttendus('C3',this)">C3</button>
+    <button class="filter-btn edd" onclick="filterAttendus('EDD',this)">EDD</button>
+    <button class="filter-btn disc" onclick="filterAttendus('disciplinaire',this)">Disciplinaire</button>
+  </div>
+  <input type="text" class="search-input" placeholder="Rechercher dans les attendus..." id="search-attendus" oninput="filterAttendus(null,null)">
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title" id="attendus-count">348 attendus</span>
+      <span style="font-size:11px;color:var(--muted)">classés par nb d'activités couvertes ↓</span>
+    </div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr>
+          <th>Cycle</th><th>Type</th><th>Domaine</th><th>Attendu</th>
+          <th>Activités</th><th>Couverture</th>
+        </tr></thead>
+        <tbody id="attendus-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ======================== PAGE 3 : CO-OCCURRENCES ======================== -->
+<div id="page-pairs" class="page">
+  <div class="filter-row">
+    <button class="filter-btn active all" onclick="filterPairs('all',this)">Toutes</button>
+    <button class="filter-btn c1" onclick="filterPairs('C1',this)">C1</button>
+    <button class="filter-btn c2" onclick="filterPairs('C2',this)">C2</button>
+    <button class="filter-btn c3" onclick="filterPairs('C3',this)">C3</button>
+    <button class="filter-btn edd" onclick="filterPairs('EDD',this)">EDD × Disc</button>
+  </div>
+  <div class="section-grid grid-2">
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">Top 40 paires d'attendus co-occurrents</span></div>
+      <div class="panel-body">
+        <div class="pairs-list" id="pairs-list"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">Analyse des patterns</span></div>
+      <div class="panel-body">
+        <div id="pairs-analysis" style="display:flex;flex-direction:column;gap:14px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================== PAGE 4 : THÉMATIQUES ======================== -->
+<div id="page-thematiques" class="page">
+  <input type="text" class="search-input" placeholder="Rechercher une thématique..." id="search-them" oninput="renderThemList()">
+  <div class="section-grid grid-2">
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title" id="them-count">Top thématiques</span></div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Thématique</th><th>Niveau</th><th>Activités</th><th>Barre</th></tr></thead>
+          <tbody id="them-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">Tags attribués</span></div>
+      <div class="panel-body"><div class="bar-list" id="tags-list"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================== PAGE 5 : ZEROS ======================== -->
+<div id="page-zeros" class="page">
+  <div class="kpi-row">
+    <div class="kpi red"><div class="kpi-val">23</div><div class="kpi-label">Attendus jamais associés</div></div>
+    <div class="kpi amber"><div class="kpi-val">139</div><div class="kpi-label">Activités sans attendu</div></div>
+    <div class="kpi blue"><div class="kpi-val">325</div><div class="kpi-label">Attendus utilisés au moins 1 fois</div></div>
+  </div>
+  <div class="section-grid grid-2">
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">Attendus jamais associés à une activité</span></div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Cycle</th><th>Type</th><th>Domaine</th><th>Attendu</th></tr></thead>
+          <tbody id="zeros-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">Attendus peu couverts (1–5 activités)</span></div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Cycle</th><th>Type</th><th>Domaine</th><th>Attendu</th><th>#</th></tr></thead>
+          <tbody id="low-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DATA
+// ============================================================
+const DATA = {"attendus":[{"id":475,"cycle":"C1","type":"EDD","domaine":"Alimentation","sous_domaine":null,"libelle":"Formuler des questions sur les besoins d'une plante.","nb":11},{"id":477,"cycle":"C1","type":"EDD","domaine":"Alimentation","sous_domaine":null,"libelle":"S'interroger sur le gout d'un aliment.","nb":8},{"id":478,"cycle":"C1","type":"EDD","domaine":"Alimentation","sous_domaine":null,"libelle":"Prendre conscience que son alimentation a une influence sur sa sante.","nb":4},{"id":476,"cycle":"C1","type":"EDD","domaine":"Alimentation","sous_domaine":null,"libelle":"Decrire et nommer les differentes saveurs primaires.","nb":3},{"id":479,"cycle":"C1","type":"EDD","domaine":"Alimentation","sous_domaine":null,"libelle":"Prendre conscience de l'impact des emballages alimentaires sur la production de dechets.","nb":3},{"id":481,"cycle":"C1","type":"EDD","domaine":"Alimentation","sous_domaine":null,"libelle":"Nommer les principaux criteres de tri des emballages alimentaires.","nb":1},{"id":480,"cycle":"C1","type":"EDD","domaine":"Alimentation","sous_domaine":null,"libelle":"Adapter son choix d'aliment en fonction de l'emballage.","nb":0},{"id":490,"cycle":"C1","type":"EDD","domaine":"Amenagement durable des territoires","sous_domaine":null,"libelle":"Comparer les caracteristiques de son environnement a travers les saisons.","nb":38},{"id":493,"cycle":"C1","type":"EDD","domaine":"Amenagement durable des territoires","sous_domaine":null,"libelle":"Prendre conscience des risques qui concernent son environnement (risques naturels, risques technologiques, etc.).","nb":11},{"id":492,"cycle":"C1","type":"EDD","domaine":"Amenagement durable des territoires","sous_domaine":null,"libelle":"Prendre conscience de la diversite des constructions dans son environnement.","nb":2},{"id":491,"cycle":"C1","type":"EDD","domaine":"Amenagement durable des territoires","sous_domaine":null,"libelle":"Identifier differentes constructions humaines et quelques materiaux utilises.","nb":1},{"id":470,"cycle":"C1","type":"EDD","domaine":"Biodiversite et ecosystemes","sous_domaine":"1.1 - Le tissu vivant de la planete","libelle":"Formuler des interrogations, a partir de l'observation, pour identifier quelques caracteristiques des etres vivants et prendre conscience de leur diversite et de quelques-unes de leurs interactions.","nb":265},{"id":472,"cycle":"C1","type":"EDD","domaine":"Biodiversite et ecosystemes","sous_domaine":"1.2 - Erosion, gestion et preservation","libelle":"Prendre conscience de la richesse de la biodiversite dans son environnement proche.","nb":199},{"id":474,"cycle":"C1","type":"EDD","domaine":"Biodiversite et ecosystemes","sous_domaine":"1.3 - Biodiversite et sante","libelle":"Prendre conscience d'emotions ressenties au contact de la biodiversite et de leurs bienfaits pour la sante, en particulier en termes de bien-etre.","nb":57},{"id":471,"cycle":"C1","type":"EDD","domaine":"Biodiversite et ecosystemes","sous_domaine":"1.2 - Erosion, gestion et preservation","libelle":"Identifier quelques interactions entre l'etre humain et les autres etres vivants.","nb":56},{"id":473,"cycle":"C1","type":"EDD","domaine":"Biodiversite et ecosystemes","sous_domaine":"1.3 - Biodiversite et sante","libelle":"Formuler des interrogations sur les liens entre le vivant et la sante humaine.","nb":1},{"id":482,"cycle":"C1","type":"EDD","domaine":"Eau et changement climatique","sous_domaine":null,"libelle":"Prendre conscience de la presence de l'eau dans son environnement.","nb":22},{"id":483,"cycle":"C1","type":"EDD","domaine":"Eau et changement climatique","sous_domaine":null,"libelle":"Observer et decrire les differents usages de l'eau a l'ecole et a la maison.","nb":3},{"id":484,"cycle":"C1","type":"EDD","domaine":"Eau et changement climatique","sous_domaine":null,"libelle":"Formuler des interrogations sur les differents usages quotidiens de l'eau.","nb":3},{"id":485,"cycle":"C1","type":"EDD","domaine":"Eau et changement climatique","sous_domaine":null,"libelle":"Adopter quelques ecogestes pour limiter la consommation d'eau a l'ecole.","nb":1},{"id":486,"cycle":"C1","type":"EDD","domaine":"Gestion durable des ressources naturelles","sous_domaine":null,"libelle":"Observer et decrire les constructions humaines a l'ecole et dans ses abords, puis nommer et identifier des matieres et des materiaux naturels utilises.","nb":17},{"id":488,"cycle":"C1","type":"EDD","domaine":"Gestion durable des ressources naturelles","sous_domaine":null,"libelle":"Progresser dans la formulation d'interrogations concernant les gestes du quotidien (consommation d'eau et d'energie notamment) pour initier une attitude responsable.","nb":11},{"id":489,"cycle":"C1","type":"EDD","domaine":"Gestion durable des ressources naturelles","sous_domaine":null,"libelle":"Adopter quelques ecogestes (extinction des lumieres, utilisation de gourdes, tri des dechets, etc.).","nb":8},{"id":487,"cycle":"C1","type":"EDD","domaine":"Gestion durable des ressources naturelles","sous_domaine":null,"libelle":"Prendre conscience des risques lies a l'usage de ressources dans son quotidien.","nb":2},{"id":494,"cycle":"C1","type":"EDD","domaine":"Numerique","sous_domaine":null,"libelle":"Prendre conscience des usages multiples des ecrans et des risques associes pour identifier des gestes favorables a sa sante.","nb":0},{"id":495,"cycle":"C1","type":"EDD","domaine":"Numerique","sous_domaine":null,"libelle":"Prendre conscience que le numerique repose sur des objets qui ont une duree de vie limitee et peuvent donc etre repares, tries, recycles, avant d'etre remplaces.","nb":0},{"id":522,"cycle":"C1","type":"disciplinaire","domaine":"Activite physique","sous_domaine":null,"libelle":"Cooperer, exercer des roles differents complementaires, s'opposer, elaborer des strategies pour viser un but ou un effet commun.","nb":108},{"id":519,"cycle":"C1","type":"disciplinaire","domaine":"Activite physique","sous_domaine":null,"libelle":"Se deplacer avec aisance et en securite dans des environnements varies, naturels ou amenages.","nb":82},{"id":517,"cycle":"C1","type":"disciplinaire","domaine":"Activite physique","sous_domaine":null,"libelle":"Courir, sauter, lancer de differentes facons, dans des espaces et avec des materiels varies, dans un but precis.","nb":48},{"id":518,"cycle":"C1","type":"disciplinaire","domaine":"Activite physique","sous_domaine":null,"libelle":"Ajuster et enchainer ses actions et ses deplacements en fonction d'obstacles a franchir ou de la trajectoire d'objets sur lesquels agir.","nb":45},{"id":520,"cycle":"C1","type":"disciplinaire","domaine":"Activite physique","sous_domaine":null,"libelle":"Construire et conserver une sequence d'actions et de deplacements, en relation avec d'autres partenaires, avec ou sans support musical.","nb":25},{"id":521,"cycle":"C1","type":"disciplinaire","domaine":"Activite physique","sous_domaine":null,"libelle":"Coordonner ses gestes et ses deplacements avec ceux des autres, lors de rondes et jeux chantes.","nb":14},{"id":526,"cycle":"C1","type":"disciplinaire","domaine":"Activites artistiques","sous_domaine":"Arts plastiques","libelle":"Realiser des compositions plastiques, seul ou en petit groupe, en choisissant et combinant des materiaux, en reinvestissant des techniques et des procedes.","nb":67},{"id":523,"cycle":"C1","type":"disciplinaire","domaine":"Activites artistiques","sous_domaine":"Arts plastiques","libelle":"Choisir differents outils, mediums, supports en fonction d'un projet ou d'une consigne et les utiliser en adaptant son geste.","nb":60},{"id":524,"cycle":"C1","type":"disciplinaire","domaine":"Activites artistiques","sous_domaine":"Arts plastiques","libelle":"Pratiquer le dessin pour representer ou illustrer, en etant fidele au reel ou a un modele, ou en inventant.","nb":51},{"id":530,"cycle":"C1","type":"disciplinaire","domaine":"Activites artistiques","sous_domaine":"Expression","libelle":"Decrire une image, parler d'un extrait musical et exprimer son ressenti ou sa comprehension en utilisant un vocabulaire adapte.","nb":32},{"id":531,"cycle":"C1","type":"disciplinaire","domaine":"Activites artistiques","sous_domaine":"Expression","libelle":"Proposer des solutions dans des situations de projet, de creation, de resolution de problemes, avec son corps, sa voix ou des objets sonores.","nb":32},{"id":528,"cycle":"C1","type":"disciplinaire","domaine":"Activites artistiques","sous_domaine":"Musique","libelle":"Jouer avec sa voix pour explorer des variantes de timbre, d'intensite, de hauteur, de nuance.","nb":13},{"id":529,"cycle":"C1","type":"disciplinaire","domaine":"Activites artistiques","sous_domaine":"Musique","libelle":"Reperer et reproduire, corporellement ou avec des instruments, des formules rythmiques simples.","nb":9},{"id":525,"cycle":"C1","type":"disciplinaire","domaine":"Activites artistiques","sous_domaine":"Arts plastiques","libelle":"Realiser une composition personnelle en reproduisant des graphismes. Creer des graphismes nouveaux.","nb":4},{"id":527,"cycle":"C1","type":"disciplinaire","domaine":"Activites artistiques","sous_domaine":"Musique","libelle":"Avoir memorise un repertoire varie de comptines et de chansons et les interpreter de maniere expressive.","nb":3},{"id":568,"cycle":"C1","type":"disciplinaire","domaine":"Explorer le monde","sous_domaine":"Objets et materiaux","libelle":"Choisir, utiliser et savoir designer des outils et des materiaux adaptes a une situation, a des actions techniques specifiques (plier, couper, coller, assembler, actionner...).","nb":112},{"id":565,"cycle":"C1","type":"disciplinaire","domaine":"Explorer le monde","sous_domaine":"Vivant","libelle":"Connaitre les besoins essentiels de quelques animaux et vegetaux.","nb":104},{"id":564,"cycle":"C1","type":"disciplinaire","domaine":"Explorer le monde","sous_domaine":"Vivant","libelle":"Reconnaitre et decrire les principales etapes du developpement d'un animal ou d'un vegetal, dans une situation d'observation du reel ou sur des images fixes ou animees.","nb":86},{"id":572,"cycle":"C1","type":"disciplinaire","domaine":"Explorer le monde","sous_domaine":"Securite","libelle":"Commencer a adopter une attitude responsable en matiere de respect des lieux et de protection du vivant.","nb":79},{"id":558,"cycle":"C1","type":"disciplinaire","domaine":"Explorer le monde","sous_domaine":"Espace","libelle":"Situer des objets par rapport a soi, entre eux, par rapport a des objets reperes.","nb":53},{"id":559,"cycle":"C1","type":"disciplinaire","domaine":"Explorer le monde","sous_domaine":"Espace","libelle":"Se situer par rapport a d'autres, par rapport a des objets reperes.","nb":53},{"id":555,"cycle":"C1","type":"disciplinaire","domaine":"Explorer le monde","sous_domaine":"Temps","libelle":"Situer des evenements vecus les uns par rapport aux autres et en les reperant dans la journee, la semaine, le mois ou une saison.","nb":34},{"id":569,"cycle":"C1","type":"disciplinaire","domaine":"Explorer le monde","sous_domaine":"Objets et materiaux","libelle":"Realiser des constructions ; construire des maquettes simples en fonction de plans ou d'instructions de montage.","nb":22},{"id":556,"cycle":"C1","type":"disciplinaire","domaine":"Explorer le monde","sous_domaine":"Temps","libelle":"Ordonner une suite de photographies ou d'images, pour rendre compte d'une situation vecue ou d'un recit fictif entendu, en marquant de maniere exacte succession et simultaneite.","nb":20},{"id":563,"cycle":"C1","type":"disciplinaire","domaine":"Explorer le monde","sous_domaine":"Espace","libelle":"Utiliser des marqueurs spatiaux adaptes (devant, derriere, droite, gauche, dessus, dessous, etc.) dans des recits, descriptions ou explications.","nb":15},{"id":571,"cycle":"C1","type":"disciplinaire","domaine":"Explorer le monde","sous_domaine":"Securite","libelle":"Prendre en compte les risques de l'environnement familier proche (objets et comportements dangereux, produits toxiques).","nb":13},{"id":566,"cycle":"C1","type":"disciplinaire","domaine":"Explorer le monde","sous_domaine":"Corps et sante","libelle":"Situer et nommer les differentes parties du corps humain, sur soi ou sur une representation.","nb":11},{"id":561,"cycle":"C1","type":"disciplinaire","domaine":"Explorer le monde","sous_domaine":"Espace","libelle":"Elaborer des premiers essais de representation plane, communicables (construction d'un code commun).","nb":8},{"id":557,"cycle":"C1","type":"disciplinaire","domaine":"Explorer le monde","sous_domaine":"Temps","libelle":"Utiliser des marqueurs temporels adaptes (puis, pendant, avant, apres...) dans des recits, descriptions ou explications.","nb":6},{"id":560,"cycle":"C1","type":"disciplinaire","domaine":"Explorer le monde","sous_domaine":"Espace","libelle":"Dans un environnement bien connu, realiser un trajet, un parcours a partir de sa representation (dessin ou codage).","nb":6},{"id":570,"cycle":"C1","type":"disciplinaire","domaine":"Explorer le monde","sous_domaine":"Numerique","libelle":"Utiliser des objets numeriques : appareil photo, tablette, ordinateur.","nb":6},{"id":567,"cycle":"C1","type":"disciplinaire","domaine":"Explorer le monde","sous_domaine":"Corps et sante","libelle":"Connaitre et mettre en oeuvre quelques regles d'hygiene corporelle et d'une vie saine.","nb":4},{"id":562,"cycle":"C1","type":"disciplinaire","domaine":"Explorer le monde","sous_domaine":"Espace","libelle":"Orienter et utiliser correctement une feuille de papier, un livre ou un autre support d'ecrit, en fonction de consignes, d'un but ou d'un projet precis.","nb":1},{"id":548,"cycle":"C1","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Geometrie","libelle":"Classer des objets en fonction de caracteristiques liees a leur forme.","nb":19},{"id":539,"cycle":"C1","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Nombres","libelle":"Quantifier des collections jusqu'a dix au moins ; les composer et les decomposer par manipulations effectives puis mentales.","nb":16},{"id":534,"cycle":"C1","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Nombres","libelle":"Utiliser le denombrement pour comparer deux quantites ou pour realiser une collection de quantite egale a la collection proposee (quantites inferieures ou egales a 10).","nb":15},{"id":532,"cycle":"C1","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Nombres","libelle":"Comparer deux collections d'objets pour savoir laquelle en contient le plus, en utilisant differentes methodes : le coup d'oeil, la mise en correspondance un a un, ou le comptage.","nb":14},{"id":536,"cycle":"C1","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Nombres","libelle":"Mobiliser des symboles analogiques (constellations, doigts), verbaux (mots-nombres) ou ecrits (en chiffres), pour communiquer des informations sur une quantite, jusqu'a 10 au moins.","nb":11},{"id":551,"cycle":"C1","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Geometrie","libelle":"Classer ou ranger des objets selon un critere de longueur ou de masse ou de contenance.","nb":11},{"id":550,"cycle":"C1","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Geometrie","libelle":"Savoir nommer quelques formes planes (carre, triangle, cercle ou disque, rectangle) et ce dans toutes leurs orientations et configurations.","nb":7},{"id":554,"cycle":"C1","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Geometrie","libelle":"Identifier une organisation reguliere (repetition) et poursuivre son application.","nb":7},{"id":543,"cycle":"C1","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Nombres","libelle":"Lire les nombres ecrits en chiffres jusqu'a 10.","nb":5},{"id":552,"cycle":"C1","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Geometrie","libelle":"Reproduire un assemblage a partir d'un modele (puzzle, pavage, assemblage de solides).","nb":5},{"id":533,"cycle":"C1","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Nombres","libelle":"Realiser une collection dont le cardinal (nombre) est compris entre 1 et 10.","nb":4},{"id":535,"cycle":"C1","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Nombres","libelle":"Utiliser le nombre pour exprimer la position d'un objet ou d'une personne dans un jeu, dans une situation organisee, sur un rang ou pour comparer des positions.","nb":3},{"id":542,"cycle":"C1","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Nombres","libelle":"Dire la suite des nombres jusqu'a trente. Dire la suite des nombres a partir d'un nombre donne (entre 1 et 30).","nb":3},{"id":547,"cycle":"C1","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Nombres","libelle":"Commencer a resoudre des problemes de composition de deux collections, d'ajout ou de retrait, de produit ou de partage (les nombres en jeu sont tous inferieurs ou egaux a 10).","nb":2},{"id":540,"cycle":"C1","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Nombres","libelle":"Dire combien il faut ajouter ou enlever pour obtenir des quantites ne depassant pas dix.","nb":1},{"id":544,"cycle":"C1","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Nombres","libelle":"Commencer a ecrire les nombres en chiffres jusqu'a 10.","nb":1},{"id":545,"cycle":"C1","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Nombres","libelle":"Commencer a comparer deux nombres inferieurs ou egaux a 10 ecrits en chiffres.","nb":1},{"id":549,"cycle":"C1","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Geometrie","libelle":"Reconnaitre quelques solides (cube, pyramide, boule, cylindre).","nb":1},{"id":553,"cycle":"C1","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Geometrie","libelle":"Reproduire, dessiner des formes planes.","nb":1},{"id":537,"cycle":"C1","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Nombres","libelle":"Avoir compris que le cardinal ne change pas si on modifie la disposition spatiale ou la nature des elements.","nb":0},{"id":538,"cycle":"C1","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Nombres","libelle":"Avoir compris que tout nombre s'obtient en ajoutant un au nombre precedent et que cela correspond a l'ajout d'une unite a la quantite precedente.","nb":0},{"id":541,"cycle":"C1","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Nombres","libelle":"Parler des nombres a l'aide de leur decomposition.","nb":0},{"id":546,"cycle":"C1","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Nombres","libelle":"Commencer a positionner des nombres les uns par rapport aux autres et a completer une bande numerique lacunaire (les nombres en jeu sont inferieurs ou egaux a 10).","nb":0},{"id":501,"cycle":"C1","type":"disciplinaire","domaine":"Mobiliser le langage","sous_domaine":"Oral","libelle":"Pratiquer divers usages de la langue orale : raconter, decrire, evoquer, expliquer, questionner, proposer des solutions, discuter un point de vue.","nb":329},{"id":498,"cycle":"C1","type":"disciplinaire","domaine":"Mobiliser le langage","sous_domaine":"Oral","libelle":"Utiliser le lexique appris en classe de facon appropriee.","nb":281},{"id":496,"cycle":"C1","type":"disciplinaire","domaine":"Mobiliser le langage","sous_domaine":"Oral","libelle":"Communiquer avec les adultes et avec les autres enfants par le langage, en se faisant comprendre.","nb":219},{"id":497,"cycle":"C1","type":"disciplinaire","domaine":"Mobiliser le langage","sous_domaine":"Oral","libelle":"S'exprimer dans un langage oral syntaxiquement correct et precis.","nb":70},{"id":503,"cycle":"C1","type":"disciplinaire","domaine":"Mobiliser le langage","sous_domaine":"Decouverte de l'ecrit","libelle":"Comprendre des textes ecrits sans autre aide que le langage entendu.","nb":40},{"id":499,"cycle":"C1","type":"disciplinaire","domaine":"Mobiliser le langage","sous_domaine":"Oral","libelle":"Reformuler son propos pour se faire mieux comprendre.","nb":8},{"id":504,"cycle":"C1","type":"disciplinaire","domaine":"Mobiliser le langage","sous_domaine":"Decouverte de l'ecrit","libelle":"Manifester de la curiosite par rapport a la comprehension et a la production de l'ecrit.","nb":6},{"id":511,"cycle":"C1","type":"disciplinaire","domaine":"Mobiliser le langage","sous_domaine":"Alphabet et ecriture","libelle":"Reconnaitre les lettres de l'alphabet, connaitre leur nom, savoir que le nom d'une lettre peut etre different du son qu'elle transcrit.","nb":6},{"id":500,"cycle":"C1","type":"disciplinaire","domaine":"Mobiliser le langage","sous_domaine":"Oral","libelle":"Reformuler le propos d'autrui.","nb":3},{"id":502,"cycle":"C1","type":"disciplinaire","domaine":"Mobiliser le langage","sous_domaine":"Oral","libelle":"Dire de memoire et de maniere expressive plusieurs comptines et poesies.","nb":3},{"id":506,"cycle":"C1","type":"disciplinaire","domaine":"Mobiliser le langage","sous_domaine":"Decouverte de l'ecrit","libelle":"Participer verbalement a la production d'un ecrit. Savoir qu'on n'ecrit pas comme on parle.","nb":3},{"id":510,"cycle":"C1","type":"disciplinaire","domaine":"Mobiliser le langage","sous_domaine":"Phonologie","libelle":"Identifier et distinguer a l'oreille des sons dans des mots ou des syllabes : les sons-voyelles (a, i, o, u...) et quelques sons-consonnes parmi les plus faciles a percevoir (f, s, l, r, m, n...).","nb":3},{"id":516,"cycle":"C1","type":"disciplinaire","domaine":"Mobiliser le langage","sous_domaine":"Alphabet et ecriture","libelle":"Ecrire seul un mot en utilisant des lettres ou groupes de lettres empruntes aux mots connus.","nb":3},{"id":512,"cycle":"C1","type":"disciplinaire","domaine":"Mobiliser le langage","sous_domaine":"Alphabet et ecriture","libelle":"Connaitre les correspondances entre les trois manieres d'ecrire les lettres.","nb":2},{"id":513,"cycle":"C1","type":"disciplinaire","domaine":"Mobiliser le langage","sous_domaine":"Alphabet et ecriture","libelle":"Reconnaitre son prenom ecrit en lettres capitales, en script ou en cursive.","nb":2},{"id":514,"cycle":"C1","type":"disciplinaire","domaine":"Mobiliser le langage","sous_domaine":"Alphabet et ecriture","libelle":"Copier en cursive un mot ou une tres courte phrase dont le sens est connu.","nb":2},{"id":505,"cycle":"C1","type":"disciplinaire","domaine":"Mobiliser le langage","sous_domaine":"Decouverte de l'ecrit","libelle":"Pouvoir redire les mots d'une phrase ecrite apres sa lecture par l'adulte.","nb":1},{"id":508,"cycle":"C1","type":"disciplinaire","domaine":"Mobiliser le langage","sous_domaine":"Phonologie","libelle":"Distinguer et manipuler des syllabes.","nb":1},{"id":509,"cycle":"C1","type":"disciplinaire","domaine":"Mobiliser le langage","sous_domaine":"Phonologie","libelle":"Reperer et produire des rimes, des assonances.","nb":1},{"id":515,"cycle":"C1","type":"disciplinaire","domaine":"Mobiliser le langage","sous_domaine":"Alphabet et ecriture","libelle":"Ecrire son prenom en ecriture cursive, sans modele.","nb":1},{"id":507,"cycle":"C1","type":"disciplinaire","domaine":"Mobiliser le langage","sous_domaine":"Phonologie","libelle":"Reperer des regularites dans la langue a l'oral en francais.","nb":0},{"id":580,"cycle":"C2","type":"EDD","domaine":"Alimentation","sous_domaine":null,"libelle":"Representer les relations alimentaires entre les organismes vivants.","nb":65},{"id":581,"cycle":"C2","type":"EDD","domaine":"Alimentation","sous_domaine":null,"libelle":"Pratiquer une demarche d'investigation visant a definir le regime alimentaire d'animaux.","nb":50},{"id":583,"cycle":"C2","type":"EDD","domaine":"Alimentation","sous_domaine":null,"libelle":"Identifier les fruits et legumes de saison.","nb":15},{"id":584,"cycle":"C2","type":"EDD","domaine":"Alimentation","sous_domaine":null,"libelle":"Expliquer l'interet de consommer des aliments de saison et issus de circuits courts.","nb":14},{"id":585,"cycle":"C2","type":"EDD","domaine":"Alimentation","sous_domaine":null,"libelle":"Expliquer l'importance et les moyens de reduire les dechets alimentaires.","nb":11},{"id":579,"cycle":"C2","type":"EDD","domaine":"Alimentation","sous_domaine":null,"libelle":"Comparer des modes de production agricole et leurs impacts sur l'ecosysteme.","nb":6},{"id":582,"cycle":"C2","type":"EDD","domaine":"Alimentation","sous_domaine":null,"libelle":"Pratiquer une demarche d'investigation sur l'equilibre alimentaire.","nb":5},{"id":596,"cycle":"C2","type":"EDD","domaine":"Amenagement durable des territoires","sous_domaine":null,"libelle":"Identifier et nommer quelques amenagements de son environnement en lien avec le developpement durable.","nb":23},{"id":598,"cycle":"C2","type":"EDD","domaine":"Amenagement durable des territoires","sous_domaine":null,"libelle":"Identifier les equipements qui permettent de mieux s'adapter aux evenements climatiques extremes.","nb":6},{"id":597,"cycle":"C2","type":"EDD","domaine":"Amenagement durable des territoires","sous_domaine":null,"libelle":"Participer a une action d'amenagement durable dans sa commune.","nb":5},{"id":599,"cycle":"C2","type":"EDD","domaine":"Amenagement durable des territoires","sous_domaine":null,"libelle":"Comparer des paysages de sa commune du passe et du present en lien avec les risques.","nb":3},{"id":600,"cycle":"C2","type":"EDD","domaine":"Amenagement durable des territoires","sous_domaine":null,"libelle":"Etre sensibilise aux incidences du choix de son mode de deplacement sur sa sante.","nb":3},{"id":575,"cycle":"C2","type":"EDD","domaine":"Biodiversite et ecosystemes","sous_domaine":"1.2 - Erosion, gestion et preservation","libelle":"Apprehender la biodiversite comme bien commun et etre sensible aux incidences de son comportement.","nb":148},{"id":574,"cycle":"C2","type":"EDD","domaine":"Biodiversite et ecosystemes","sous_domaine":"1.2 - Erosion, gestion et preservation","libelle":"Decrire quelques interactions entre l'humain et les autres etres vivants pour expliquer les impacts.","nb":142},{"id":573,"cycle":"C2","type":"EDD","domaine":"Biodiversite et ecosystemes","sous_domaine":"1.1 - Le tissu vivant de la planete","libelle":"Etre sensible aux incidences de son comportement sur la biodiversite.","nb":139},{"id":576,"cycle":"C2","type":"EDD","domaine":"Biodiversite et ecosystemes","sous_domaine":"1.2 - Erosion, gestion et preservation","libelle":"Proposer des actions simples favorables a la preservation de la biodiversite.","nb":70},{"id":577,"cycle":"C2","type":"EDD","domaine":"Biodiversite et ecosystemes","sous_domaine":"1.3 - Biodiversite et sante","libelle":"Etre sensible aux incidences de son comportement sur son environnement et sa sante.","nb":31},{"id":578,"cycle":"C2","type":"EDD","domaine":"Biodiversite et ecosystemes","sous_domaine":"1.3 - Biodiversite et sante","libelle":"Mettre en oeuvre des ecogestes favorables a la biodiversite visant une meilleure sante.","nb":11},{"id":586,"cycle":"C2","type":"EDD","domaine":"Eau et changement climatique","sous_domaine":null,"libelle":"Identifier et nommer differents reservoirs d'eau de son environnement.","nb":30},{"id":588,"cycle":"C2","type":"EDD","domaine":"Eau et changement climatique","sous_domaine":null,"libelle":"Expliquer les incidences de son comportement sur la qualite et la disponibilite de l'eau.","nb":26},{"id":587,"cycle":"C2","type":"EDD","domaine":"Eau et changement climatique","sous_domaine":null,"libelle":"Decrire differents usages de l'eau au quotidien et mesurer son importance comme bien commun.","nb":15},{"id":589,"cycle":"C2","type":"EDD","domaine":"Eau et changement climatique","sous_domaine":null,"libelle":"Imaginer des solutions pour reduire le gaspillage de l'eau a la maison.","nb":5},{"id":590,"cycle":"C2","type":"EDD","domaine":"Eau et changement climatique","sous_domaine":null,"libelle":"Participer a une action concrete de gestion raisonnee de l'eau a l'ecole.","nb":1},{"id":591,"cycle":"C2","type":"EDD","domaine":"Gestion durable des ressources naturelles","sous_domaine":null,"libelle":"Etre sensibilise aux incidences de ses consommations (papier, alimentation).","nb":63},{"id":594,"cycle":"C2","type":"EDD","domaine":"Gestion durable des ressources naturelles","sous_domaine":null,"libelle":"Imaginer des solutions et mettre en oeuvre une action pour reduire le gaspillage.","nb":35},{"id":593,"cycle":"C2","type":"EDD","domaine":"Gestion durable des ressources naturelles","sous_domaine":null,"libelle":"Avoir conscience de l'impact des actions individuelles sur la reduction des dechets.","nb":34},{"id":592,"cycle":"C2","type":"EDD","domaine":"Gestion durable des ressources naturelles","sous_domaine":null,"libelle":"Identifier des liens entre l'alimentation, les besoins des etres humains et la gestion des ressources.","nb":33},{"id":595,"cycle":"C2","type":"EDD","domaine":"Gestion durable des ressources naturelles","sous_domaine":null,"libelle":"Comprendre le sens et l'interet de quelques ecogestes concernant la gestion des dechets.","nb":20},{"id":601,"cycle":"C2","type":"EDD","domaine":"Numerique","sous_domaine":null,"libelle":"Pratiquer une premiere demarche d'investigation sur un enjeu EDD avec des outils numeriques.","nb":4},{"id":602,"cycle":"C2","type":"EDD","domaine":"Numerique","sous_domaine":null,"libelle":"Etre sensibilise a l'impact du numerique sur l'environnement.","nb":3},{"id":603,"cycle":"C2","type":"EDD","domaine":"Numerique","sous_domaine":null,"libelle":"Comprendre le sens et l'interet d'adopter des ecogestes concernant les usages du numerique.","nb":0},{"id":617,"cycle":"C2","type":"disciplinaire","domaine":"Arts plastiques","sous_domaine":null,"libelle":"Realiser et donner a voir, individuellement ou collectivement, des productions plastiques de natures diverses.","nb":338},{"id":618,"cycle":"C2","type":"disciplinaire","domaine":"Arts plastiques","sous_domaine":null,"libelle":"Proposer des reponses inventives dans un projet individuel ou collectif.","nb":132},{"id":619,"cycle":"C2","type":"disciplinaire","domaine":"Arts plastiques","sous_domaine":null,"libelle":"Cooperer dans un projet artistique.","nb":70},{"id":620,"cycle":"C2","type":"disciplinaire","domaine":"Arts plastiques","sous_domaine":null,"libelle":"S'exprimer sur sa production, celle de ses pairs, sur l'art.","nb":47},{"id":621,"cycle":"C2","type":"disciplinaire","domaine":"Arts plastiques","sous_domaine":null,"libelle":"Comparer quelques oeuvres d'art.","nb":3},{"id":643,"cycle":"C2","type":"disciplinaire","domaine":"EMC","sous_domaine":"Culture civique","libelle":"Participer et prendre sa place dans un groupe.","nb":282},{"id":638,"cycle":"C2","type":"disciplinaire","domaine":"EMC","sous_domaine":"Respecter autrui","libelle":"Respecter autrui : accepter et respecter les differences.","nb":195},{"id":640,"cycle":"C2","type":"disciplinaire","domaine":"EMC","sous_domaine":"Valeurs de la Republique","libelle":"Respecter les regles de la vie collective.","nb":103},{"id":645,"cycle":"C2","type":"disciplinaire","domaine":"EMC","sous_domaine":"Culture civique","libelle":"Ecouter autrui et produire un point de vue argumente.","nb":87},{"id":639,"cycle":"C2","type":"disciplinaire","domaine":"EMC","sous_domaine":"Respecter autrui","libelle":"Identifier et partager des emotions, des sentiments dans des situations diversifiees.","nb":83},{"id":644,"cycle":"C2","type":"disciplinaire","domaine":"EMC","sous_domaine":"Culture civique","libelle":"Distinguer son interet personnel de l'interet general.","nb":12},{"id":641,"cycle":"C2","type":"disciplinaire","domaine":"EMC","sous_domaine":"Valeurs de la Republique","libelle":"Connaitre les valeurs, les principes et les symboles de la Republique francaise.","nb":0},{"id":642,"cycle":"C2","type":"disciplinaire","domaine":"EMC","sous_domaine":"Valeurs de la Republique","libelle":"Acceder a une premiere connaissance des cadres d'une societe democratique.","nb":0},{"id":630,"cycle":"C2","type":"disciplinaire","domaine":"EPS","sous_domaine":"Environnements varies","libelle":"Realiser un parcours en adaptant ses deplacements a un environnement inhabituel.","nb":119},{"id":634,"cycle":"C2","type":"disciplinaire","domaine":"EPS","sous_domaine":"Affrontement","libelle":"S'engager dans un affrontement individuel ou collectif en respectant les regles du jeu.","nb":91},{"id":636,"cycle":"C2","type":"disciplinaire","domaine":"EPS","sous_domaine":"Affrontement","libelle":"Connaitre le but du jeu.","nb":84},{"id":626,"cycle":"C2","type":"disciplinaire","domaine":"EPS","sous_domaine":"Performance","libelle":"Courir, sauter, lancer a des intensites et des durees variables dans des contextes adaptes.","nb":58},{"id":631,"cycle":"C2","type":"disciplinaire","domaine":"EPS","sous_domaine":"Environnements varies","libelle":"Respecter les regles de securite qui s'appliquent.","nb":56},{"id":632,"cycle":"C2","type":"disciplinaire","domaine":"EPS","sous_domaine":"Expression artistique","libelle":"Mobiliser le pouvoir expressif du corps, en reproduisant une sequence simple d'actions.","nb":54},{"id":637,"cycle":"C2","type":"disciplinaire","domaine":"EPS","sous_domaine":"Affrontement","libelle":"Reconnaitre ses partenaires et ses adversaires.","nb":40},{"id":635,"cycle":"C2","type":"disciplinaire","domaine":"EPS","sous_domaine":"Affrontement","libelle":"Controler son engagement moteur et affectif pour reussir des actions simples.","nb":30},{"id":633,"cycle":"C2","type":"disciplinaire","domaine":"EPS","sous_domaine":"Expression artistique","libelle":"S'adapter au rythme, memoriser des pas, des figures et des enchainements.","nb":25},{"id":628,"cycle":"C2","type":"disciplinaire","domaine":"EPS","sous_domaine":"Performance","libelle":"Accepter de viser une performance mesuree et de se confronter aux autres.","nb":24},{"id":629,"cycle":"C2","type":"disciplinaire","domaine":"EPS","sous_domaine":"Performance","libelle":"Remplir quelques roles specifiques.","nb":19},{"id":627,"cycle":"C2","type":"disciplinaire","domaine":"EPS","sous_domaine":"Performance","libelle":"Savoir differencier : courir vite et courir longtemps / lancer loin et lancer precis.","nb":15},{"id":623,"cycle":"C2","type":"disciplinaire","domaine":"Education musicale","sous_domaine":null,"libelle":"Connaitre et mettre en oeuvre les conditions d'une ecoute attentive et precise.","nb":86},{"id":624,"cycle":"C2","type":"disciplinaire","domaine":"Education musicale","sous_domaine":null,"libelle":"Imaginer des organisations simples ; creer des sons et maitriser leur succession.","nb":55},{"id":622,"cycle":"C2","type":"disciplinaire","domaine":"Education musicale","sous_domaine":null,"libelle":"Experimenter sa voix parlee et chantee, explorer ses parametres.","nb":26},{"id":625,"cycle":"C2","type":"disciplinaire","domaine":"Education musicale","sous_domaine":null,"libelle":"Exprimer sa sensibilite et exercer son esprit critique.","nb":4},{"id":607,"cycle":"C2","type":"disciplinaire","domaine":"Francais","sous_domaine":"Langage oral","libelle":"Participer avec pertinence a un echange (questionner, repondre, exprimer un accord ou un desaccord...).","nb":562},{"id":606,"cycle":"C2","type":"disciplinaire","domaine":"Francais","sous_domaine":"Langage oral","libelle":"Pratiquer les formes de discours attendues : raconter, decrire, expliquer.","nb":428},{"id":605,"cycle":"C2","type":"disciplinaire","domaine":"Francais","sous_domaine":"Langage oral","libelle":"Produire des enonces clairs en tenant compte de l'objet du propos et des interlocuteurs.","nb":387},{"id":604,"cycle":"C2","type":"disciplinaire","domaine":"Francais","sous_domaine":"Langage oral","libelle":"Conserver une attention soutenue lors de situations d'ecoute ou d'echanges.","nb":263},{"id":609,"cycle":"C2","type":"disciplinaire","domaine":"Francais","sous_domaine":"Lecture","libelle":"Lire et comprendre des textes varies, adaptes a la maturite et a la culture scolaire.","nb":100},{"id":612,"cycle":"C2","type":"disciplinaire","domaine":"Francais","sous_domaine":"Ecriture","libelle":"Rediger un texte d'environ une demi-page, coherent, organise, ponctue.","nb":62},{"id":611,"cycle":"C2","type":"disciplinaire","domaine":"Francais","sous_domaine":"Ecriture","libelle":"Copier ou transcrire, dans une ecriture lisible, un texte d'une dizaine de lignes.","nb":33},{"id":614,"cycle":"C2","type":"disciplinaire","domaine":"Francais","sous_domaine":"Etude de la langue","libelle":"Orthographier les mots les plus frequents et les mots invariables memorises.","nb":17},{"id":616,"cycle":"C2","type":"disciplinaire","domaine":"Francais","sous_domaine":"Etude de la langue","libelle":"Utiliser ses connaissances sur la langue pour mieux s'exprimer et ameliorer ses ecrits.","nb":15},{"id":608,"cycle":"C2","type":"disciplinaire","domaine":"Francais","sous_domaine":"Lecture","libelle":"Identifier des mots rapidement : decoder des mots inconnus reguliers.","nb":12},{"id":610,"cycle":"C2","type":"disciplinaire","domaine":"Francais","sous_domaine":"Lecture","libelle":"Lire a voix haute avec fluidite, apres preparation.","nb":5},{"id":613,"cycle":"C2","type":"disciplinaire","domaine":"Francais","sous_domaine":"Ecriture","libelle":"Ameliorer un texte, notamment son orthographe, en tenant compte d'indications.","nb":3},{"id":615,"cycle":"C2","type":"disciplinaire","domaine":"Francais","sous_domaine":"Etude de la langue","libelle":"Raisonner pour realiser les accords dans le groupe nominal et entre le verbe et son sujet.","nb":2},{"id":665,"cycle":"C2","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Grandeurs et mesures","libelle":"Comparer, estimer, mesurer des longueurs, des masses, des contenances, des durees.","nb":192},{"id":666,"cycle":"C2","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Grandeurs et mesures","libelle":"Utiliser le lexique, les unites, les instruments de mesures specifiques de ces grandeurs.","nb":102},{"id":668,"cycle":"C2","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Espace et geometrie","libelle":"Se situer dans l'espace et decrire sa position ou celle d'un objet en utilisant des mots precis.","nb":83},{"id":661,"cycle":"C2","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Nombres et calculs","libelle":"Comprendre et utiliser des nombres entiers pour denombrer, ordonner, reperer, comparer.","nb":76},{"id":670,"cycle":"C2","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Espace et geometrie","libelle":"Reconnaitre, nommer, decrire, reproduire, construire quelques figures geometriques.","nb":42},{"id":663,"cycle":"C2","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Nombres et calculs","libelle":"Resoudre des problemes en utilisant des nombres entiers et le calcul.","nb":26},{"id":664,"cycle":"C2","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Nombres et calculs","libelle":"Calculer avec des nombres entiers.","nb":19},{"id":671,"cycle":"C2","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Espace et geometrie","libelle":"Reconnaitre et utiliser les notions d'alignement, d'egalite de longueurs, de symetrie.","nb":17},{"id":662,"cycle":"C2","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Nombres et calculs","libelle":"Nommer, lire, ecrire, representer des nombres entiers.","nb":16},{"id":667,"cycle":"C2","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Grandeurs et mesures","libelle":"Resoudre des problemes impliquant des longueurs, des masses, des contenances, des durees.","nb":13},{"id":669,"cycle":"C2","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Espace et geometrie","libelle":"Reconnaitre, nommer, decrire, reproduire quelques solides.","nb":7},{"id":648,"cycle":"C2","type":"disciplinaire","domaine":"Questionner le monde","sous_domaine":"Vivant","libelle":"Connaitre des caracteristiques du monde vivant, ses interactions, sa diversite.","nb":668},{"id":650,"cycle":"C2","type":"disciplinaire","domaine":"Questionner le monde","sous_domaine":"Objets techniques","libelle":"Comprendre la fonction et le fonctionnement d'objets fabriques.","nb":160},{"id":653,"cycle":"C2","type":"disciplinaire","domaine":"Questionner le monde","sous_domaine":"Espace","libelle":"Se reperer dans l'espace et le representer.","nb":136},{"id":658,"cycle":"C2","type":"disciplinaire","domaine":"Questionner le monde","sous_domaine":"Organisations du monde","libelle":"Identifier quelques interactions elementaires entre mode de vie et environnement.","nb":135},{"id":655,"cycle":"C2","type":"disciplinaire","domaine":"Questionner le monde","sous_domaine":"Temps","libelle":"Se reperer dans le temps et mesurer des durees.","nb":53},{"id":646,"cycle":"C2","type":"disciplinaire","domaine":"Questionner le monde","sous_domaine":"Matiere","libelle":"Identifier les trois etats de la matiere et observer des changements d'etats.","nb":46},{"id":660,"cycle":"C2","type":"disciplinaire","domaine":"Questionner le monde","sous_domaine":"Organisations du monde","libelle":"Identifier des paysages.","nb":35},{"id":647,"cycle":"C2","type":"disciplinaire","domaine":"Questionner le monde","sous_domaine":"Matiere","libelle":"Identifier un changement d'etat de l'eau dans un phenomene de la vie quotidienne.","nb":34},{"id":649,"cycle":"C2","type":"disciplinaire","domaine":"Questionner le monde","sous_domaine":"Vivant","libelle":"Reconnaitre des comportements favorables a sa sante.","nb":23},{"id":659,"cycle":"C2","type":"disciplinaire","domaine":"Questionner le monde","sous_domaine":"Organisations du monde","libelle":"Comprendre qu'un espace est organise.","nb":23},{"id":657,"cycle":"C2","type":"disciplinaire","domaine":"Questionner le monde","sous_domaine":"Organisations du monde","libelle":"Comparer quelques modes de vie et quelques representations du monde.","nb":17},{"id":651,"cycle":"C2","type":"disciplinaire","domaine":"Questionner le monde","sous_domaine":"Objets techniques","libelle":"Realiser quelques objets et circuits electriques simples, en respectant des regles de securite.","nb":12},{"id":656,"cycle":"C2","type":"disciplinaire","domaine":"Questionner le monde","sous_domaine":"Temps","libelle":"Reperer et situer quelques evenements dans un temps long.","nb":11},{"id":654,"cycle":"C2","type":"disciplinaire","domaine":"Questionner le monde","sous_domaine":"Espace","libelle":"Situer un lieu sur une carte, sur un globe ou sur un ecran informatique.","nb":10},{"id":652,"cycle":"C2","type":"disciplinaire","domaine":"Questionner le monde","sous_domaine":"Objets techniques","libelle":"Commencer a s'approprier un environnement numerique.","nb":5},{"id":683,"cycle":"C3","type":"EDD","domaine":"Alimentation","sous_domaine":null,"libelle":"Identifier et justifier les ecogestes pour une consommation alimentaire responsable.","nb":46},{"id":680,"cycle":"C3","type":"EDD","domaine":"Alimentation","sous_domaine":null,"libelle":"Distinguer ce qui releve de la connaissance scientifique, de la croyance ou de la simple opinion.","nb":26},{"id":678,"cycle":"C3","type":"EDD","domaine":"Alimentation","sous_domaine":null,"libelle":"Reperer les acteurs et les specificites geographiques des productions agricoles.","nb":18},{"id":679,"cycle":"C3","type":"EDD","domaine":"Alimentation","sous_domaine":null,"libelle":"Relier la production alimentaire a quelques objectifs de developpement durable (ODD 13, 15).","nb":18},{"id":681,"cycle":"C3","type":"EDD","domaine":"Alimentation","sous_domaine":null,"libelle":"Proposer une solution concrete a l'echelle de l'ecole pour reduire le gaspillage alimentaire.","nb":5},{"id":682,"cycle":"C3","type":"EDD","domaine":"Alimentation","sous_domaine":null,"libelle":"Envisager des actions a l'echelle de la commune en lien avec les acteurs impliques.","nb":0},{"id":699,"cycle":"C3","type":"EDD","domaine":"Amenagement durable des territoires","sous_domaine":null,"libelle":"Identifier le role de l'urbanisation dans le changement climatique.","nb":21},{"id":705,"cycle":"C3","type":"EDD","domaine":"Amenagement durable des territoires","sous_domaine":null,"libelle":"Differencier des choix possibles de moyens de deplacement selon leur impact.","nb":16},{"id":702,"cycle":"C3","type":"EDD","domaine":"Amenagement durable des territoires","sous_domaine":null,"libelle":"Representer des possibles pour la ville de demain par des maquettes, schemas ou dessins.","nb":15},{"id":701,"cycle":"C3","type":"EDD","domaine":"Amenagement durable des territoires","sous_domaine":null,"libelle":"Relier la question de l'habiter en ville a differents objectifs de developpement durable.","nb":12},{"id":706,"cycle":"C3","type":"EDD","domaine":"Amenagement durable des territoires","sous_domaine":null,"libelle":"Identifier et justifier le choix d'un moyen de transport durable dans une situation donnee.","nb":11},{"id":700,"cycle":"C3","type":"EDD","domaine":"Amenagement durable des territoires","sous_domaine":null,"libelle":"Identifier les actions face au changement climatique en milieu urbain (attenuation, adaptation).","nb":10},{"id":704,"cycle":"C3","type":"EDD","domaine":"Amenagement durable des territoires","sous_domaine":null,"libelle":"Participer a une action concrete de preservation de son environnement pour reduire les risques.","nb":8},{"id":703,"cycle":"C3","type":"EDD","domaine":"Amenagement durable des territoires","sous_domaine":null,"libelle":"Expliquer la vulnerabilite des littoraux en lien avec le changement climatique.","nb":1},{"id":672,"cycle":"C3","type":"EDD","domaine":"Biodiversite et ecosystemes","sous_domaine":"1.2 - Erosion, gestion et preservation","libelle":"Identifier differents enjeux lies a la preservation de la biodiversite a l'echelle d'un territoire.","nb":194},{"id":676,"cycle":"C3","type":"EDD","domaine":"Biodiversite et ecosystemes","sous_domaine":"1.3 - Biodiversite et sante","libelle":"Identifier les valeurs attribuees a la nature et a la sante des humains, des animaux et des ecosystemes.","nb":94},{"id":673,"cycle":"C3","type":"EDD","domaine":"Biodiversite et ecosystemes","sous_domaine":"1.2 - Erosion, gestion et preservation","libelle":"Participer a une action concrete de preservation de la biodiversite depassant le cadre de l'ecole.","nb":61},{"id":674,"cycle":"C3","type":"EDD","domaine":"Biodiversite et ecosystemes","sous_domaine":"1.2 - Erosion, gestion et preservation","libelle":"Apprehender la biodiversite comme un bien commun.","nb":35},{"id":677,"cycle":"C3","type":"EDD","domaine":"Biodiversite et ecosystemes","sous_domaine":"1.3 - Biodiversite et sante","libelle":"Faire un lien entre la consommation locale / durable et la sante des humains et des ecosystemes.","nb":25},{"id":675,"cycle":"C3","type":"EDD","domaine":"Biodiversite et ecosystemes","sous_domaine":"1.3 - Biodiversite et sante","libelle":"Distinguer une connaissance scientifique d'une opinion sur les comportements favorables a la sante.","nb":15},{"id":689,"cycle":"C3","type":"EDD","domaine":"Eau et changement climatique","sous_domaine":"3.2 - Les usages de l'eau","libelle":"Pratiquer une demarche d'investigation sur la disponibilite ou la qualite des eaux locales.","nb":37},{"id":684,"cycle":"C3","type":"EDD","domaine":"Eau et changement climatique","sous_domaine":"3.1 - Le cycle de l'eau","libelle":"Representer le cycle de l'eau et expliquer son fonctionnement systemique.","nb":28},{"id":686,"cycle":"C3","type":"EDD","domaine":"Eau et changement climatique","sous_domaine":"3.2 - Les usages de l'eau","libelle":"Relier le cycle de l'eau avec les usages de l'eau par les societes humaines.","nb":23},{"id":691,"cycle":"C3","type":"EDD","domaine":"Eau et changement climatique","sous_domaine":"3.2 - Les usages de l'eau","libelle":"Identifier l'eau comme un bien commun a preserver.","nb":22},{"id":685,"cycle":"C3","type":"EDD","domaine":"Eau et changement climatique","sous_domaine":"3.1 - Le cycle de l'eau","libelle":"Reperer des differences de climat et les mettre en lien avec le cycle de l'eau.","nb":6},{"id":694,"cycle":"C3","type":"EDD","domaine":"Eau et changement climatique","sous_domaine":"3.3 - Gestion durable de l'eau","libelle":"Proposer des actions pour limiter les impacts des activites humaines sur l'eau.","nb":6},{"id":690,"cycle":"C3","type":"EDD","domaine":"Eau et changement climatique","sous_domaine":"3.2 - Les usages de l'eau","libelle":"Reperer des conflits d'usages de l'eau et identifier les valeurs mises en jeu.","nb":5},{"id":687,"cycle":"C3","type":"EDD","domaine":"Eau et changement climatique","sous_domaine":"3.2 - Les usages de l'eau","libelle":"Reperer des ecarts, a l'echelle mondiale, entre la disponibilite de l'eau et ses usages.","nb":3},{"id":688,"cycle":"C3","type":"EDD","domaine":"Eau et changement climatique","sous_domaine":"3.2 - Les usages de l'eau","libelle":"Reperer et identifier des acteurs locaux dans la gestion de la ressource en eau.","nb":3},{"id":693,"cycle":"C3","type":"EDD","domaine":"Eau et changement climatique","sous_domaine":"3.3 - Gestion durable de l'eau","libelle":"Proposer des actions pour sensibiliser la population aux enjeux de l'eau comme bien commun.","nb":3},{"id":692,"cycle":"C3","type":"EDD","domaine":"Eau et changement climatique","sous_domaine":"3.3 - Gestion durable de l'eau","libelle":"Identifier des valeurs mises en jeu dans les questions de gestion et de partage de l'eau.","nb":2},{"id":697,"cycle":"C3","type":"EDD","domaine":"Gestion durable des ressources naturelles","sous_domaine":null,"libelle":"Identifier et justifier des ecogestes en lien avec l'usage des ressources.","nb":133},{"id":695,"cycle":"C3","type":"EDD","domaine":"Gestion durable des ressources naturelles","sous_domaine":null,"libelle":"Pratiquer une demarche d'investigation pour comprendre les benefices d'une gestion raisonnee.","nb":108},{"id":696,"cycle":"C3","type":"EDD","domaine":"Gestion durable des ressources naturelles","sous_domaine":null,"libelle":"Reperer des complementarites et des mises en tension entre enjeux ethiques, environnementaux et sociaux.","nb":58},{"id":698,"cycle":"C3","type":"EDD","domaine":"Gestion durable des ressources naturelles","sous_domaine":null,"libelle":"Participer a une action collective pour une consommation raisonnee et un partage ethique des ressources.","nb":32},{"id":709,"cycle":"C3","type":"EDD","domaine":"Numerique","sous_domaine":null,"libelle":"Pratiquer une demarche d'investigation sur un enjeu EDD via Internet, distinguer les connaissances des opinions.","nb":22},{"id":707,"cycle":"C3","type":"EDD","domaine":"Numerique","sous_domaine":null,"libelle":"Participer a un diagnostic de son lieu de vie avec des outils numeriques en lien avec les ODD.","nb":3},{"id":708,"cycle":"C3","type":"EDD","domaine":"Numerique","sous_domaine":null,"libelle":"Estimer son empreinte carbone en utilisant un outil de simulation en ligne.","nb":1},{"id":710,"cycle":"C3","type":"EDD","domaine":"Numerique","sous_domaine":null,"libelle":"Identifier des enjeux de citoyennete et de sante lies aux usages du numerique.","nb":0},{"id":711,"cycle":"C3","type":"EDD","domaine":"Numerique","sous_domaine":null,"libelle":"Pratiquer une demarche d'investigation pour estimer l'empreinte carbone d'objets numeriques.","nb":0},{"id":712,"cycle":"C3","type":"EDD","domaine":"Numerique","sous_domaine":null,"libelle":"Reperer des outils numeriques de simulation pour aider a la decision ecoresponsable.","nb":0},{"id":713,"cycle":"C3","type":"EDD","domaine":"Numerique","sous_domaine":null,"libelle":"Envisager des actions et s'engager pour des usages du numerique ecoresponsables et citoyens.","nb":0},{"id":758,"cycle":"C3","type":"disciplinaire","domaine":"Arts plastiques","sous_domaine":null,"libelle":"Realiser des productions plastiques en deux et trois dimensions en mobilisant des outils varies.","nb":363},{"id":762,"cycle":"C3","type":"disciplinaire","domaine":"Arts plastiques","sous_domaine":null,"libelle":"Mettre en oeuvre un projet artistique individuel ou collectif.","nb":92},{"id":759,"cycle":"C3","type":"disciplinaire","domaine":"Arts plastiques","sous_domaine":null,"libelle":"Justifier ses choix plastiques et rendre compte du cheminement de l'intention a la realisation.","nb":60},{"id":760,"cycle":"C3","type":"disciplinaire","domaine":"Arts plastiques","sous_domaine":null,"libelle":"Decrire et interroger ses propres productions et celles de ses pairs a l'aide d'un vocabulaire adapte.","nb":18},{"id":761,"cycle":"C3","type":"disciplinaire","domaine":"Arts plastiques","sous_domaine":null,"libelle":"Identifier quelques caracteristiques qui inscrivent une oeuvre dans une aire geographique ou un temps.","nb":8},{"id":757,"cycle":"C3","type":"disciplinaire","domaine":"EMC","sous_domaine":"Culture civique","libelle":"Ecouter autrui et justifier un point de vue au cours d'une conversation, d'un debat ou d'un dialogue.","nb":305},{"id":749,"cycle":"C3","type":"disciplinaire","domaine":"EMC","sous_domaine":"Respecter autrui","libelle":"Respecter autrui : accepter et respecter les differences dans son rapport a l'alterite.","nb":249},{"id":755,"cycle":"C3","type":"disciplinaire","domaine":"EMC","sous_domaine":"Culture civique","libelle":"Prendre en charge des aspects de la vie collective et developper une conscience civique ecologique.","nb":226},{"id":756,"cycle":"C3","type":"disciplinaire","domaine":"EMC","sous_domaine":"Culture civique","libelle":"Exercer une aptitude a la reflexion critique pour construire son jugement.","nb":146},{"id":750,"cycle":"C3","type":"disciplinaire","domaine":"EMC","sous_domaine":"Respecter autrui","libelle":"Partager et reguler des emotions et des sentiments, mobiliser le vocabulaire adapte.","nb":65},{"id":754,"cycle":"C3","type":"disciplinaire","domaine":"EMC","sous_domaine":"Culture civique","libelle":"Se positionner comme membre de la collectivite.","nb":63},{"id":751,"cycle":"C3","type":"disciplinaire","domaine":"EMC","sous_domaine":"Valeurs de la Republique","libelle":"Comprendre les notions de droits, de devoirs et de regles, pour les appliquer et les accepter.","nb":38},{"id":752,"cycle":"C3","type":"disciplinaire","domaine":"EMC","sous_domaine":"Valeurs de la Republique","libelle":"Connaitre les valeurs, les principes et les symboles de la Republique francaise, de l'UE.","nb":0},{"id":753,"cycle":"C3","type":"disciplinaire","domaine":"EMC","sous_domaine":"Valeurs de la Republique","libelle":"Identifier et connaitre les cadres d'une societe democratique.","nb":0},{"id":738,"cycle":"C3","type":"disciplinaire","domaine":"EPS","sous_domaine":"Environnements varies","libelle":"Realiser, seul ou a plusieurs, un parcours dans plusieurs environnements inhabituels.","nb":118},{"id":734,"cycle":"C3","type":"disciplinaire","domaine":"EPS","sous_domaine":"Performance","libelle":"Realiser des efforts et enchainer plusieurs actions motrices dans differentes familles.","nb":58},{"id":739,"cycle":"C3","type":"disciplinaire","domaine":"EPS","sous_domaine":"Environnements varies","libelle":"Connaitre et respecter les regles de securite qui s'appliquent a chaque environnement.","nb":49},{"id":747,"cycle":"C3","type":"disciplinaire","domaine":"EPS","sous_domaine":"Affrontement","libelle":"Assurer differents roles sociaux (joueur, arbitre, observateur) inherents a l'activite.","nb":41},{"id":744,"cycle":"C3","type":"disciplinaire","domaine":"EPS","sous_domaine":"Affrontement","libelle":"S'organiser tactiquement pour gagner le duel ou le match en identifiant les situations favorables.","nb":40},{"id":746,"cycle":"C3","type":"disciplinaire","domaine":"EPS","sous_domaine":"Affrontement","libelle":"Respecter les partenaires, les adversaires et l'arbitre.","nb":38},{"id":741,"cycle":"C3","type":"disciplinaire","domaine":"EPS","sous_domaine":"Expression artistique","libelle":"Realiser en petits groupes des sequences a visee acrobatique et artistique.","nb":25},{"id":736,"cycle":"C3","type":"disciplinaire","domaine":"EPS","sous_domaine":"Performance","libelle":"Mesurer et quantifier les performances, les enregistrer et les traduire en representations graphiques.","nb":21},{"id":743,"cycle":"C3","type":"disciplinaire","domaine":"EPS","sous_domaine":"Expression artistique","libelle":"Respecter les prestations des autres et accepter de se produire devant les autres.","nb":21},{"id":745,"cycle":"C3","type":"disciplinaire","domaine":"EPS","sous_domaine":"Affrontement","libelle":"Maintenir un engagement moteur efficace sur tout le temps de jeu prevu.","nb":18},{"id":748,"cycle":"C3","type":"disciplinaire","domaine":"EPS","sous_domaine":"Affrontement","libelle":"Accepter le resultat de la rencontre et etre capable de le commenter.","nb":9},{"id":735,"cycle":"C3","type":"disciplinaire","domaine":"EPS","sous_domaine":"Performance","libelle":"Combiner une course, un saut, un lancer pour faire la meilleure performance cumulee.","nb":8},{"id":740,"cycle":"C3","type":"disciplinaire","domaine":"EPS","sous_domaine":"Environnements varies","libelle":"Identifier la personne responsable a alerter ou la procedure en cas de probleme.","nb":6},{"id":737,"cycle":"C3","type":"disciplinaire","domaine":"EPS","sous_domaine":"Performance","libelle":"Assumer les roles de chronometreur et d'observateur.","nb":4},{"id":742,"cycle":"C3","type":"disciplinaire","domaine":"EPS","sous_domaine":"Expression artistique","libelle":"Savoir filmer une prestation pour la revoir et la faire evoluer.","nb":0},{"id":727,"cycle":"C3","type":"disciplinaire","domaine":"Education musicale","sous_domaine":null,"libelle":"Explorer les sons de la voix, de l'environnement immediat et de la nature, creer des organisations sonores.","nb":122},{"id":725,"cycle":"C3","type":"disciplinaire","domaine":"Education musicale","sous_domaine":null,"libelle":"Identifier, choisir et mobiliser les techniques vocales et corporelles au service de l'expression.","nb":32},{"id":726,"cycle":"C3","type":"disciplinaire","domaine":"Education musicale","sous_domaine":null,"libelle":"Mettre en lien des caracteristiques musicales d'oeuvres differentes et les presenter.","nb":5},{"id":728,"cycle":"C3","type":"disciplinaire","domaine":"Education musicale","sous_domaine":null,"libelle":"Developper sa sensibilite, son esprit critique et s'enrichir de la diversite des gouts.","nb":2},{"id":717,"cycle":"C3","type":"disciplinaire","domaine":"Francais","sous_domaine":"Langage oral","libelle":"Participer de facon constructive aux echanges avec d'autres eleves pour confronter des points de vue.","nb":583},{"id":719,"cycle":"C3","type":"disciplinaire","domaine":"Francais","sous_domaine":"Lecture","libelle":"Lire et comprendre des textes et des documents (textes, tableaux, graphiques, schemas, images).","nb":224},{"id":716,"cycle":"C3","type":"disciplinaire","domaine":"Francais","sous_domaine":"Langage oral","libelle":"Realiser une courte presentation orale en prenant appui sur des notes ou un diaporama.","nb":82},{"id":714,"cycle":"C3","type":"disciplinaire","domaine":"Francais","sous_domaine":"Langage oral","libelle":"Ecouter un recit et manifester sa comprehension en repondant a des questions.","nb":74},{"id":720,"cycle":"C3","type":"disciplinaire","domaine":"Francais","sous_domaine":"Ecriture","libelle":"Ecrire un texte d'une a deux pages, adapte a son destinataire.","nb":55},{"id":721,"cycle":"C3","type":"disciplinaire","domaine":"Francais","sous_domaine":"Ecriture","libelle":"Obtenir un texte organise et coherent, a la graphie lisible et respectant les regularites orthographiques.","nb":35},{"id":718,"cycle":"C3","type":"disciplinaire","domaine":"Francais","sous_domaine":"Lecture","libelle":"Lire, comprendre et interpreter un texte litteraire adapte a son age.","nb":31},{"id":723,"cycle":"C3","type":"disciplinaire","domaine":"Francais","sous_domaine":"Etude de la langue","libelle":"Raisonner pour analyser le sens des mots en contexte et en prenant appui sur la morphologie.","nb":29},{"id":715,"cycle":"C3","type":"disciplinaire","domaine":"Francais","sous_domaine":"Langage oral","libelle":"Dire de memoire un texte a haute voix.","nb":9},{"id":722,"cycle":"C3","type":"disciplinaire","domaine":"Francais","sous_domaine":"Etude de la langue","libelle":"Maitriser les accords dans le groupe nominal et entre le verbe et son sujet.","nb":1},{"id":724,"cycle":"C3","type":"disciplinaire","domaine":"Francais","sous_domaine":"Etude de la langue","libelle":"Etre capable de reperer les principaux constituants d'une phrase simple et complexe.","nb":1},{"id":729,"cycle":"C3","type":"disciplinaire","domaine":"Histoire des arts","sous_domaine":null,"libelle":"Decrire une oeuvre en identifiant ses principales caracteristiques techniques et formelles.","nb":15},{"id":730,"cycle":"C3","type":"disciplinaire","domaine":"Histoire des arts","sous_domaine":null,"libelle":"Emettre une proposition argumentee pour situer une oeuvre dans une periode et une aire geographique.","nb":14},{"id":733,"cycle":"C3","type":"disciplinaire","domaine":"Histoire des arts","sous_domaine":null,"libelle":"Identifier la marque des arts du passe et du present dans son environnement.","nb":11},{"id":731,"cycle":"C3","type":"disciplinaire","domaine":"Histoire des arts","sous_domaine":null,"libelle":"Exprimer un ressenti et un avis devant une oeuvre, etayes a l'aide d'une premiere analyse.","nb":3},{"id":732,"cycle":"C3","type":"disciplinaire","domaine":"Histoire des arts","sous_domaine":null,"libelle":"Se reperer dans un musee ou un centre d'art et identifier la fonction de ses principaux acteurs.","nb":0},{"id":764,"cycle":"C3","type":"disciplinaire","domaine":"Histoire-Geographie","sous_domaine":"Competences transversales","libelle":"Se reperer dans l'espace en localisant et decrivant des lieux a differentes echelles.","nb":61},{"id":766,"cycle":"C3","type":"disciplinaire","domaine":"Histoire-Geographie","sous_domaine":"Competences transversales","libelle":"Raconter ou decrire un fait historique ou geographique en utilisant un lexique disciplinaire.","nb":55},{"id":765,"cycle":"C3","type":"disciplinaire","domaine":"Histoire-Geographie","sous_domaine":"Competences transversales","libelle":"Extraire des informations pertinentes d'un document (texte, image, carte, graphique).","nb":31},{"id":773,"cycle":"C3","type":"disciplinaire","domaine":"Histoire-Geographie","sous_domaine":"Geographie","libelle":"Reconnaitre des paysages varies et les relier a leurs caracteristiques geographiques et humaines.","nb":28},{"id":763,"cycle":"C3","type":"disciplinaire","domaine":"Histoire-Geographie","sous_domaine":"Competences transversales","libelle":"Se reperer dans le temps en situant des evenements et des periodes sur une frise chronologique.","nb":25},{"id":771,"cycle":"C3","type":"disciplinaire","domaine":"Histoire-Geographie","sous_domaine":"Geographie","libelle":"Decrire et expliquer comment des groupes humains habitent un espace.","nb":25},{"id":769,"cycle":"C3","type":"disciplinaire","domaine":"Histoire-Geographie","sous_domaine":"Histoire","libelle":"Decrire quelques caracteristiques d'une societe a une epoque donnee.","nb":24},{"id":767,"cycle":"C3","type":"disciplinaire","domaine":"Histoire-Geographie","sous_domaine":"Competences transversales","libelle":"Realiser ou completer des productions graphiques (croquis, frise, carte simple).","nb":21},{"id":768,"cycle":"C3","type":"disciplinaire","domaine":"Histoire-Geographie","sous_domaine":"Histoire","libelle":"Identifier les grandes periodes de l'histoire etudiees et les situer dans le temps.","nb":11},{"id":770,"cycle":"C3","type":"disciplinaire","domaine":"Histoire-Geographie","sous_domaine":"Histoire","libelle":"Identifier quelques grandes ruptures historiques et des evenements marquants du passe.","nb":5},{"id":772,"cycle":"C3","type":"disciplinaire","domaine":"Histoire-Geographie","sous_domaine":"Geographie","libelle":"Identifier quelques grandes inegalites entre espaces et en expliquer les causes.","nb":3},{"id":812,"cycle":"C3","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Grandeurs et mesures","libelle":"Comparer, estimer, mesurer des grandeurs geometriques avec des nombres entiers et decimaux.","nb":134},{"id":813,"cycle":"C3","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Grandeurs et mesures","libelle":"Utiliser le lexique, les unites, les instruments de mesures specifiques de ces grandeurs.","nb":130},{"id":815,"cycle":"C3","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Espace et geometrie","libelle":"(Se) reperer et (se) deplacer dans l'espace en utilisant ou en elaborant des representations.","nb":114},{"id":814,"cycle":"C3","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Grandeurs et mesures","libelle":"Resoudre des problemes impliquant des grandeurs geometriques, physiques, economiques.","nb":70},{"id":816,"cycle":"C3","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Espace et geometrie","libelle":"Reconnaitre, nommer, decrire, reproduire, representer, construire des figures et solides usuels.","nb":41},{"id":810,"cycle":"C3","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Nombres et calculs","libelle":"Calculer avec des nombres entiers et des nombres decimaux.","nb":31},{"id":809,"cycle":"C3","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Nombres et calculs","libelle":"Utiliser et representer les grands nombres entiers, des fractions simples, les nombres decimaux.","nb":18},{"id":811,"cycle":"C3","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Nombres et calculs","libelle":"Resoudre des problemes en utilisant des fractions simples, les nombres decimaux et le calcul.","nb":16},{"id":817,"cycle":"C3","type":"disciplinaire","domaine":"Mathematiques","sous_domaine":"Espace et geometrie","libelle":"Reconnaitre et utiliser quelques relations geometriques (perpendicularite, parallelisme, symetrie...).","nb":16},{"id":784,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"Biodiversite et classification","libelle":"Caracteriser la richesse, l'unite et la diversite actuelle et passee du vivant.","nb":352},{"id":806,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"Ecosystemes","libelle":"Decrire un ecosysteme et caracteriser les interactions qui s'y deroulent.","nb":338},{"id":797,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"Objets techniques","libelle":"Decrire et pratiquer la demarche technologique dans le cadre d'un projet.","nb":176},{"id":808,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"Ecosystemes","libelle":"Caracteriser les consequences d'une action humaine sur un ecosysteme.","nb":173},{"id":775,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"La matiere","libelle":"Caracteriser la diversite de la matiere et de ses transformations a l'echelle macroscopique.","nb":164},{"id":807,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"Ecosystemes","libelle":"Mettre en evidence la place et l'interdependance des etres vivants dans un reseau trophique.","nb":157},{"id":792,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"Objets techniques","libelle":"Distinguer un objet technique d'un objet naturel.","nb":125},{"id":788,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"Cycle de vie et reproduction","libelle":"Decrire le cycle de vie d'une plante a fleurs et celui d'un animal.","nb":121},{"id":791,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"Objets techniques","libelle":"Identifier un besoin exprime par la societe et lui associer des objets techniques.","nb":117},{"id":795,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"Objets techniques","libelle":"Distinguer besoins, fonctions techniques et solutions technologiques.","nb":100},{"id":785,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"Biodiversite et classification","libelle":"Classer les organismes et etablir les liens de parente.","nb":92},{"id":776,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"La matiere","libelle":"Utiliser les proprietes physiques des materiaux pour les classer, notamment a des fins de tri.","nb":60},{"id":774,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"La matiere","libelle":"Decrire un echantillon de matiere a l'aide du vocabulaire scientifique et des grandeurs physiques.","nb":58},{"id":798,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"Objets techniques","libelle":"Participer a un travail collectif.","nb":45},{"id":777,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"Le mouvement","libelle":"Decrire un mouvement en precisisant le point de vue (referentiel).","nb":43},{"id":783,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"Signal et information","libelle":"Identifier des signaux de natures differentes et citer des applications.","nb":36},{"id":779,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"Energie","libelle":"Identifier les formes d'energie mises en jeu dans un dispositif de conversion.","nb":29},{"id":796,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"Objets techniques","libelle":"Decrire un objet technique par un schema et un croquis.","nb":27},{"id":778,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"Le mouvement","libelle":"Caracteriser un mouvement par des mesures.","nb":23},{"id":781,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"Signal et information","libelle":"Interpreter la formation d'ombres dans le contexte du systeme Soleil-Terre-Lune.","nb":20},{"id":802,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"La Terre et ses activites","libelle":"Identifier l'activite de la planete Terre et ses consequences.","nb":19},{"id":804,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"La Terre et ses activites","libelle":"Differencier la meteorologie du climat.","nb":19},{"id":780,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"Energie","libelle":"Rechercher et exploiter des informations sur les ressources en energie en exercant son esprit critique.","nb":16},{"id":803,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"La Terre et ses activites","libelle":"Decrire les conditions de la vie terrestre.","nb":15},{"id":793,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"Objets techniques","libelle":"Reperer les evolutions des objets techniques en fonction de leur contexte d'utilisation.","nb":14},{"id":799,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"Objets techniques","libelle":"Identifier les liens entre des choix de conception et les etapes du cycle de vie d'un objet technique.","nb":14},{"id":786,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"Alimentation humaine","libelle":"Expliquer le role des aliments pour le fonctionnement de l'organisme.","nb":12},{"id":787,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"Alimentation humaine","libelle":"Identifier les principes des technologies mises en oeuvre pour transformer et conserver les aliments.","nb":12},{"id":805,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"La Terre et ses activites","libelle":"Construire une argumentation scientifique pour expliquer le rechauffement climatique actuel.","nb":10},{"id":794,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"Objets techniques","libelle":"Citer quelques exemples d'objets techniques conçus pour repondre a un besoin et detournes de leur usage.","nb":7},{"id":782,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"Signal et information","libelle":"Mettre en oeuvre des circuits electriques a une boucle en respectant des consignes de securite.","nb":2},{"id":790,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"Cycle de vie et reproduction","libelle":"Identifier la dimension biologique de la sexualite humaine.","nb":1},{"id":789,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"Cycle de vie et reproduction","libelle":"Decrire les changements pubertaires chez les etres humains.","nb":0},{"id":800,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"Programmation","libelle":"Reperer la chaine d'information et la chaine d'action d'un objet programmable.","nb":0},{"id":801,"cycle":"C3","type":"disciplinaire","domaine":"Sciences et technologie","sous_domaine":"Programmation","libelle":"Programmer un objet technique pour obtenir un comportement attendu.","nb":0}],"thematiques":[{"id":122,"nom":"Représentation de la nature","niveau":1,"parent_id":116,"nb":153},{"id":126,"nom":"Vivre ensemble","niveau":1,"parent_id":116,"nb":133},{"id":42,"nom":"Règne végétal","niveau":1,"parent_id":1,"nb":115},{"id":134,"nom":"Audition","niveau":2,"parent_id":132,"nb":114},{"id":22,"nom":"Insectes","niveau":4,"parent_id":21,"nb":101},{"id":37,"nom":"Ethologie","niveau":2,"parent_id":19,"nb":94},{"id":158,"nom":"Adaptation","niveau":2,"parent_id":156,"nb":93},{"id":221,"nom":"L'eau","niveau":1,"parent_id":220,"nb":85},{"id":128,"nom":"Traditions","niveau":1,"parent_id":116,"nb":78},{"id":249,"nom":"Emotions","niveau":1,"parent_id":238,"nb":75},{"id":250,"nom":"Applications interdisciplinaires","niveau":0,"parent_id":null,"nb":73},{"id":138,"nom":"Tactile","niveau":2,"parent_id":132,"nb":72},{"id":184,"nom":"Arbre","niveau":4,"parent_id":176,"nb":71},{"id":13,"nom":"Caractéristiques des êtres vivants","niveau":1,"parent_id":1,"nb":70},{"id":127,"nom":"Citoyenneté","niveau":1,"parent_id":116,"nb":70},{"id":133,"nom":"Vision","niveau":2,"parent_id":132,"nb":68},{"id":125,"nom":"Jeux coopératifs","niveau":1,"parent_id":116,"nb":67},{"id":187,"nom":"Interactions écologiques","niveau":3,"parent_id":175,"nb":65},{"id":3,"nom":"Taxonomie","niveau":1,"parent_id":1,"nb":61},{"id":56,"nom":"Feuille","niveau":3,"parent_id":54,"nb":61},{"id":117,"nom":"Cultures","niveau":1,"parent_id":116,"nb":60},{"id":27,"nom":"Oiseaux","niveau":3,"parent_id":20,"nb":59},{"id":16,"nom":"Développement","niveau":2,"parent_id":13,"nb":57},{"id":183,"nom":"Le sol","niveau":4,"parent_id":176,"nb":56},{"id":245,"nom":"Introspection","niveau":1,"parent_id":238,"nb":55},{"id":120,"nom":"Musique du monde","niveau":1,"parent_id":116,"nb":51},{"id":132,"nom":"Système sensoriel","niveau":1,"parent_id":129,"nb":51},{"id":15,"nom":"Nourrissage","niveau":2,"parent_id":13,"nb":49},{"id":38,"nom":"Déplacement animal","niveau":3,"parent_id":37,"nb":49},{"id":19,"nom":"Règne animal","niveau":1,"parent_id":1,"nb":48},{"id":54,"nom":"Anatomie végétale","niveau":2,"parent_id":42,"nb":48},{"id":130,"nom":"Physiologie","niveau":1,"parent_id":129,"nb":47},{"id":17,"nom":"Reproduction","niveau":2,"parent_id":13,"nb":46},{"id":256,"nom":"Protection des espèces","niveau":2,"parent_id":251,"nb":46},{"id":194,"nom":"Prédation vraie","niveau":4,"parent_id":190,"nb":44},{"id":162,"nom":"Cycle de la matière","niveau":2,"parent_id":161,"nb":42},{"id":55,"nom":"Fleur","niveau":3,"parent_id":54,"nb":41},{"id":214,"nom":"Nuit","niveau":3,"parent_id":212,"nb":40},{"id":295,"nom":"Recyclage des déchets","niveau":4,"parent_id":290,"nb":40},{"id":39,"nom":"Communication animale","niveau":3,"parent_id":37,"nb":39},{"id":137,"nom":"Olfaction","niveau":2,"parent_id":132,"nb":39},{"id":150,"nom":"Anatomie animale","niveau":1,"parent_id":129,"nb":39},{"id":163,"nom":"Cycle de l'eau","niveau":3,"parent_id":162,"nb":39},{"id":176,"nom":"Ecosystèmes","niveau":3,"parent_id":175,"nb":39},{"id":229,"nom":"Lumière","niveau":1,"parent_id":220,"nb":39},{"id":282,"nom":"Gestion durable des ressources naturelles","niveau":3,"parent_id":263,"nb":39},{"id":57,"nom":"Fruit","niveau":3,"parent_id":54,"nb":38},{"id":75,"nom":"Minéraux","niveau":1,"parent_id":74,"nb":37},{"id":240,"nom":"Estime de soi","niveau":1,"parent_id":238,"nb":37},{"id":241,"nom":"Activité physique","niveau":1,"parent_id":238,"nb":35}],"tags":[{"id":7,"nom":"Incarner le vivant","nb":77},{"id":5,"nom":"Immersion sensorielle","nb":68},{"id":1,"nom":"Musique","nb":66},{"id":3,"nom":"Jeu de plateau - cartes","nb":65},{"id":2,"nom":"Histoire - Conte","nb":60},{"id":4,"nom":"Création artistique","nb":34},{"id":6,"nom":"Recherche et collecte","nb":31}],"pairs":[{"id1":607,"id2":648,"n":378,"l1":"Participer avec pertinence a un echange (questionner, repond","c1":"C2","t1":"disciplinaire","l2":"Connaitre des caracteristiques du monde vivant, ses interact","c2":"C2","t2":"disciplinaire"},{"id1":607,"id2":717,"n":365,"l1":"Participer avec pertinence a un echange...","c1":"C2","t1":"disciplinaire","l2":"Participer de facon constructive aux echanges avec d'autres","c2":"C3","t2":"disciplinaire"},{"id1":648,"id2":784,"n":324,"l1":"Connaitre des caracteristiques du monde vivant...","c1":"C2","t1":"disciplinaire","l2":"Caracteriser la richesse, l'unite et la diversite actuelle","c2":"C3","t2":"disciplinaire"},{"id1":605,"id2":607,"n":323,"l1":"Produire des enonces clairs...","c1":"C2","t1":"disciplinaire","l2":"Participer avec pertinence a un echange...","c2":"C2","t2":"disciplinaire"},{"id1":648,"id2":717,"n":314,"l1":"Connaitre des caracteristiques du monde vivant...","c1":"C2","t1":"disciplinaire","l2":"Participer de facon constructive aux echanges...","c2":"C3","t2":"disciplinaire"},{"id1":606,"id2":648,"n":307,"l1":"Pratiquer les formes de discours (raconter, decrire, expliquer)","c1":"C2","t1":"disciplinaire","l2":"Connaitre des caracteristiques du monde vivant...","c2":"C2","t2":"disciplinaire"},{"id1":606,"id2":607,"n":284,"l1":"Pratiquer les formes de discours...","c1":"C2","t1":"disciplinaire","l2":"Participer avec pertinence a un echange...","c2":"C2","t2":"disciplinaire"},{"id1":648,"id2":806,"n":281,"l1":"Connaitre des caracteristiques du monde vivant...","c1":"C2","t1":"disciplinaire","l2":"Decrire un ecosysteme et les interactions qui s'y deroulent","c2":"C3","t2":"disciplinaire"},{"id1":617,"id2":758,"n":269,"l1":"Realiser des productions plastiques...","c1":"C2","t1":"disciplinaire","l2":"Realiser des productions plastiques (2D, 3D, outils varies)","c2":"C3","t2":"disciplinaire"},{"id1":605,"id2":717,"n":266,"l1":"Produire des enonces clairs...","c1":"C2","t1":"disciplinaire","l2":"Participer de facon constructive aux echanges...","c2":"C3","t2":"disciplinaire"},{"id1":717,"id2":757,"n":258,"l1":"Participer de facon constructive aux echanges...","c1":"C3","t1":"disciplinaire","l2":"Ecouter autrui et justifier un point de vue (debat)","c2":"C3","t2":"disciplinaire"},{"id1":498,"id2":501,"n":251,"l1":"Utiliser le lexique appris en classe de facon appropriee","c1":"C1","t1":"disciplinaire","l2":"Pratiquer divers usages de la langue orale (raconter...)","c2":"C1","t2":"disciplinaire"},{"id1":470,"id2":648,"n":248,"l1":"Formuler des interrogations sur les etres vivants (EDD C1)","c1":"C1","t1":"EDD","l2":"Connaitre des caracteristiques du monde vivant...","c2":"C2","t2":"disciplinaire"},{"id1":501,"id2":648,"n":248,"l1":"Pratiquer divers usages de la langue orale...","c1":"C1","t1":"disciplinaire","l2":"Connaitre des caracteristiques du monde vivant...","c2":"C2","t2":"disciplinaire"},{"id1":605,"id2":648,"n":244,"l1":"Produire des enonces clairs...","c1":"C2","t1":"disciplinaire","l2":"Connaitre des caracteristiques du monde vivant...","c2":"C2","t2":"disciplinaire"},{"id1":606,"id2":717,"n":229,"l1":"Pratiquer les formes de discours...","c1":"C2","t1":"disciplinaire","l2":"Participer de facon constructive aux echanges...","c2":"C3","t2":"disciplinaire"},{"id1":498,"id2":648,"n":224,"l1":"Utiliser le lexique appris...","c1":"C1","t1":"disciplinaire","l2":"Connaitre des caracteristiques du monde vivant...","c2":"C2","t2":"disciplinaire"},{"id1":470,"id2":501,"n":222,"l1":"Formuler des interrogations sur les etres vivants (EDD C1)","c1":"C1","t1":"EDD","l2":"Pratiquer divers usages de la langue orale...","c2":"C1","t2":"disciplinaire"},{"id1":605,"id2":606,"n":212,"l1":"Produire des enonces clairs...","c1":"C2","t1":"disciplinaire","l2":"Pratiquer les formes de discours...","c2":"C2","t2":"disciplinaire"},{"id1":470,"id2":498,"n":204,"l1":"Formuler des interrogations sur les etres vivants (EDD C1)","c1":"C1","t1":"EDD","l2":"Utiliser le lexique appris...","c2":"C1","t2":"disciplinaire"},{"id1":607,"id2":784,"n":201,"l1":"Participer avec pertinence a un echange...","c1":"C2","t1":"disciplinaire","l2":"Caracteriser la richesse du vivant...","c2":"C3","t2":"disciplinaire"},{"id1":496,"id2":501,"n":200,"l1":"Communiquer par le langage avec les adultes et les autres enfants","c1":"C1","t1":"disciplinaire","l2":"Pratiquer divers usages de la langue orale...","c2":"C1","t2":"disciplinaire"},{"id1":501,"id2":607,"n":198,"l1":"Pratiquer divers usages de la langue orale...","c1":"C1","t1":"disciplinaire","l2":"Participer avec pertinence a un echange...","c2":"C2","t2":"disciplinaire"},{"id1":604,"id2":607,"n":195,"l1":"Conserver une attention soutenue lors d'ecoute ou d'echanges","c1":"C2","t1":"disciplinaire","l2":"Participer avec pertinence a un echange...","c2":"C2","t2":"disciplinaire"},{"id1":607,"id2":757,"n":194,"l1":"Participer avec pertinence a un echange...","c1":"C2","t1":"disciplinaire","l2":"Ecouter autrui et justifier un point de vue (debat)","c2":"C3","t2":"disciplinaire"},{"id1":617,"id2":648,"n":194,"l1":"Realiser des productions plastiques...","c1":"C2","t1":"disciplinaire","l2":"Connaitre des caracteristiques du monde vivant...","c2":"C2","t2":"disciplinaire"},{"id1":607,"id2":643,"n":192,"l1":"Participer avec pertinence a un echange...","c1":"C2","t1":"disciplinaire","l2":"Participer et prendre sa place dans un groupe (EMC)","c2":"C2","t2":"disciplinaire"},{"id1":717,"id2":806,"n":189,"l1":"Participer de facon constructive aux echanges...","c1":"C3","t1":"disciplinaire","l2":"Decrire un ecosysteme et les interactions...","c2":"C3","t2":"disciplinaire"},{"id1":717,"id2":749,"n":187,"l1":"Participer de facon constructive aux echanges...","c1":"C3","t1":"disciplinaire","l2":"Respecter autrui et les differences dans son rapport a l'alterite","c2":"C3","t2":"disciplinaire"},{"id1":643,"id2":717,"n":185,"l1":"Participer et prendre sa place dans un groupe...","c1":"C2","t1":"disciplinaire","l2":"Participer de facon constructive aux echanges...","c2":"C3","t2":"disciplinaire"},{"id1":607,"id2":806,"n":184,"l1":"Participer avec pertinence a un echange...","c1":"C2","t1":"disciplinaire","l2":"Decrire un ecosysteme et les interactions...","c2":"C3","t2":"disciplinaire"},{"id1":472,"id2":648,"n":182,"l1":"Prendre conscience de la richesse de la biodiversite (EDD C1)","c1":"C1","t1":"EDD","l2":"Connaitre des caracteristiques du monde vivant...","c2":"C2","t2":"disciplinaire"},{"id1":717,"id2":784,"n":182,"l1":"Participer de facon constructive aux echanges...","c1":"C3","t1":"disciplinaire","l2":"Caracteriser la richesse du vivant...","c2":"C3","t2":"disciplinaire"},{"id1":501,"id2":717,"n":175,"l1":"Pratiquer divers usages de la langue orale...","c1":"C1","t1":"disciplinaire","l2":"Participer de facon constructive aux echanges...","c2":"C3","t2":"disciplinaire"},{"id1":784,"id2":806,"n":173,"l1":"Caracteriser la richesse du vivant...","c1":"C3","t1":"disciplinaire","l2":"Decrire un ecosysteme et les interactions...","c2":"C3","t2":"disciplinaire"},{"id1":606,"id2":784,"n":171,"l1":"Pratiquer les formes de discours...","c1":"C2","t1":"disciplinaire","l2":"Caracteriser la richesse du vivant...","c2":"C3","t2":"disciplinaire"},{"id1":604,"id2":717,"n":170,"l1":"Conserver une attention soutenue lors d'ecoute...","c1":"C2","t1":"disciplinaire","l2":"Participer de facon constructive aux echanges...","c2":"C3","t2":"disciplinaire"},{"id1":470,"id2":472,"n":169,"l1":"Formuler des interrogations sur les etres vivants (EDD C1)","c1":"C1","t1":"EDD","l2":"Prendre conscience de la richesse de la biodiversite (EDD C1)","c2":"C1","t2":"EDD"},{"id1":496,"id2":498,"n":169,"l1":"Communiquer par le langage...","c1":"C1","t1":"disciplinaire","l2":"Utiliser le lexique appris...","c2":"C1","t2":"disciplinaire"},{"id1":472,"id2":501,"n":167,"l1":"Prendre conscience de la richesse de la biodiversite (EDD C1)","c1":"C1","t1":"EDD","l2":"Pratiquer divers usages de la langue orale...","c2":"C1","t2":"disciplinaire"}],"distrib_attendus":[{"nb":1,"nb_act":3},{"nb":2,"nb_act":6},{"nb":3,"nb_act":12},{"nb":4,"nb_act":25},{"nb":5,"nb_act":31},{"nb":6,"nb_act":61},{"nb":7,"nb_act":46},{"nb":8,"nb_act":65},{"nb":9,"nb_act":66},{"nb":10,"nb_act":131},{"nb":11,"nb_act":66},{"nb":12,"nb_act":79},{"nb":13,"nb_act":75},{"nb":14,"nb_act":72},{"nb":15,"nb_act":60},{"nb":16,"nb_act":83},{"nb":17,"nb_act":54},{"nb":18,"nb_act":69},{"nb":19,"nb_act":55},{"nb":20,"nb_act":72},{"nb":21,"nb_act":20},{"nb":22,"nb_act":19},{"nb":23,"nb_act":18},{"nb":24,"nb_act":15},{"nb":25,"nb_act":13},{"nb":26,"nb_act":16},{"nb":27,"nb_act":15},{"nb":28,"nb_act":15},{"nb":29,"nb_act":10},{"nb":30,"nb_act":14},{"nb":31,"nb_act":1}],"sans_attendus":139,"total_activites":1426,"total_attendus":348};
+
+// ============================================================
+// NAV
+// ============================================================
+function goPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  event.target.classList.add('active');
+  if (id === 'attendus') renderAttendusTable();
+  if (id === 'thematiques') renderThemList();
+}
+
+// ============================================================
+// COLORS
+// ============================================================
+const CYCLE_COLORS = { C1: '#CE93D8', C2: '#4DD0E1', C3: '#FFCC80' };
+const TYPE_COLORS = { EDD: '#66BB6A', disciplinaire: '#9FA8DA' };
+
+// ============================================================
+// PAGE 1 : OVERVIEW
+// ============================================================
+function initOverview() {
+  // Distribution bars
+  const distr = DATA.distrib_attendus;
+  const maxAct = Math.max(...distr.map(d => d.nb_act));
+  const svg = document.getElementById('svg-distrib');
+  const W = 700, H = 140, barW = W / (distr.length + 1);
+  let bars = '';
+  distr.forEach((d, i) => {
+    const h = (d.nb_act / maxAct) * (H - 24);
+    const x = i * (W / distr.length);
+    const y = H - h - 4;
+    const col = d.nb <= 5 ? '#EF5350' : d.nb <= 10 ? '#FFA726' : d.nb <= 20 ? '#5C6BC0' : '#26C6DA';
+    bars += `<rect x="${x+1}" y="${y}" width="${W/distr.length-2}" height="${h}" fill="${col}" opacity="0.85" rx="2">
+      <title>${d.nb} attendus → ${d.nb_act} activités</title></rect>`;
+    if (d.nb % 5 === 0 || d.nb === 1 || d.nb === 31) {
+      bars += `<text x="${x + W/distr.length/2}" y="${H}" text-anchor="middle" font-size="8" fill="#7B82A8">${d.nb}</text>`;
+    }
+  });
+  svg.innerHTML = bars;
+
+  // Cycle breakdown
+  const bd = document.getElementById('cycle-breakdown');
+  const cycleData = [
+    { code: 'C1', edd: 26, disc: 77, color: CYCLE_COLORS.C1 },
+    { code: 'C2', edd: 31, disc: 68, color: CYCLE_COLORS.C2 },
+    { code: 'C3', edd: 42, disc: 104, color: CYCLE_COLORS.C3 },
+  ];
+  const maxTotal = 146;
+  bd.innerHTML = cycleData.map(c => `
+    <div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+        <span style="font-family:var(--mono);font-size:11px;color:${c.color};font-weight:600">${c.code}</span>
+        <span style="font-size:11px;color:var(--muted)">${c.edd} EDD · ${c.disc} disciplinaires = ${c.edd+c.disc}</span>
+      </div>
+      <div style="height:12px;background:var(--surface2);border-radius:6px;overflow:hidden;display:flex">
+        <div style="width:${c.edd/(c.edd+c.disc)*100}%;background:var(--green);opacity:.7"></div>
+        <div style="flex:1;background:#5C6BC0;opacity:.6"></div>
+      </div>
+    </div>
+  `).join('');
+
+  // Top attendus
+  const sorted = [...DATA.attendus].sort((a,b) => b.nb - a.nb).slice(0, 15);
+  const maxNb = sorted[0].nb;
+  document.getElementById('top-attendus-list').innerHTML = sorted.map(a => `
+    <div class="bar-item">
+      <div class="bar-label-wrap">
+        <div style="display:flex;align-items:center;gap:5px">
+          <div class="bar-name">${a.libelle.substring(0, 72)}${a.libelle.length > 72 ? '…' : ''}</div>
+          <span class="type-badge ${a.type === 'EDD' ? 'edd' : 'disc'}">${a.cycle} ${a.type === 'EDD' ? 'EDD' : 'disc'}</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill" style="width:${a.nb/maxNb*100}%;background:${a.type==='EDD'?'var(--green)':'var(--accent)'}"></div></div>
+      </div>
+      <div class="bar-val">${a.nb}</div>
+    </div>
+  `).join('');
+
+  // Top thématiques
+  const themSorted = [...DATA.thematiques].sort((a,b) => b.nb - a.nb).slice(0, 12);
+  const maxThem = themSorted[0].nb;
+  document.getElementById('top-them-list').innerHTML = themSorted.map(t => `
+    <div class="bar-item">
+      <div class="bar-label-wrap">
+        <div class="bar-name">${t.nom}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${t.nb/maxThem*100}%;background:var(--accent2)"></div></div>
+      </div>
+      <div class="bar-val">${t.nb}</div>
+    </div>
+  `).join('');
+}
+
+// ============================================================
+// PAGE 2 : ATTENDUS TABLE
+// ============================================================
+let attenduFilter = 'all';
+function filterAttendus(val, btn) {
+  if (val !== null) {
+    attenduFilter = val;
+    document.querySelectorAll('#page-attendus .filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+  renderAttendusTable();
+}
+function renderAttendusTable() {
+  const q = document.getElementById('search-attendus').value.toLowerCase();
+  let items = [...DATA.attendus];
+  if (attenduFilter !== 'all') {
+    if (['C1','C2','C3'].includes(attenduFilter)) items = items.filter(a => a.cycle === attenduFilter);
+    else if (attenduFilter === 'EDD') items = items.filter(a => a.type === 'EDD');
+    else items = items.filter(a => a.type === 'disciplinaire');
+  }
+  if (q) items = items.filter(a => a.libelle.toLowerCase().includes(q) || a.domaine.toLowerCase().includes(q));
+  items.sort((a,b) => b.nb - a.nb);
+  const maxNb = Math.max(...items.map(i => i.nb), 1);
+  document.getElementById('attendus-count').textContent = `${items.length} attendus`;
+  document.getElementById('attendus-tbody').innerHTML = items.map(a => `
+    <tr>
+      <td><span style="font-family:var(--mono);color:${CYCLE_COLORS[a.cycle]}">${a.cycle}</span></td>
+      <td><span class="type-badge ${a.type === 'EDD' ? 'edd' : 'disc'}">${a.type === 'EDD' ? 'EDD' : 'disc'}</span></td>
+      <td style="color:var(--muted);font-size:11px">${a.domaine}${a.sous_domaine ? '<br><span style="opacity:.6">'+a.sous_domaine+'</span>' : ''}</td>
+      <td style="max-width:360px">${a.nb === 0 ? '<span class="zero-pill">0</span> ' : ''}${a.libelle}</td>
+      <td style="font-family:var(--mono);font-size:12px;font-weight:600;color:${a.nb === 0 ? 'var(--red)' : a.nb < 5 ? 'var(--amber)' : 'var(--green)'}">${a.nb}</td>
+      <td style="min-width:80px">
+        <div style="height:4px;background:var(--surface2);border-radius:2px">
+          <div style="height:100%;width:${a.nb/maxNb*100}%;background:${a.type==='EDD'?'var(--green)':'var(--accent)'};border-radius:2px"></div>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// ============================================================
+// PAGE 3 : PAIRS
+// ============================================================
+let pairsFilter = 'all';
+function filterPairs(val, btn) {
+  pairsFilter = val;
+  document.querySelectorAll('#page-pairs .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderPairs();
+}
+function renderPairs() {
+  let items = [...DATA.pairs];
+  if (pairsFilter !== 'all') {
+    if (pairsFilter === 'EDD') {
+      items = items.filter(p => (p.t1 === 'EDD') !== (p.t2 === 'EDD'));
+    } else {
+      items = items.filter(p => p.c1 === pairsFilter || p.c2 === pairsFilter);
+    }
+  }
+  document.getElementById('pairs-list').innerHTML = items.map(p => `
+    <div class="pair-row">
+      <div class="pair-n">${p.n}×</div>
+      <div class="pair-badges">
+        <div class="pair-badge c${p.c1[1]} ${p.t1}">${p.c1} ${p.t1 === 'EDD' ? '🌿' : '📚'} ${p.l1}</div>
+        <div class="pair-badge c${p.c2[1]} ${p.t2}">${p.c2} ${p.t2 === 'EDD' ? '🌿' : '📚'} ${p.l2}</div>
+      </div>
+    </div>
+  `).join('');
+
+  // Analysis panel
+  const allPairs = DATA.pairs;
+  const crossCycle = allPairs.filter(p => p.c1 !== p.c2);
+  const sameCycle = allPairs.filter(p => p.c1 === p.c2);
+  const eddDisc = allPairs.filter(p => (p.t1 === 'EDD') !== (p.t2 === 'EDD'));
+
+  document.getElementById('pairs-analysis').innerHTML = `
+    <div>
+      <div class="panel-title" style="color:var(--accent2);margin-bottom:8px">🔗 Insights sur les associations</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--muted)">
+        <p style="margin-bottom:10px">Les <strong style="color:var(--text)">${allPairs.length} paires</strong> les plus fréquentes révèlent plusieurs patterns dominants.</p>
+
+        <p style="margin-bottom:6px;color:var(--text)">Patterns principaux :</p>
+        <ul style="list-style:none;display:flex;flex-direction:column;gap:6px">
+          <li>🗣️ <strong>${crossCycle.length} paires cross-cycle</strong> — les mêmes attendus sont associés dans plusieurs cycles (ex: vivant C2 + biodiversité C3)</li>
+          <li>📖 Français × Vivant domine — la description orale du vivant est la combinaison reine</li>
+          <li>🌿 <strong>${eddDisc.length} paires EDD × Disciplinaire</strong> — EDD C1 (biodiversité/observations) très souvent couplé aux disciplinaires oral/langage</li>
+          <li>🎨 Arts plastiques C2 + C3 co-occurrent dans 269 activités — même activité travaille les deux niveaux</li>
+        </ul>
+      </div>
+    </div>
+    <div style="margin-top:10px">
+      <div class="panel-title" style="margin-bottom:8px;color:var(--muted)">Répartition des top 40 paires</div>
+      ${renderMiniPieStats(crossCycle.length, sameCycle.length, eddDisc.length)}
+    </div>
+  `;
+}
+
+function renderMiniPieStats(cross, same, eddDisc) {
+  const total = cross + same;
+  return `
+    <div style="display:flex;flex-direction:column;gap:6px;font-size:11px">
+      ${miniBar('Cross-cycle', cross, total, 'var(--accent2)')}
+      ${miniBar('Même cycle', same, total, 'var(--accent)')}
+      ${miniBar('EDD × Disciplinaire', eddDisc, total, 'var(--green)')}
+    </div>
+  `;
+}
+function miniBar(label, n, total, color) {
+  return `<div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:2px"><span>${label}</span><span style="font-family:var(--mono);color:${color}">${n}</span></div>
+    <div style="height:4px;background:var(--surface2);border-radius:2px"><div style="height:100%;width:${n/total*100}%;background:${color};border-radius:2px"></div></div>
+  </div>`;
+}
+
+// ============================================================
+// PAGE 4 : THÉMATIQUES
+// ============================================================
+function renderThemList() {
+  const q = document.getElementById('search-them').value.toLowerCase();
+  let items = [...DATA.thematiques];
+  if (q) items = items.filter(t => t.nom.toLowerCase().includes(q));
+  items.sort((a,b) => b.nb - a.nb);
+  const maxNb = items[0]?.nb || 1;
+  document.getElementById('them-count').textContent = `${items.length} thématiques`;
+  document.getElementById('them-tbody').innerHTML = items.map(t => `
+    <tr>
+      <td>${t.nom}</td>
+      <td style="font-family:var(--mono);font-size:10px;color:var(--muted)">${['racine','1','2','3','4'][t.niveau] || t.niveau}</td>
+      <td style="font-family:var(--mono);font-weight:600;color:var(--accent2)">${t.nb}</td>
+      <td style="min-width:100px"><div style="height:4px;background:var(--surface2);border-radius:2px"><div style="height:100%;width:${t.nb/maxNb*100}%;background:var(--accent2);border-radius:2px"></div></div></td>
+    </tr>
+  `).join('');
+
+  // Tags
+  const maxTag = Math.max(...DATA.tags.map(t => t.nb));
+  const tagColors = ['#CE93D8','#4DD0E1','#FFCC80','#80DEEA','#EF9A9A','#A5D6A7','#FFCC80'];
+  document.getElementById('tags-list').innerHTML = DATA.tags.map((t, i) => `
+    <div class="bar-item">
+      <div class="bar-label-wrap">
+        <div class="bar-name">${t.nom}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${t.nb/maxTag*100}%;background:${tagColors[i%tagColors.length]}"></div></div>
+      </div>
+      <div class="bar-val">${t.nb}</div>
+    </div>
+  `).join('');
+}
+
+// ============================================================
+// PAGE 5 : ZEROS
+// ============================================================
+function initZeros() {
+  const zeros = DATA.attendus.filter(a => a.nb === 0);
+  document.getElementById('zeros-tbody').innerHTML = zeros.map(a => `
+    <tr>
+      <td><span style="font-family:var(--mono);color:${CYCLE_COLORS[a.cycle]}">${a.cycle}</span></td>
+      <td><span class="type-badge ${a.type === 'EDD' ? 'edd' : 'disc'}">${a.type === 'EDD' ? 'EDD' : 'disc'}</span></td>
+      <td style="font-size:11px;color:var(--muted)">${a.domaine}</td>
+      <td>${a.libelle}</td>
+    </tr>
+  `).join('');
+
+  const low = DATA.attendus.filter(a => a.nb >= 1 && a.nb <= 5).sort((a,b) => a.nb - b.nb);
+  document.getElementById('low-tbody').innerHTML = low.map(a => `
+    <tr>
+      <td><span style="font-family:var(--mono);color:${CYCLE_COLORS[a.cycle]}">${a.cycle}</span></td>
+      <td><span class="type-badge ${a.type === 'EDD' ? 'edd' : 'disc'}">${a.type === 'EDD' ? 'EDD' : 'disc'}</span></td>
+      <td style="font-size:11px;color:var(--muted)">${a.domaine}</td>
+      <td style="max-width:280px">${a.libelle}</td>
+      <td style="font-family:var(--mono);font-weight:600;color:var(--amber)">${a.nb}</td>
+    </tr>
+  `).join('');
+}
+
+// ============================================================
+// INIT
+// ============================================================
+initOverview();
+initZeros();
+renderPairs();
+</script>
+</body>
+</html>

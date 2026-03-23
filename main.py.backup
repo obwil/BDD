@@ -60,39 +60,28 @@ def index():
 def liste_activites(
     q: Optional[str] = Query(None, description="Recherche texte"),
     search_mode: Optional[str] = Query("titre_desc", description="titre / titre_desc / objectif"),
-    lieu: Optional[str] = Query(None),
-    mois: Optional[str] = Query(None),
-    meteo: Optional[str] = Query(None),
+    lieu: Optional[str] = Query(None, description="Intérieur / Extérieur / Intérieur/Extérieur"),
+    mois: Optional[str] = Query(None, description="jan, fev, mar, avr, mai, jun, jul, aou, sep, oct, nov, dec"),
+    meteo: Optional[str] = Query(None, description="nuage, soleil, pluie, vent"),
     thematique_id: Optional[int] = Query(None),
     objectif_id: Optional[int] = Query(None),
     pedagogie_id: Optional[int] = Query(None),
     theorie_id: Optional[int] = Query(None),
-    cycle_ids: Optional[str] = Query(None),
-    attendu_ids: Optional[str] = Query(None),
-    tag_ids: Optional[str] = Query(None),
-    anime: Optional[str] = Query(None),
-    competence: Optional[str] = Query(None),
-    # --- Paramètres d'exclusion ---
-    exclude_lieu: Optional[str] = Query(None),
-    exclude_meteo: Optional[str] = Query(None),
-    exclude_mois: Optional[str] = Query(None),
-    exclude_cycle_ids: Optional[str] = Query(None),
-    exclude_attendu_ids: Optional[str] = Query(None),
-    exclude_tag_ids: Optional[str] = Query(None),
-    exclude_thematique_id: Optional[int] = Query(None),
-    exclude_objectif_id: Optional[int] = Query(None),
-    # --- Tri ---
-    sort: Optional[str] = Query("nom", description="nom | nb_attendus | nb_thematiques"),
+    cycle_ids: Optional[str] = Query(None, description="IDs séparés par des virgules"),
+    attendu_ids: Optional[str] = Query(None, description="IDs séparés par des virgules"),
+    tag_ids: Optional[str] = Query(None, description="IDs de tags séparés par des virgules"),
+    anime: Optional[str] = Query(None, description="0 ou 1"),
+    competence: Optional[str] = Query(None, description="individuel, binôme, petit groupe, grand groupe"),
     limit: int = Query(50, le=200),
     offset: int = Query(0),
 ):
-    """Recherche et filtrage des activités avec support exclusions, tri et cycle_counts."""
+    """Recherche et filtrage des activités."""
     conn = get_db()
 
     conditions = []
     params = []
 
-    # Recherche texte
+    # Recherche texte avec mode configurable
     if q:
         if search_mode == "titre":
             conditions.append("a.nom LIKE ?")
@@ -100,7 +89,7 @@ def liste_activites(
         elif search_mode == "objectif":
             conditions.append("a.objectif_texte LIKE ?")
             params += [f"%{q}%"]
-        else:
+        else:  # titre_desc (défaut)
             conditions.append("(a.nom LIKE ? OR a.description LIKE ?)")
             params += [f"%{q}%", f"%{q}%"]
 
@@ -129,7 +118,7 @@ def liste_activites(
         conditions.append("a.format_groupe = ?")
         params.append(competence)
 
-    # Thématique
+    # Thématique (inclut les sous-thématiques via récursion)
     if thematique_id:
         conditions.append("""
             a.id IN (
@@ -175,7 +164,7 @@ def liste_activites(
         conditions.append("a.id IN (SELECT activite_id FROM activite_theorie WHERE theorie_id = ?)")
         params.append(theorie_id)
 
-    # Attendus
+    # Attendus scolaires (plusieurs possibles)
     if attendu_ids:
         ids = [int(x) for x in attendu_ids.split(',') if x.strip().isdigit()]
         if ids:
@@ -191,7 +180,6 @@ def liste_activites(
             conditions.append(f"a.id IN (SELECT activite_id FROM activite_tag WHERE tag_id IN ({placeholders}))")
             params += ids
 
-    # Cycles (seulement si pas d'attendu)
     if cycle_ids and not attendu_ids:
         ids = [int(x) for x in cycle_ids.split(',') if x.strip().isdigit()]
         if ids:
@@ -199,111 +187,18 @@ def liste_activites(
             conditions.append(f"a.id IN (SELECT activite_id FROM activite_cycle WHERE cycle_id IN ({placeholders}))")
             params += ids
 
-    # ---- EXCLUSIONS ----
-
-    if exclude_lieu:
-        conditions.append("(a.lieu IS NULL OR a.lieu != ?)")
-        params.append(exclude_lieu)
-
-    if exclude_meteo:
-        col = f"meteo_{exclude_meteo}"
-        conditions.append(f"(a.{col} IS NULL OR a.{col} = 0)")
-
-    if exclude_mois:
-        col = f"mois_{exclude_mois}"
-        conditions.append(f"(a.{col} IS NULL OR a.{col} = 0)")
-
-    if exclude_thematique_id:
-        conditions.append("""
-            a.id NOT IN (
-                SELECT at2.activite_id FROM activite_thematique at2
-                WHERE at2.thematique_id IN (
-                    WITH RECURSIVE sous_themes(id) AS (
-                        SELECT id FROM thematique WHERE id = ?
-                        UNION ALL
-                        SELECT t.id FROM thematique t
-                        INNER JOIN sous_themes st ON t.parent_id = st.id
-                    )
-                    SELECT id FROM sous_themes
-                )
-            )
-        """)
-        params.append(exclude_thematique_id)
-
-    if exclude_objectif_id:
-        conditions.append("""
-            a.id NOT IN (
-                SELECT ao.activite_id FROM activite_objectif ao
-                WHERE ao.objectif_id IN (
-                    WITH RECURSIVE sous_obj(id) AS (
-                        SELECT id FROM objectif WHERE id = ?
-                        UNION ALL
-                        SELECT o.id FROM objectif o
-                        INNER JOIN sous_obj so ON o.parent_id = so.id
-                    )
-                    SELECT id FROM sous_obj
-                )
-            )
-        """)
-        params.append(exclude_objectif_id)
-
-    if exclude_attendu_ids:
-        ids = [int(x) for x in exclude_attendu_ids.split(',') if x.strip().isdigit()]
-        if ids:
-            placeholders = ','.join('?' * len(ids))
-            conditions.append(f"a.id NOT IN (SELECT activite_id FROM activite_attendu WHERE attendu_id IN ({placeholders}))")
-            params += ids
-
-    if exclude_tag_ids:
-        ids = [int(x) for x in exclude_tag_ids.split(',') if x.strip().isdigit()]
-        if ids:
-            placeholders = ','.join('?' * len(ids))
-            conditions.append(f"a.id NOT IN (SELECT activite_id FROM activite_tag WHERE tag_id IN ({placeholders}))")
-            params += ids
-
-    if exclude_cycle_ids:
-        ids = [int(x) for x in exclude_cycle_ids.split(',') if x.strip().isdigit()]
-        if ids:
-            placeholders = ','.join('?' * len(ids))
-            conditions.append(f"a.id NOT IN (SELECT activite_id FROM activite_cycle WHERE cycle_id IN ({placeholders}))")
-            params += ids
-
     where_clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
-
-    # ---- TRI ----
-    if sort == "nb_attendus":
-        order_clause = """ORDER BY (
-            SELECT COUNT(*) FROM activite_attendu aa WHERE aa.activite_id = a.id
-        ) DESC, a.nom"""
-    elif sort == "nb_thematiques":
-        order_clause = """ORDER BY (
-            SELECT COUNT(*) FROM activite_thematique at2 WHERE at2.activite_id = a.id
-        ) DESC, a.nom"""
-    else:
-        order_clause = "ORDER BY a.nom"
 
     # Compter le total
     total = conn.execute(
         f"SELECT COUNT(*) FROM activite a {where_clause}", params
     ).fetchone()[0]
 
-    # Compteurs C1/C2/C3 sur le résultat filtré (tous cycles présents dans la DB)
-    cycle_rows = conn.execute("SELECT id, code FROM cycle ORDER BY id").fetchall()
-    cycle_counts = {}
-    for cr in cycle_rows:
-        cnt = conn.execute(
-            f"""SELECT COUNT(DISTINCT a.id) FROM activite a
-                INNER JOIN activite_cycle ac ON a.id = ac.activite_id
-                {where_clause} AND ac.cycle_id = ?""",
-            params + [cr["id"]]
-        ).fetchone()[0]
-        cycle_counts[cr["code"]] = cnt
-
     # Récupérer les résultats
     rows = conn.execute(
         f"""
         SELECT a.id, a.nom, a.lieu, a.duree_min, a.format_groupe,
-               a.meteo_nuage, a.meteo_soleil, a.meteo_pluie, a.meteo_vent, a.meteo_nuit,
+               a.meteo_nuage, a.meteo_soleil, a.meteo_pluie, a.meteo_vent,
                a.mois_jan, a.mois_fev, a.mois_mar, a.mois_avr,
                a.mois_mai, a.mois_jun, a.mois_jul, a.mois_aou,
                a.mois_sep, a.mois_oct, a.mois_nov, a.mois_dec,
@@ -311,20 +206,14 @@ def liste_activites(
                a.chemin_dossier, a.anime
         FROM activite a
         {where_clause}
-        {order_clause}
+        ORDER BY a.nom
         LIMIT ? OFFSET ?
         """,
         params + [limit, offset]
     ).fetchall()
 
     conn.close()
-    return {
-        "total": total,
-        "offset": offset,
-        "limit": limit,
-        "cycle_counts": cycle_counts,
-        "results": rows_to_list(rows)
-    }
+    return {"total": total, "offset": offset, "limit": limit, "results": rows_to_list(rows)}
 
 
 @app.get("/api/activites/{activite_id}")
@@ -338,30 +227,35 @@ def detail_activite(activite_id: int):
 
     result = dict(activite)
 
+    # Thématiques
     result["thematiques"] = rows_to_list(conn.execute("""
         SELECT t.id, t.nom, t.niveau FROM thematique t
         INNER JOIN activite_thematique at2 ON t.id = at2.thematique_id
         WHERE at2.activite_id = ?
     """, (activite_id,)).fetchall())
 
+    # Objectifs
     result["objectifs"] = rows_to_list(conn.execute("""
         SELECT o.id, o.nom, o.niveau FROM objectif o
         INNER JOIN activite_objectif ao ON o.id = ao.objectif_id
         WHERE ao.activite_id = ?
     """, (activite_id,)).fetchall())
 
+    # Pédagogies
     result["pedagogies"] = rows_to_list(conn.execute("""
         SELECT p.id, p.nom FROM pedagogie p
         INNER JOIN activite_pedagogie ap ON p.id = ap.pedagogie_id
         WHERE ap.activite_id = ?
     """, (activite_id,)).fetchall())
 
+    # Théories
     result["theories"] = rows_to_list(conn.execute("""
         SELECT t.id, t.nom FROM theorie_apprentissage t
         INNER JOIN activite_theorie at2 ON t.id = at2.theorie_id
         WHERE at2.activite_id = ?
     """, (activite_id,)).fetchall())
 
+    # Attendus scolaires
     result["attendus"] = rows_to_list(conn.execute("""
         SELECT ats.id, ats.libelle, ats.domaine, ats.sous_domaine, ats.type,
                c.nom as cycle, c.code as cycle_code
@@ -372,6 +266,7 @@ def detail_activite(activite_id: int):
         ORDER BY ats.type, ats.cycle_id, ats.domaine
     """, (activite_id,)).fetchall())
 
+    # Tags
     result["tags"] = rows_to_list(conn.execute("""
         SELECT t.id, t.nom FROM tag t
         INNER JOIN activite_tag at2 ON t.id = at2.tag_id
@@ -379,12 +274,14 @@ def detail_activite(activite_id: int):
         ORDER BY t.nom
     """, (activite_id,)).fetchall())
 
+    # Compétences
     result["competences"] = rows_to_list(conn.execute("""
         SELECT c.id, c.nom, c.categorie FROM competence c
         INNER JOIN activite_competence ac ON c.id = ac.competence_id
         WHERE ac.activite_id = ?
     """, (activite_id,)).fetchall())
 
+    # Relations avec d'autres activités
     result["relations"] = rows_to_list(conn.execute("""
         SELECT a.id, a.nom, r.type_relation FROM activite a
         INNER JOIN relation_activite r ON a.id = r.activite_cible_id
