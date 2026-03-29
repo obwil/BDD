@@ -10,8 +10,8 @@ from pathlib import Path
 DB_PATH = Path(__file__).parent.parent / "activites.db"
 
 # --- A MODIFIER ---
-NOM_ACTUEL = "Conte"
-NOUVEAU_NOM = "Histoire - Conte"
+NOM_ACTUEL = "FAVORIS"
+NOUVEAU_NOM = "_FAVORIS"
 # ------------------
 
 def main():

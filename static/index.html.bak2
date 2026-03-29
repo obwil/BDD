@@ -163,13 +163,6 @@
 
     .empty { text-align: center; color: var(--text-muted); padding: 60px 20px; font-size: .9rem; }
     .loading { text-align: center; padding: 40px; color: var(--text-muted); }
-    .btn-delete {
-      display: inline-flex; align-items: center; gap: 5px;
-      font-size: .82rem; color: #c0392b;
-      border: 1px solid #c0392b; background: none;
-      padding: 5px 11px; border-radius: var(--radius); cursor: pointer;
-    }
-    .btn-delete:hover { background: #fdecea; }
   </style>
 </head>
 <body>
@@ -294,7 +287,6 @@
         <option value="nom">Alphabétique</option>
         <option value="nb_attendus">Plus d'attendus</option>
         <option value="nb_thematiques">Plus de thématiques</option>
-		<option value="nb_mois">Moins de mois</option>
       </select>
       <span class="result-count" id="result-count"></span>
       <span class="cycle-counts" id="cycle-counts"></span>
@@ -924,9 +916,8 @@ function buildDrawer(a) {
   const badges=(arr,k='nom')=>arr&&arr.length?arr.map(x=>`<span class="badge">${x[k]}</span>`).join(''):'<span style="color:var(--text-muted);font-size:.82rem">—</span>';
 
   let h=`<h2>${a.nom}</h2>
-  <div style="margin-bottom:8px;display:flex;gap:8px">
+  <div style="margin-bottom:8px">
     <button class="btn-edit" onclick="toggleEdit(${a.id})">✏️ Modifier</button>
-    <button class="btn-delete" onclick="confirmerSuppression(${a.id}, this)">🗑️ Supprimer</button>
   </div>`;
 
   h+=`<div class="drawer-section"><div class="info-grid">
@@ -1439,25 +1430,6 @@ async function initDrawerTagSelect(activiteId, activiteTags) {
     openDrawer(activiteId);
     search();
   };
-}
-
-async function confirmerSuppression(id, btn) {
-  const nom = btn.closest('.drawer').querySelector('h2').textContent.trim();
-  if (!confirm('Supprimer "' + nom + '" ?\n\nLe dossier sera déplacé vers la corbeille.\nCette action est irréversible depuis l\'interface.')) {
-    return;
-  }
-  try {
-    const r = await fetch('/api/activites/' + id, { method: 'DELETE' });
-    if (!r.ok) {
-      const err = await r.json();
-      alert('Erreur : ' + (err.detail || r.status));
-      return;
-    }
-    closeDrawer();
-    search();
-  } catch(e) {
-    alert('Erreur réseau : ' + e.message);
-  }
 }
 
 init();

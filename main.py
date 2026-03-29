@@ -8,6 +8,7 @@
 # Doc API automatique : http://localhost:8000/docs
 # =============================================================================
 
+import shutil
 import sqlite3
 import subprocess
 import sys
@@ -20,6 +21,7 @@ from fastapi.responses import HTMLResponse, FileResponse
 from pydantic import BaseModel
 
 DB_PATH = Path(__file__).parent / "activites.db"
+CORBEILLE_PATH = Path(r"C:\Users\moina\Dropbox\Animation\Activités v2\_CORBEILLE")
 
 app = FastAPI(title="Bibliothèque d'activités nature", version="1.0")
 
@@ -279,6 +281,12 @@ def liste_activites(
         order_clause = """ORDER BY (
             SELECT COUNT(*) FROM activite_thematique at2 WHERE at2.activite_id = a.id
         ) DESC, a.nom"""
+    elif sort == "nb_mois":
+        order_clause = """ORDER BY (
+            a.mois_jan + a.mois_fev + a.mois_mar + a.mois_avr +
+            a.mois_mai + a.mois_jun + a.mois_jul + a.mois_aou +
+            a.mois_sep + a.mois_oct + a.mois_nov + a.mois_dec
+        ) ASC, a.nom"""
     else:
         order_clause = "ORDER BY a.nom"
 
@@ -287,7 +295,7 @@ def liste_activites(
         f"SELECT COUNT(*) FROM activite a {where_clause}", params
     ).fetchone()[0]
 
-    # Compteurs C1/C2/C3 sur le résultat filtré (tous cycles présents dans la DB)
+    # Compteurs C1/C2/C3 sur le résultat filtré
     cycle_rows = conn.execute("SELECT id, code FROM cycle ORDER BY id").fetchall()
     cycle_counts = {}
     for cr in cycle_rows:
@@ -452,6 +460,64 @@ def modifier_activite(activite_id: int, data: dict):
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
+
+
+@app.delete("/api/activites/{activite_id}")
+def supprimer_activite(activite_id: int):
+    """Supprime une activité de la BDD et déplace son dossier vers la corbeille."""
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT nom, chemin_dossier FROM activite WHERE id = ?", (activite_id,)
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Activité introuvable")
+
+        nom = row["nom"]
+        chemin = row["chemin_dossier"]
+
+        # --- Déplacement du dossier local ---
+        if chemin:
+            src = Path(chemin.replace("file:///", "").replace("/", "\\"))
+            if src.exists() and src.is_dir():
+                CORBEILLE_PATH.mkdir(parents=True, exist_ok=True)
+                dest = CORBEILLE_PATH / src.name
+                if dest.exists():
+                    dest = CORBEILLE_PATH / f"{src.name}__{activite_id}"
+                shutil.move(str(src), str(dest))
+
+        # --- Suppression en BDD (tables liées explicites) ---
+        tables_liees = [
+            "activite_thematique", "activite_objectif", "activite_pedagogie",
+            "activite_theorie", "activite_attendu", "activite_cycle",
+            "activite_cycle_analysee", "activite_tag", "activite_competence",
+            "sequence_activite",
+        ]
+        for table in tables_liees:
+            try:
+                conn.execute(f"DELETE FROM {table} WHERE activite_id = ?", (activite_id,))
+            except Exception:
+                pass  # table inexistante, on ignore
+        try:
+            conn.execute(
+                "DELETE FROM relation_activite WHERE activite_source_id = ? OR activite_cible_id = ?",
+                (activite_id, activite_id)
+            )
+        except Exception:
+            pass
+        conn.execute("DELETE FROM activite WHERE id = ?", (activite_id,))
+        conn.commit()
+
+        return {"ok": True, "nom": nom}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
 
 @app.get("/api/activites/{activite_id}/ouvrir-dossier")
 def ouvrir_dossier(activite_id: int):
