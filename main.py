@@ -521,6 +521,50 @@ def ouvrir_dossier(activite_id: int):
     subprocess.Popen(f'explorer "{path}"')
     return {"status": "ok", "chemin": chemin}
 
+@app.delete("/api/activites/{activite_id}")
+def supprimer_activite(activite_id: int):
+    """Déplace le dossier de l'activité dans _CORBEILLE et supprime toutes les données associées."""
+    conn = get_db()
+    row = conn.execute("SELECT nom, chemin_dossier FROM activite WHERE id = ?", (activite_id,)).fetchone()
+    if not row:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Activité introuvable")
+
+    chemin = row["chemin_dossier"]
+    if chemin:
+        chemin = chemin.replace("file:///", "").replace("/", "\\")
+        path = Path(chemin)
+        if path.exists():
+            corbeille = path.parent.parent / "_CORBEILLE"
+            corbeille.mkdir(exist_ok=True)
+            dest = corbeille / path.name
+            # Eviter les conflits de nom
+            if dest.exists():
+                import time
+                dest = corbeille / (path.name + "_" + str(int(time.time())))
+            path.rename(dest)
+
+    try:
+        conn.execute("DELETE FROM activite_thematique WHERE activite_id = ?", (activite_id,))
+        conn.execute("DELETE FROM activite_objectif WHERE activite_id = ?", (activite_id,))
+        conn.execute("DELETE FROM activite_pedagogie WHERE activite_id = ?", (activite_id,))
+        conn.execute("DELETE FROM activite_theorie WHERE activite_id = ?", (activite_id,))
+        conn.execute("DELETE FROM activite_attendu WHERE activite_id = ?", (activite_id,))
+        conn.execute("DELETE FROM activite_cycle WHERE activite_id = ?", (activite_id,))
+        conn.execute("DELETE FROM activite_cycle_analysee WHERE activite_id = ?", (activite_id,))
+        conn.execute("DELETE FROM activite_tag WHERE activite_id = ?", (activite_id,))
+        conn.execute("DELETE FROM activite_competence WHERE activite_id = ?", (activite_id,))
+        conn.execute("DELETE FROM relation_activite WHERE activite_source_id = ? OR activite_cible_id = ?", (activite_id, activite_id))
+        conn.execute("DELETE FROM activite WHERE id = ?", (activite_id,))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        raise HTTPException(status_code=500, detail=str(e))
+
+    conn.close()
+    return {"ok": True}
+
 # ============================================================================
 # RÉFÉRENTIELS
 # ============================================================================
