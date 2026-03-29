@@ -1042,8 +1042,9 @@ function buildDrawer(a) {
   const badges=(arr,k='nom')=>arr&&arr.length?arr.map(x=>`<span class="badge">${x[k]}</span>`).join(''):'<span style="color:var(--text-muted);font-size:.82rem">—</span>';
 
   let h=`<h2>${a.nom}</h2>
-  <div style="margin-bottom:8px">
+  <div style="margin-bottom:8px;display:flex;gap:8px;align-items:center">
     <button class="btn-edit" onclick="toggleEdit(${a.id})">✏️ Modifier</button>
+    <button class="btn-edit" style="color:var(--excl);border-color:var(--excl)" onclick="supprimerActivite(${a.id}, '${a.nom.replace(/'/g, "\\'")}')">🗑️ Supprimer</button>
   </div>`;
 
   h+=`<div class="drawer-section"><div class="info-grid">
@@ -1540,6 +1541,21 @@ async function initDrawerTagSelect(activiteId, activiteTags) {
     openDrawer(activiteId);
     search();
   };
+}
+
+// ============================================================================
+// SUPPRESSION
+// ============================================================================
+async function supprimerActivite(id, nom) {
+  if (!confirm(`Supprimer "${nom}" ?\n\nLe dossier sera déplacé dans _CORBEILLE et toutes les données associées supprimées.`)) return;
+  try {
+    const r = await fetch(`/api/activites/${id}`, { method: 'DELETE' });
+    if (!r.ok) throw new Error(await r.text());
+    closeDrawer();
+    search();
+  } catch(e) {
+    alert('Erreur lors de la suppression : ' + e.message);
+  }
 }
 
 init();
