@@ -10,8 +10,8 @@
       --bg: #f5f5f0; --surface: #ffffff; --surface2: #f0efe8;
       --border: #d8d6cc; --text: #2a2a25; --text-muted: #7a7a72;
       --accent: #4a7c59; --accent-light: #d4e8db; --accent-dark: #2e5238;
-      --radius: 8px; --shadow: 0 2px 8px rgba(0,0,0,0.08);
       --excl: #c0392b; --excl-light: #fdecea;
+      --radius: 8px; --shadow: 0 2px 8px rgba(0,0,0,0.08);
     }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
     header { background: var(--accent-dark); color: white; padding: 14px 24px; display: flex; align-items: center; gap: 12px; }
@@ -22,7 +22,18 @@
     /* SIDEBAR */
     .sidebar { width: 290px; min-width: 250px; background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 18px; }
     .sidebar-section { display: flex; flex-direction: column; gap: 6px; }
-    .sidebar-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--text-muted); }
+
+    /* Label cliquable ET/OU */
+    .sidebar-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+    .op-badge {
+      font-size: .65rem; font-weight: 800; padding: 1px 5px; border-radius: 3px;
+      cursor: pointer; user-select: none; border: 1px solid currentColor;
+      transition: all .12s;
+    }
+    .op-badge.or  { color: var(--accent); border-color: var(--accent); background: var(--accent-light); }
+    .op-badge.and { color: #7B6EE0; border-color: #7B6EE0; background: #EEEDFE; }
+    .op-badge:hover { opacity: .75; }
+
     select { width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: .85rem; background: var(--surface); color: var(--text); }
     select:focus { outline: none; border-color: var(--accent); }
     .check-group { display: flex; flex-direction: column; gap: 4px; }
@@ -33,19 +44,55 @@
     .month-btn.active-incl { background: var(--accent); color: white; border-color: var(--accent); }
     .month-btn.active-excl { background: var(--excl); color: white; border-color: var(--excl); }
 
-    /* ARBRE */
-    .tree-wrap { border: 1px solid var(--border); border-radius: var(--radius); max-height: 280px; overflow-y: auto; padding: 5px; }
-    .tree-actions { display: flex; gap: 8px; margin-bottom: 4px; }
-    .tree-btn { font-size: .72rem; color: var(--accent); background: none; border: none; cursor: pointer; }
-    .tree-btn:hover { text-decoration: underline; }
+    /* CYCLES — triple état */
+    .cycle-item {
+      display: flex; align-items: flex-start; gap: 6px; font-size: .83rem;
+      cursor: pointer; padding: 4px 6px; border-radius: 5px; user-select: none;
+      border: 1px solid transparent; transition: all .12s;
+    }
+    .cycle-item:hover { background: var(--surface2); }
+    .cycle-item.state-incl { background: var(--accent-light); border-color: var(--accent); color: var(--accent-dark); font-weight: 600; }
+    .cycle-item.state-excl { background: var(--excl-light); border-color: var(--excl); color: var(--excl); font-weight: 600; }
+    .cycle-state-icon { font-size: .75rem; min-width: 14px; }
 
-    /* ATTENDUS */
-    .attendus-domaine-header { display: flex; align-items: center; gap: 4px; cursor: pointer; padding: 3px 4px; border-radius: 4px; user-select: none; }
-    .attendus-domaine-header:hover { background: var(--surface2); }
-    .attendus-domaine-label { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); flex: 1; }
-    .attendus-domaine-chev { font-size: .55rem; color: var(--text-muted); transition: transform .15s; flex-shrink: 0; }
-    .attendus-domaine-body { display: none; padding-left: 4px; }
-    .attendus-domaine-body.open { display: block; }
+    /* TAGS — triple état */
+    .tag-item {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 10px; border-radius: 20px; font-size: .8rem;
+      cursor: pointer; user-select: none; border: 1px solid var(--border);
+      background: var(--surface2); transition: all .12s;
+    }
+    .tag-item:hover { border-color: var(--accent); }
+    .tag-item.state-incl { background: var(--accent-light); border-color: var(--accent); color: var(--accent-dark); font-weight: 600; }
+    .tag-item.state-excl { background: var(--excl-light); border-color: var(--excl); color: var(--excl); font-weight: 600; }
+    .tags-wrap { display: flex; flex-wrap: wrap; gap: 5px; }
+
+    /* ATTENDUS — groupes et items triple état */
+    .attendus-group-header {
+      display: flex; align-items: center; gap: 5px; padding: 4px 6px;
+      border-radius: 5px; cursor: pointer; user-select: none;
+      border: 1px solid transparent; transition: all .12s;
+    }
+    .attendus-group-header:hover { background: var(--surface2); }
+    .attendus-group-header.state-incl { background: var(--accent-light); border-color: var(--accent); }
+    .attendus-group-header.state-excl { background: var(--excl-light); border-color: var(--excl); }
+    .attendus-group-label { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); flex: 1; }
+    .attendus-group-header.state-incl .attendus-group-label { color: var(--accent-dark); }
+    .attendus-group-header.state-excl .attendus-group-label { color: var(--excl); }
+    .attendus-group-chev { font-size: .55rem; color: var(--text-muted); transition: transform .15s; }
+    .attendus-group-body { display: none; padding-left: 8px; }
+    .attendus-group-body.open { display: block; }
+
+    .attendu-item {
+      display: flex; align-items: flex-start; gap: 6px; padding: 3px 5px;
+      border-radius: 4px; cursor: pointer; user-select: none; font-size: .8rem;
+      line-height: 1.35; border: 1px solid transparent; transition: all .1s;
+    }
+    .attendu-item:hover { background: var(--surface2); }
+    .attendu-item.state-incl { background: var(--accent-light); border-color: var(--accent); color: var(--accent-dark); }
+    .attendu-item.state-excl { background: var(--excl-light); border-color: var(--excl); color: var(--excl); }
+    .attendu-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+    .attendu-state-icon { font-size: .65rem; min-width: 10px; }
 
     /* BOUTONS */
     .btn { padding: 7px 14px; border: none; border-radius: var(--radius); font-size: .85rem; cursor: pointer; font-weight: 500; }
@@ -60,19 +107,16 @@
     .search-input { flex: 1; min-width: 200px; max-width: 380px; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: .85rem; }
     .search-input:focus { outline: none; border-color: var(--accent); }
     .search-mode-select { padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: .82rem; background: var(--surface); color: var(--text); width: auto; }
-    .search-mode-select:focus { outline: none; border-color: var(--accent); }
     .result-count { font-size: .82rem; color: var(--text-muted); }
     .cycle-counts { font-size: .78rem; color: var(--text-muted); white-space: nowrap; }
     .sort-select { padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: .82rem; background: var(--surface); color: var(--text); width: auto; }
 
     /* CHIPS */
-    .chips-bar { padding: 6px 20px 8px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .chips-bar { padding: 6px 20px 8px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; min-height: 0; }
     .chips-bar:empty { display: none; }
     .chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 20px; font-size: .75rem; font-weight: 600; cursor: default; border: 1px solid transparent; }
     .chip.incl { background: var(--accent-light); color: var(--accent-dark); border-color: var(--accent); }
     .chip.excl { background: var(--excl-light); color: var(--excl); border-color: var(--excl); }
-    .chip-toggle { background: none; border: none; cursor: pointer; font-size: .8rem; padding: 0 1px; line-height: 1; }
-    .chip-toggle:hover { opacity: .7; }
     .chip-remove { background: none; border: none; cursor: pointer; font-size: .85rem; padding: 0; line-height: 1; opacity: .6; }
     .chip-remove:hover { opacity: 1; }
 
@@ -108,6 +152,8 @@
     .open-folder-btn { display: inline-flex; align-items: center; gap: 6px; font-size: .82rem; color: var(--accent); border: 1px solid var(--accent); background: none; padding: 6px 12px; border-radius: var(--radius); cursor: pointer; }
     .open-folder-btn:hover { background: var(--accent-light); }
     .attendu-row { font-size: .8rem; padding: 4px 0; border-bottom: 1px solid var(--border); display: flex; gap: 7px; align-items: baseline; line-height: 1.4; }
+    .attendu-row:last-child { border-bottom: none; }
+    .attendu-cycle-title { font-size: .72rem; font-weight: 700; color: var(--accent-dark); margin: 8px 0 3px; }
     .edit-field { width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: .85rem; background: var(--surface); color: var(--text); font-family: inherit; }
     .edit-field:focus { outline: none; border-color: var(--accent); }
     textarea.edit-field { resize: vertical; min-height: 80px; line-height: 1.5; }
@@ -122,16 +168,6 @@
     .edit-tree-wrap { border: 1px solid var(--border); border-radius: var(--radius); max-height: 220px; overflow-y: auto; padding: 5px; }
     .save-success { font-size: .82rem; color: var(--accent); padding: 4px 0; }
     .save-error { font-size: .82rem; color: #c0392b; padding: 4px 0; }
-    .attendu-row:last-child { border-bottom: none; }
-    .attendu-cycle-title { font-size: .72rem; font-weight: 700; color: var(--accent-dark); margin: 8px 0 3px; }
-    .filter-pick-btn { width:100%; padding:7px 10px; border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--text); font-size:.85rem; cursor:pointer; display:flex; align-items:center; text-align:left; gap:4px; }
-    .filter-pick-btn:hover { border-color:var(--accent); }
-    .filter-pick-btn.active-incl { border-color:var(--accent); background:var(--accent-light); color:var(--accent-dark); font-weight:600; }
-    .filter-pick-btn.active-excl { border-color:var(--excl); background:var(--excl-light); color:var(--excl); font-weight:600; }
-    /* Bouton bascule +/- sur le filtre */
-    .toggle-mode-btn { flex-shrink:0; width:20px; height:20px; border-radius:50%; border:none; cursor:pointer; font-size:.8rem; font-weight:700; display:inline-flex; align-items:center; justify-content:center; line-height:1; }
-    .toggle-mode-btn.incl { background:var(--accent); color:white; }
-    .toggle-mode-btn.excl { background:var(--excl); color:white; }
 
     /* MODALE ARBRE */
     .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:200; align-items:center; justify-content:center; }
@@ -139,37 +175,51 @@
     .modal-box { background:var(--surface); border-radius:12px; width:560px; max-width:94vw; max-height:85vh; display:flex; flex-direction:column; box-shadow:0 8px 40px rgba(0,0,0,.18); overflow:hidden; }
     .modal-header { padding:16px 20px 12px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; }
     .modal-header h3 { font-size:1rem; font-weight:700; flex:1; }
-    .modal-search { padding:6px 10px; border:1px solid var(--border); border-radius:var(--radius); font-size:.84rem; width:100%; margin-bottom:0; }
+    .modal-search { padding:6px 10px; border:1px solid var(--border); border-radius:var(--radius); font-size:.84rem; width:100%; }
     .modal-search:focus { outline:none; border-color:var(--accent); }
     .modal-close { background:none; border:none; font-size:1.3rem; cursor:pointer; color:var(--text-muted); padding:0 4px; }
     .modal-actions { display:flex; gap:8px; padding:8px 20px; border-bottom:1px solid var(--border); flex-wrap:wrap; align-items:center; }
     .modal-tree { flex:1; overflow-y:auto; padding:10px 16px; }
-    .modal-footer { padding:12px 20px; border-top:1px solid var(--border); display:flex; gap:8px; justify-content:flex-end; }
-    .modal-excl-toggle { margin-left:auto; display:flex; align-items:center; gap:6px; font-size:.78rem; }
-    .modal-excl-toggle input { accent-color:var(--excl); }
+    .modal-footer { padding:12px 20px; border-top:1px solid var(--border); display:flex; gap:8px; justify-content:flex-end; align-items:center; }
+    .tree-btn { font-size:.72rem; color:var(--accent); background:none; border:none; cursor:pointer; }
+    .tree-btn:hover { text-decoration:underline; }
 
-    /* Noeuds arbre modale */
+    /* Toggle ET/OU dans la modale */
+    .modal-op-toggle {
+      display: flex; align-items: center; gap: 6px; margin-left: auto;
+      font-size: .75rem; color: var(--text-muted);
+    }
+    .modal-op-btn {
+      padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border);
+      background: none; font-size: .72rem; font-weight: 700; cursor: pointer;
+      transition: all .12s;
+    }
+    .modal-op-btn.active-or  { background: var(--accent-light); border-color: var(--accent); color: var(--accent-dark); }
+    .modal-op-btn.active-and { background: #EEEDFE; border-color: #7B6EE0; color: #534AB7; }
+
+    /* Nœuds arbre modale — triple état */
     .mnode { }
-    .mrow { display:flex; align-items:center; padding:4px 6px; border-radius:6px; cursor:pointer; gap:6px; }
+    .mrow {
+      display:flex; align-items:center; padding:4px 6px; border-radius:6px;
+      cursor:pointer; gap:6px; border: 1px solid transparent;
+      transition: all .1s;
+    }
     .mrow:hover { background:var(--accent-light); }
-    .mrow.selected-incl { background:var(--accent); color:white; }
-    .mrow.selected-excl { background:var(--excl-light); color:var(--excl); border:1px solid var(--excl); }
-    .mrow.selected-incl .mchev, .mrow.selected-excl .mchev { }
+    .mrow.state-incl { background:var(--accent); color:white; }
+    .mrow.state-excl { background:var(--excl-light); color:var(--excl); border-color:var(--excl); }
     .mchev { font-size:.6rem; width:14px; text-align:center; color:var(--text-muted); flex-shrink:0; transition:transform .15s; }
+    .mrow.state-incl .mchev { color: rgba(255,255,255,.7); }
     .mnode.open > .mrow .mchev { transform:rotate(90deg); }
     .mlabel { font-size:.85rem; line-height:1.35; flex:1; }
+    .mstate-icon { font-size: .7rem; min-width: 14px; text-align: center; }
     .mchildren { display:none; padding-left:16px; }
     .mnode.open > .mchildren { display:block; }
 
     .empty { text-align: center; color: var(--text-muted); padding: 60px 20px; font-size: .9rem; }
     .loading { text-align: center; padding: 40px; color: var(--text-muted); }
-    .btn-delete {
-      display: inline-flex; align-items: center; gap: 5px;
-      font-size: .82rem; color: #c0392b;
-      border: 1px solid #c0392b; background: none;
-      padding: 5px 11px; border-radius: var(--radius); cursor: pointer;
-    }
-    .btn-delete:hover { background: #fdecea; }
+
+    /* Légende triple-clic */
+    .legend-hint { font-size: .68rem; color: var(--text-muted); font-style: italic; margin-top: 2px; }
   </style>
 </head>
 <body>
@@ -243,38 +293,58 @@
     </div>
 
     <div class="sidebar-section">
-      <div class="sidebar-label">Thématique</div>
-      <button class="filter-pick-btn" id="btn-pick-them" onclick="openTreeModal('them')">
-        <span id="pick-them-label">Toutes</span>
-        <span style="margin-left:auto;opacity:.5">▼</span>
+      <div class="sidebar-label">
+        Thématique
+        <span class="op-badge or" id="them-op-badge" title="Cliquer pour basculer ET/OU" onclick="toggleOp('them')">OU</span>
+      </div>
+      <div class="legend-hint">1 clic = inclure · 2 clics = exclure · 3 clics = désélectionner</div>
+      <button class="btn btn-ghost" style="font-size:.8rem;padding:5px 10px" onclick="openTreeModal('them')">
+        🌿 Choisir des thématiques…
       </button>
+      <div id="them-selected-summary" style="font-size:.75rem;color:var(--text-muted);min-height:16px"></div>
     </div>
 
     <div class="sidebar-section">
-      <div class="sidebar-label">Objectif</div>
-      <button class="filter-pick-btn" id="btn-pick-obj" onclick="openTreeModal('obj')">
-        <span id="pick-obj-label">Tous</span>
-        <span style="margin-left:auto;opacity:.5">▼</span>
+      <div class="sidebar-label">
+        Objectif
+        <span class="op-badge or" id="obj-op-badge" title="Cliquer pour basculer ET/OU" onclick="toggleOp('obj')">OU</span>
+      </div>
+      <div class="legend-hint">1 clic = inclure · 2 clics = exclure · 3 clics = désélectionner</div>
+      <button class="btn btn-ghost" style="font-size:.8rem;padding:5px 10px" onclick="openTreeModal('obj')">
+        🎯 Choisir des objectifs…
       </button>
+      <div id="obj-selected-summary" style="font-size:.75rem;color:var(--text-muted);min-height:16px"></div>
     </div>
 
     <div class="sidebar-section">
       <div class="sidebar-label">Cycle</div>
+      <div class="legend-hint">1 clic = inclure · 2 clics = exclure · 3 clics = désélectionner</div>
       <div class="check-group" id="f-cycles"></div>
     </div>
 
     <div class="sidebar-section" id="section-attendus-edd" style="display:none">
-      <div class="sidebar-label">Attendus EDD</div>
+      <div class="sidebar-label">
+        Attendus EDD
+        <span class="op-badge or" id="attendu-edd-op-badge" title="Cliquer pour basculer ET/OU" onclick="toggleOp('attendu')">OU</span>
+      </div>
+      <div class="legend-hint">1 clic = inclure · 2 clics = exclure · 3 clics = désélectionner</div>
       <div id="f-attendus-edd"></div>
     </div>
     <div class="sidebar-section" id="section-attendus-disc" style="display:none">
-      <div class="sidebar-label">Attendus disciplinaires</div>
+      <div class="sidebar-label">
+        Attendus disciplinaires
+        <span class="op-badge or" id="attendu-disc-op-badge" title="Cliquer pour basculer ET/OU" onclick="toggleOp('attendu')">OU</span>
+      </div>
       <div id="f-attendus-disc"></div>
     </div>
 
     <div class="sidebar-section" id="section-tags" style="display:none">
-      <div class="sidebar-label">Tags</div>
-      <div class="check-group" id="f-tags"></div>
+      <div class="sidebar-label">
+        Tags
+        <span class="op-badge or" id="tag-op-badge" title="Cliquer pour basculer ET/OU" onclick="toggleOp('tag')">OU</span>
+      </div>
+      <div class="legend-hint">1 clic = inclure · 2 clics = exclure · 3 clics = désélectionner</div>
+      <div class="tags-wrap" id="f-tags"></div>
     </div>
 
     <button class="btn btn-ghost" id="btn-reset">✕ Réinitialiser</button>
@@ -294,12 +364,10 @@
         <option value="nom">Alphabétique</option>
         <option value="nb_attendus">Plus d'attendus</option>
         <option value="nb_thematiques">Plus de thématiques</option>
-		<option value="nb_mois">Moins de mois</option>
       </select>
       <span class="result-count" id="result-count"></span>
       <span class="cycle-counts" id="cycle-counts"></span>
     </div>
-    <!-- Barre de chips filtres actifs -->
     <div class="chips-bar" id="chips-bar"></div>
     <div class="results" id="results"><div class="loading">Chargement…</div></div>
     <div class="pagination" id="pagination"></div>
@@ -323,13 +391,18 @@
     <div class="modal-actions">
       <button class="tree-btn" onclick="expandAllModal()">Tout déplier</button>
       <button class="tree-btn" onclick="collapseAllModal()">Tout replier</button>
-      <button class="tree-btn" onclick="clearModalSelection()" style="color:#c0392b">Effacer</button>
-      <label class="modal-excl-toggle">
-        <input type="checkbox" id="modal-excl-check"> Mode exclusion
-      </label>
+      <button class="tree-btn" onclick="clearModalSelection()" style="color:#c0392b">Effacer tout</button>
+      <div class="modal-op-toggle">
+        <span>Opérateur :</span>
+        <button class="modal-op-btn active-or" id="modal-op-or"  onclick="setModalOp('or')">OU</button>
+        <button class="modal-op-btn"            id="modal-op-and" onclick="setModalOp('and')">ET</button>
+      </div>
     </div>
     <div class="modal-tree" id="modal-tree"></div>
     <div class="modal-footer">
+      <span style="font-size:.72rem;color:var(--text-muted);margin-right:auto">
+        🟢 Inclure &nbsp; 🔴 Exclure &nbsp; (3 clics = désélectionner)
+      </span>
       <button class="btn btn-ghost" onclick="closeTreeModal()">Fermer</button>
     </div>
   </div>
@@ -341,17 +414,26 @@
 // ============================================================================
 const S = {
   q:'', lieu:'', meteo:[], mois:null, moisMode:'incl', groupe:'',
-  thematique_id:null, thematique_mode:'incl', thematique_nom:null,
-  objectif_id:null, objectif_mode:'incl', objectif_nom:null,
-  cycle_ids:[], attendu_ids:[], tag_ids:[],
+  // thématiques : Map id -> 'incl'|'excl'
+  thematique_states: {},   // id -> 'incl'|'excl'
+  thematique_op: 'or',
+  // objectifs : Map id -> 'incl'|'excl'
+  objectif_states: {},
+  objectif_op: 'or',
+  // cycles : Map id -> 'incl'|'excl'
+  cycle_states: {},
+  // attendus : Map id -> 'incl'|'excl'
+  attendu_states: {},
+  attendu_op: 'or',
+  // tags : Map id -> 'incl'|'excl'
+  tag_states: {},
+  tag_op: 'or',
   search_mode:'titre', anime:'', sort:'nom',
   limit:40, offset:0, total:0
 };
-// Modes d'exclusion par type de filtre (pour les checkboxes)
-const METEO_MODES   = {}; // valeur => 'incl'|'excl'
-const ATTENDU_MODES = {}; // id => 'incl'|'excl'
-const TAG_MODES     = {}; // id => 'incl'|'excl'
-const CYCLE_MODES   = {}; // id => 'incl'|'excl'
+
+// Météo garde le vieux système (checkbox + exclusion via chips)
+const METEO_MODES = {};
 
 const MOIS_NOMS  = ['jan','fev','mar','avr','mai','jun','jul','aou','sep','oct','nov','dec'];
 const MOIS_LAB   = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
@@ -359,10 +441,53 @@ const MOIS_COURT = ['J','F','M','A','M','J','J','A','S','O','N','D'];
 const METEO_ICO  = {nuage:'☁️', soleil:'☀️', pluie:'🌧️', vent:'💨', nuit:'🌙'};
 const METEO_LAB  = {nuage:'Nuageux', soleil:'Soleil', pluie:'Pluie', vent:'Vent', nuit:'Nuit'};
 
+// Noms des thématiques/objectifs pour les chips
+const THEM_NAMES = {};
+const OBJ_NAMES  = {};
+
 async function api(path) {
   const r = await fetch(path);
   if (!r.ok) throw new Error(r.status);
   return r.json();
+}
+
+// ============================================================================
+// TOGGLE ET/OU
+// ============================================================================
+function toggleOp(type) {
+  if (type === 'them') {
+    S.thematique_op = S.thematique_op === 'or' ? 'and' : 'or';
+    const b = document.getElementById('them-op-badge');
+    b.textContent = S.thematique_op.toUpperCase();
+    b.className = 'op-badge ' + S.thematique_op;
+  } else if (type === 'obj') {
+    S.objectif_op = S.objectif_op === 'or' ? 'and' : 'or';
+    const b = document.getElementById('obj-op-badge');
+    b.textContent = S.objectif_op.toUpperCase();
+    b.className = 'op-badge ' + S.objectif_op;
+  } else if (type === 'attendu') {
+    S.attendu_op = S.attendu_op === 'or' ? 'and' : 'or';
+    ['attendu-edd-op-badge','attendu-disc-op-badge'].forEach(id => {
+      const b = document.getElementById(id);
+      if (b) { b.textContent = S.attendu_op.toUpperCase(); b.className = 'op-badge ' + S.attendu_op; }
+    });
+  } else if (type === 'tag') {
+    S.tag_op = S.tag_op === 'or' ? 'and' : 'or';
+    const b = document.getElementById('tag-op-badge');
+    b.textContent = S.tag_op.toUpperCase();
+    b.className = 'op-badge ' + S.tag_op;
+  }
+  S.offset = 0; search();
+}
+
+// ============================================================================
+// TRIPLE-CLIC générique : none -> incl -> excl -> none
+// ============================================================================
+function cycleState(stateMap, id) {
+  const cur = stateMap[id] || null;
+  if (!cur)          { stateMap[id] = 'incl'; return 'incl'; }
+  if (cur === 'incl') { stateMap[id] = 'excl'; return 'excl'; }
+  delete stateMap[id]; return null;
 }
 
 // ============================================================================
@@ -375,69 +500,78 @@ async function init() {
       `${s.total_activites} activités · ${s.total_thematiques} thématiques`;
   } catch(e){}
 
-  // Cycles
+  // Cycles — rendu avec triple état
   try {
     const cycles = await api('/api/cycles');
     const c = document.getElementById('f-cycles');
     cycles.forEach(cy => {
-      const wrap = document.createElement('div');
-      wrap.style = 'display:flex;align-items:flex-start;gap:4px;padding:2px 0';
-      const lbl = document.createElement('label');
-      lbl.className = 'check-item';
-      lbl.style.flex = '1';
-      lbl.innerHTML = `<input type="checkbox" name="cycle" value="${cy.id}">
+      const item = document.createElement('div');
+      item.className = 'cycle-item';
+      item.dataset.id = cy.id;
+      item.innerHTML = `<span class="cycle-state-icon"></span>
         <span><strong>${cy.code}</strong> — ${cy.nom}
         <span style="color:var(--text-muted);font-size:.73rem"> (${cy.ages})</span></span>`;
-      wrap.appendChild(lbl);
-      c.appendChild(wrap);
-      CYCLE_MODES[cy.id] = 'incl';
+      item.addEventListener('click', () => onCycleClick(cy.id, item));
+      c.appendChild(item);
     });
   } catch(e){}
 
-  // Tags
+  // Tags — rendu avec triple état
   try {
     const tags = await api('/api/tags');
     const sec = document.getElementById('section-tags');
     const c = document.getElementById('f-tags');
     if (tags.length) {
       tags.forEach(t => {
-        const lbl = document.createElement('label');
-        lbl.className = 'check-item';
-        lbl.innerHTML = `<input type="checkbox" name="tag" value="${t.id}"> ${t.nom}`;
-        c.appendChild(lbl);
-        TAG_MODES[t.id] = 'incl';
+        const item = document.createElement('span');
+        item.className = 'tag-item';
+        item.dataset.id = t.id;
+        item.dataset.nom = t.nom;
+        item.textContent = t.nom;
+        item.addEventListener('click', () => onTagClick(t.id, t.nom, item));
+        c.appendChild(item);
       });
       sec.style.display = 'block';
     }
   } catch(e){}
 
   // Cache arbres
-  try { treeCache.them = await api('/api/thematiques/arbre'); } catch(e){}
-  try { treeCache.obj  = await api('/api/objectifs/arbre');   } catch(e){}
+  try { treeCache.them = await api('/api/thematiques/arbre'); flattenTree(treeCache.them, THEM_NAMES); } catch(e){}
+  try { treeCache.obj  = await api('/api/objectifs/arbre');   flattenTree(treeCache.obj,  OBJ_NAMES);  } catch(e){}
 
   bindEvents();
-
-  // Lecture des paramètres URL (lien depuis dashboard)
   applyURLParams();
-
   search();
 }
 
+function flattenTree(nodes, nameMap) {
+  nodes.forEach(n => { nameMap[n.id] = n.nom; if (n.children) flattenTree(n.children, nameMap); });
+}
+
 // ============================================================================
-// LECTURE PARAMS URL
+// CYCLES
 // ============================================================================
-function applyURLParams() {
-  const params = new URLSearchParams(window.location.search);
-  const attenduIds = params.get('attendu_ids');
-  if (attenduIds) {
-    const ids = attenduIds.split(',').map(x => x.trim()).filter(Boolean);
-    if (ids.length) {
-      S.attendu_ids = ids;
-      // On pré-coche les cycles nécessaires pour afficher la section
-      // Les checkboxes d'attendus seront créées après chargement async
-      // On déclenche une recherche filtrée directement via S.attendu_ids
-    }
-  }
+async function onCycleClick(id, el) {
+  const newState = cycleState(S.cycle_states, id);
+  el.className = 'cycle-item' + (newState ? ' state-' + newState : '');
+  const icon = el.querySelector('.cycle-state-icon');
+  icon.textContent = newState === 'incl' ? '✓' : newState === 'excl' ? '✗' : '';
+
+  // Charger les attendus pour les cycles inclus
+  const inclCycles = Object.entries(S.cycle_states)
+    .filter(([,v]) => v === 'incl').map(([k]) => k);
+  S.attendu_states = {}; // reset attendus si on change les cycles
+  await chargerAttendus(inclCycles);
+  S.offset = 0; search();
+}
+
+// ============================================================================
+// TAGS
+// ============================================================================
+function onTagClick(id, nom, el) {
+  const newState = cycleState(S.tag_states, id);
+  el.className = 'tag-item' + (newState ? ' state-' + newState : '');
+  S.offset = 0; search();
 }
 
 // ============================================================================
@@ -446,67 +580,112 @@ function applyURLParams() {
 function buildAttendusAccordion(items, container, multiCycle) {
   container.innerHTML = '';
   const byDomaine = {};
-  items.forEach(function(a) {
-    var key = (multiCycle ? '[' + (a.cycle_code||'') + '] ' : '') + a.domaine;
-    if (!byDomaine[key]) byDomaine[key] = [];
-    byDomaine[key].push(a);
+  items.forEach(a => {
+    const key = (multiCycle ? '[' + (a.cycle_code||'') + '] ' : '') + a.domaine;
+    if (!byDomaine[key]) byDomaine[key] = { items: [], ids: [] };
+    byDomaine[key].items.push(a);
+    byDomaine[key].ids.push(a.id);
   });
-  Object.keys(byDomaine).forEach(function(dom) {
-    var attendus = byDomaine[dom];
-    var header = document.createElement('div');
-    header.className = 'attendus-domaine-header';
-    var chev = document.createElement('span');
-    chev.className = 'attendus-domaine-chev';
+
+  Object.entries(byDomaine).forEach(([dom, group]) => {
+    // En-tête du groupe — triple état
+    const header = document.createElement('div');
+    header.className = 'attendus-group-header';
+    header.dataset.groupKey = dom;
+    const chev = document.createElement('span');
+    chev.className = 'attendus-group-chev';
     chev.textContent = '▶';
-    var label = document.createElement('span');
-    label.className = 'attendus-domaine-label';
+    const label = document.createElement('span');
+    label.className = 'attendus-group-label';
     label.textContent = dom;
     header.appendChild(chev);
     header.appendChild(label);
-    container.appendChild(header);
-    var body = document.createElement('div');
-    body.className = 'attendus-domaine-body';
-    attendus.forEach(function(a) {
-      var lbl = document.createElement('label');
-      lbl.className = 'check-item';
-      lbl.style = 'gap:6px;align-items:flex-start';
-      var sd = a.sous_domaine ? '<strong>' + a.sous_domaine + '</strong> — ' : '';
-      var typeColor = (a.type === 'disciplinaire') ? '#7B6EE0' : '#4a7c59';
-      var dot = '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:' + typeColor + ';flex-shrink:0;margin:3px 3px 0 0"></span>';
-      var checked = S.attendu_ids.includes(String(a.id)) || S.attendu_ids.includes(a.id) ? 'checked' : '';
-      lbl.innerHTML = '<input type="checkbox" name="attendu" value="' + a.id + '" ' + checked + '> ' + dot + ' <span>' + sd + a.libelle + '</span>';
-      body.appendChild(lbl);
-      ATTENDU_MODES[a.id] = ATTENDU_MODES[a.id] || 'incl';
-    });
-    container.appendChild(body);
-    header.addEventListener('click', function() {
-      var open = body.classList.toggle('open');
+
+    const body = document.createElement('div');
+    body.className = 'attendus-group-body';
+
+    // Clic sur le chevron : déplier/replier uniquement
+    chev.addEventListener('click', e => {
+      e.stopPropagation();
+      const open = body.classList.toggle('open');
       chev.style.transform = open ? 'rotate(90deg)' : '';
+    });
+
+    // Clic sur le reste de l'header : triple état du groupe
+    header.addEventListener('click', e => {
+      if (e.target === chev) return;
+      // Détermine l'état courant du groupe (par le premier item ou null)
+      const firstId = group.ids[0];
+      const newState = cycleState(S.attendu_states, '__group__' + dom);
+      // Appliquer l'état à tous les attendus du groupe (sauf si overridés individuellement)
+      group.ids.forEach(id => {
+        if (newState) S.attendu_states[id] = newState;
+        else delete S.attendu_states[id];
+      });
+      // Supprimer le marqueur de groupe
+      delete S.attendu_states['__group__' + dom];
+      updateAttendusGroupUI(header, body, group.ids, newState);
+      S.offset = 0; search();
+    });
+
+    container.appendChild(header);
+    container.appendChild(body);
+
+    // Items individuels
+    group.items.forEach(a => {
+      const item = document.createElement('div');
+      item.className = 'attendu-item';
+      item.dataset.id = a.id;
+      const isEDD = !a.type || a.type === 'EDD';
+      const dotColor = isEDD ? '#4a7c59' : '#7B6EE0';
+      const sd = a.sous_domaine ? `<strong>${a.sous_domaine}</strong> — ` : '';
+      item.innerHTML = `<span class="attendu-state-icon"></span>
+        <span class="attendu-dot" style="background:${dotColor}"></span>
+        <span>${sd}${a.libelle}</span>`;
+      item.addEventListener('click', () => {
+        const newState = cycleState(S.attendu_states, a.id);
+        item.className = 'attendu-item' + (newState ? ' state-' + newState : '');
+        item.querySelector('.attendu-state-icon').textContent =
+          newState === 'incl' ? '✓' : newState === 'excl' ? '✗' : '';
+        S.offset = 0; search();
+      });
+      body.appendChild(item);
     });
   });
 }
 
+function updateAttendusGroupUI(header, body, ids, state) {
+  header.className = 'attendus-group-header' + (state ? ' state-' + state : '');
+  body.querySelectorAll('.attendu-item').forEach(item => {
+    const id = parseInt(item.dataset.id);
+    const s = S.attendu_states[id] || null;
+    item.className = 'attendu-item' + (s ? ' state-' + s : '');
+    item.querySelector('.attendu-state-icon').textContent =
+      s === 'incl' ? '✓' : s === 'excl' ? '✗' : '';
+  });
+}
+
 async function chargerAttendus(cycleIds) {
-  var secEdd  = document.getElementById('section-attendus-edd');
-  var secDisc = document.getElementById('section-attendus-disc');
-  var cEdd    = document.getElementById('f-attendus-edd');
-  var cDisc   = document.getElementById('f-attendus-disc');
+  const secEdd  = document.getElementById('section-attendus-edd');
+  const secDisc = document.getElementById('section-attendus-disc');
+  const cEdd    = document.getElementById('f-attendus-edd');
+  const cDisc   = document.getElementById('f-attendus-disc');
   if (!cycleIds || !cycleIds.length) {
-    secEdd.style.display='none';  cEdd.innerHTML='';
+    secEdd.style.display='none'; cEdd.innerHTML='';
     secDisc.style.display='none'; cDisc.innerHTML='';
     return;
   }
   try {
-    var allAttendus = [];
-    for (var i=0; i<cycleIds.length; i++) {
-      var attendus = await api('/api/cycles/' + cycleIds[i] + '/attendus');
-      attendus.forEach(function(a) { allAttendus.push(a); });
+    const allAttendus = [];
+    for (const cid of cycleIds) {
+      const attendus = await api('/api/cycles/' + cid + '/attendus');
+      attendus.forEach(a => allAttendus.push(a));
     }
-    var multi = cycleIds.length > 1;
-    var edd  = allAttendus.filter(function(a){ return !a.type || a.type === 'EDD'; });
-    var disc = allAttendus.filter(function(a){ return a.type === 'disciplinaire'; });
+    const multi = cycleIds.length > 1;
+    const edd  = allAttendus.filter(a => !a.type || a.type === 'EDD');
+    const disc = allAttendus.filter(a => a.type === 'disciplinaire');
     if (edd.length)  { buildAttendusAccordion(edd,  cEdd,  multi); secEdd.style.display='block'; }
-    else             { cEdd.innerHTML='';  secEdd.style.display='none'; }
+    else             { cEdd.innerHTML=''; secEdd.style.display='none'; }
     if (disc.length) { buildAttendusAccordion(disc, cDisc, multi); secDisc.style.display='block'; }
     else             { cDisc.innerHTML=''; secDisc.style.display='none'; }
   } catch(e){}
@@ -525,8 +704,7 @@ function bindEvents() {
     if(e.key==='Enter') document.getElementById('btn-search').click();
   });
   document.getElementById('search-mode').addEventListener('change', e => {
-    S.search_mode = e.target.value;
-    if(S.q) { S.offset=0; search(); }
+    S.search_mode = e.target.value; if(S.q) { S.offset=0; search(); }
   });
   document.getElementById('sort-select').addEventListener('change', e => {
     S.sort = e.target.value; S.offset=0; search();
@@ -537,84 +715,31 @@ function bindEvents() {
     r.addEventListener('change', e => { S.anime=e.target.value; S.offset=0; search(); });
   });
 
-  // Météo — clic sur checkbox : cocher/décocher
-  // Clic sur l'icône/libellé : bascule mode incl/excl si déjà coché
+  // Météo — inchangé
   document.querySelectorAll('input[name="meteo"]').forEach(cb => {
     cb.addEventListener('change', () => {
       S.meteo=[...document.querySelectorAll('input[name="meteo"]:checked')].map(x=>x.value);
       S.offset=0; search();
     });
-    // Double-clic sur le label pour basculer le mode
-    cb.parentElement.addEventListener('dblclick', (e) => {
+    cb.parentElement.addEventListener('dblclick', () => {
       if (!cb.checked) return;
-      const val = cb.value;
-      METEO_MODES[val] = METEO_MODES[val] === 'excl' ? 'incl' : 'excl';
+      METEO_MODES[cb.value] = METEO_MODES[cb.value] === 'excl' ? 'incl' : 'excl';
       S.offset=0; search();
     });
   });
 
+  // Mois — inchangé
   document.querySelectorAll('.month-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const m = btn.dataset.m;
       if (S.mois === m) {
-        // Déjà actif : bascule mode ou désactive
         if (S.moisMode === 'incl') { S.moisMode = 'excl'; }
         else { S.mois = null; S.moisMode = 'incl'; }
-      } else {
-        S.mois = m; S.moisMode = 'incl';
-      }
+      } else { S.mois = m; S.moisMode = 'incl'; }
       document.querySelectorAll('.month-btn').forEach(b => b.classList.remove('active-incl','active-excl'));
       if (S.mois) btn.classList.add(S.moisMode === 'excl' ? 'active-excl' : 'active-incl');
       S.offset=0; search();
     });
-  });
-
-  document.getElementById('f-cycles').addEventListener('change', async e => {
-    if(e.target.name==='cycle'){
-      const checked = [...document.querySelectorAll('input[name="cycle"]:checked')];
-      S.cycle_ids = checked.map(x=>x.value);
-      S.attendu_ids=[]; S.offset=0;
-      await chargerAttendus(S.cycle_ids);
-      search();
-    }
-  });
-
-  // Double-clic sur cycle pour basculer mode
-  document.getElementById('f-cycles').addEventListener('dblclick', e => {
-    const cb = e.target.closest('label')?.querySelector('input[name="cycle"]');
-    if (!cb || !cb.checked) return;
-    const id = cb.value;
-    CYCLE_MODES[id] = CYCLE_MODES[id] === 'excl' ? 'incl' : 'excl';
-    S.offset=0; search();
-  });
-
-  ['f-attendus-edd','f-attendus-disc'].forEach(function(id){
-    var el = document.getElementById(id);
-    if (el) el.addEventListener('change', function(e){
-      if(e.target.name==='attendu'){
-        S.attendu_ids=[...document.querySelectorAll('input[name="attendu"]:checked')].map(function(x){return x.value;});
-        S.offset=0; search();
-      }
-    });
-    if (el) el.addEventListener('dblclick', function(e){
-      const cb = e.target.closest('label')?.querySelector('input[name="attendu"]');
-      if (!cb || !cb.checked) return;
-      const id2 = cb.value;
-      ATTENDU_MODES[id2] = ATTENDU_MODES[id2] === 'excl' ? 'incl' : 'excl';
-      S.offset=0; search();
-    });
-  });
-
-  document.getElementById('f-tags').addEventListener('change', () => {
-    S.tag_ids = [...document.querySelectorAll('input[name="tag"]:checked')].map(x=>x.value);
-    S.offset=0; search();
-  });
-  document.getElementById('f-tags').addEventListener('dblclick', e => {
-    const cb = e.target.closest('label')?.querySelector('input[name="tag"]');
-    if (!cb || !cb.checked) return;
-    const id = cb.value;
-    TAG_MODES[id] = TAG_MODES[id] === 'excl' ? 'incl' : 'excl';
-    S.offset=0; search();
   });
 
   document.getElementById('btn-reset').addEventListener('click', resetAll);
@@ -625,14 +750,13 @@ function bindEvents() {
 
 function resetAll() {
   S.q=''; S.lieu=''; S.meteo=[]; S.mois=null; S.moisMode='incl'; S.groupe='';
-  S.thematique_id=null; S.thematique_mode='incl'; S.thematique_nom=null;
-  S.objectif_id=null; S.objectif_mode='incl'; S.objectif_nom=null;
-  S.cycle_ids=[]; S.attendu_ids=[]; S.tag_ids=[]; S.sort='nom'; S.offset=0;
-  S.search_mode='titre'; S.anime='';
+  S.thematique_states={}; S.thematique_op='or';
+  S.objectif_states={};   S.objectif_op='or';
+  S.cycle_states={};
+  S.attendu_states={};    S.attendu_op='or';
+  S.tag_states={};        S.tag_op='or';
+  S.sort='nom'; S.offset=0; S.search_mode='titre'; S.anime='';
   Object.keys(METEO_MODES).forEach(k => { METEO_MODES[k]='incl'; });
-  Object.keys(ATTENDU_MODES).forEach(k => { ATTENDU_MODES[k]='incl'; });
-  Object.keys(TAG_MODES).forEach(k => { TAG_MODES[k]='incl'; });
-  Object.keys(CYCLE_MODES).forEach(k => { CYCLE_MODES[k]='incl'; });
   document.getElementById('search-input').value='';
   document.getElementById('search-mode').value='titre';
   document.getElementById('sort-select').value='nom';
@@ -640,145 +764,143 @@ function resetAll() {
   document.getElementById('f-groupe').value='';
   document.querySelectorAll('input[name="meteo"]').forEach(cb=>cb.checked=false);
   document.querySelectorAll('.month-btn').forEach(b=>b.classList.remove('active-incl','active-excl'));
-  document.querySelectorAll('input[name="cycle"]').forEach(r=>r.checked=false);
-  document.querySelectorAll('input[name="attendu"]').forEach(r=>r.checked=false);
+  document.querySelectorAll('input[name="anime"]').forEach(r=>{ r.checked = r.value===''; });
+  // Reset cycles
+  document.querySelectorAll('.cycle-item').forEach(el => {
+    el.className = 'cycle-item';
+    el.querySelector('.cycle-state-icon').textContent = '';
+  });
+  // Reset tags
+  document.querySelectorAll('.tag-item').forEach(el => el.className = 'tag-item');
+  // Reset attendus
   document.getElementById('section-attendus-edd').style.display='none';
   document.getElementById('section-attendus-disc').style.display='none';
   document.getElementById('f-attendus-edd').innerHTML='';
   document.getElementById('f-attendus-disc').innerHTML='';
-  document.querySelectorAll('input[name="anime"]').forEach(r=>{ r.checked = r.value===''; });
-  document.querySelectorAll('input[name="tag"]').forEach(cb=>cb.checked=false);
-  const btnThem = document.getElementById('btn-pick-them');
-  const btnObj  = document.getElementById('btn-pick-obj');
-  btnThem.className='filter-pick-btn'; btnObj.className='filter-pick-btn';
-  document.getElementById('pick-them-label').textContent='Toutes';
-  document.getElementById('pick-obj-label').textContent='Tous';
+  // Reset op badges
+  ['them-op-badge','obj-op-badge','attendu-edd-op-badge','attendu-disc-op-badge','tag-op-badge'].forEach(id => {
+    const b = document.getElementById(id);
+    if (b) { b.textContent = 'OU'; b.className = 'op-badge or'; }
+  });
+  // Reset sélection modale
+  S.thematique_states = {}; S.objectif_states = {};
+  updateSelectedSummary('them'); updateSelectedSummary('obj');
   search();
 }
 
 // ============================================================================
-// CHIPS — barre de filtres actifs
+// LECTURE PARAMS URL
+// ============================================================================
+function applyURLParams() {
+  const params = new URLSearchParams(window.location.search);
+  const attenduIds = params.get('attendu_ids');
+  if (attenduIds) {
+    const ids = attenduIds.split(',').map(x => x.trim()).filter(Boolean);
+    ids.forEach(id => { S.attendu_states[id] = 'incl'; });
+  }
+}
+
+// ============================================================================
+// CHIPS
 // ============================================================================
 function buildChipsBar() {
   const bar = document.getElementById('chips-bar');
   bar.innerHTML = '';
 
-  const addChip = (label, mode, onToggle, onRemove) => {
+  const addChip = (label, mode, onRemove) => {
     const chip = document.createElement('span');
     chip.className = 'chip ' + mode;
-    const toggleBtn = document.createElement('button');
-    toggleBtn.className = 'chip-toggle';
-    toggleBtn.title = mode === 'incl' ? 'Cliquer pour exclure' : 'Cliquer pour inclure';
-    toggleBtn.textContent = mode === 'incl' ? '+' : '−';
-    toggleBtn.addEventListener('click', onToggle);
-    const txt = document.createTextNode(' ' + label + ' ');
+    const txt = document.createTextNode(label + ' ');
     const rmBtn = document.createElement('button');
     rmBtn.className = 'chip-remove';
     rmBtn.title = 'Supprimer ce filtre';
     rmBtn.textContent = '✕';
     rmBtn.addEventListener('click', onRemove);
-    chip.append(toggleBtn, txt, rmBtn);
+    chip.append(txt, rmBtn);
     bar.appendChild(chip);
   };
 
   // Météo
   S.meteo.forEach(m => {
     const mode = METEO_MODES[m] || 'incl';
-    addChip(METEO_ICO[m] + ' ' + METEO_LAB[m], mode,
-      () => { METEO_MODES[m] = mode === 'incl' ? 'excl' : 'incl'; S.offset=0; search(); },
-      () => {
-        const cb = document.querySelector(`input[name="meteo"][value="${m}"]`);
-        if (cb) { cb.checked=false; }
-        S.meteo = S.meteo.filter(x=>x!==m); S.offset=0; search();
-      }
-    );
+    addChip(METEO_ICO[m] + ' ' + METEO_LAB[m], mode, () => {
+      const cb = document.querySelector(`input[name="meteo"][value="${m}"]`);
+      if (cb) cb.checked = false;
+      S.meteo = S.meteo.filter(x=>x!==m); S.offset=0; search();
+    });
   });
 
   // Mois
   if (S.mois) {
     const idx = MOIS_NOMS.indexOf(S.mois);
-    const lab = idx >= 0 ? MOIS_LAB[idx] : S.mois;
-    addChip('📅 ' + lab, S.moisMode,
-      () => { S.moisMode = S.moisMode === 'incl' ? 'excl' : 'incl'; S.offset=0; search(); },
-      () => {
-        S.mois=null; S.moisMode='incl';
-        document.querySelectorAll('.month-btn').forEach(b=>b.classList.remove('active-incl','active-excl'));
-        S.offset=0; search();
-      }
-    );
+    addChip('📅 ' + (idx>=0 ? MOIS_LAB[idx] : S.mois), S.moisMode, () => {
+      S.mois=null; S.moisMode='incl';
+      document.querySelectorAll('.month-btn').forEach(b=>b.classList.remove('active-incl','active-excl'));
+      S.offset=0; search();
+    });
   }
 
-  // Thématique
-  if (S.thematique_id) {
-    addChip('🌿 ' + (S.thematique_nom||'Thématique'), S.thematique_mode,
-      () => { S.thematique_mode = S.thematique_mode==='incl'?'excl':'incl'; S.offset=0; search(); },
-      () => {
-        S.thematique_id=null; S.thematique_nom=null; S.thematique_mode='incl';
-        const b=document.getElementById('btn-pick-them');
-        b.className='filter-pick-btn';
-        document.getElementById('pick-them-label').textContent='Toutes';
-        S.offset=0; search();
-      }
-    );
-  }
+  // Thématiques
+  const opLabThem = Object.keys(S.thematique_states).filter(k=>!k.startsWith('__')).length > 1
+    ? ' [' + S.thematique_op.toUpperCase() + ']' : '';
+  Object.entries(S.thematique_states).forEach(([id, mode]) => {
+    if (String(id).startsWith('__')) return;
+    const nom = THEM_NAMES[id] || 'Thématique ' + id;
+    addChip('🌿 ' + nom + opLabThem, mode, () => {
+      delete S.thematique_states[id]; updateSelectedSummary('them'); S.offset=0; search();
+    });
+  });
 
-  // Objectif
-  if (S.objectif_id) {
-    addChip('🎯 ' + (S.objectif_nom||'Objectif'), S.objectif_mode,
-      () => { S.objectif_mode = S.objectif_mode==='incl'?'excl':'incl'; S.offset=0; search(); },
-      () => {
-        S.objectif_id=null; S.objectif_nom=null; S.objectif_mode='incl';
-        const b=document.getElementById('btn-pick-obj');
-        b.className='filter-pick-btn';
-        document.getElementById('pick-obj-label').textContent='Tous';
-        S.offset=0; search();
-      }
-    );
-  }
+  // Objectifs
+  const opLabObj = Object.keys(S.objectif_states).filter(k=>!k.startsWith('__')).length > 1
+    ? ' [' + S.objectif_op.toUpperCase() + ']' : '';
+  Object.entries(S.objectif_states).forEach(([id, mode]) => {
+    if (String(id).startsWith('__')) return;
+    const nom = OBJ_NAMES[id] || 'Objectif ' + id;
+    addChip('🎯 ' + nom + opLabObj, mode, () => {
+      delete S.objectif_states[id]; updateSelectedSummary('obj'); S.offset=0; search();
+    });
+  });
 
   // Cycles
-  S.cycle_ids.forEach(cid => {
-    const mode = CYCLE_MODES[cid] || 'incl';
-    const cb = document.querySelector(`input[name="cycle"][value="${cid}"]`);
-    const lab = cb ? cb.closest('label').textContent.trim() : 'Cycle';
-    addChip(lab.substring(0,20), mode,
-      () => { CYCLE_MODES[cid] = mode==='incl'?'excl':'incl'; S.offset=0; search(); },
-      () => {
-        if (cb) cb.checked=false;
-        S.cycle_ids = S.cycle_ids.filter(x=>x!==cid);
-        chargerAttendus(S.cycle_ids); S.offset=0; search();
-      }
-    );
+  Object.entries(S.cycle_states).forEach(([id, mode]) => {
+    const el = document.querySelector(`.cycle-item[data-id="${id}"]`);
+    const lab = el ? el.textContent.trim().substring(0,25) : 'Cycle';
+    addChip(lab, mode, () => {
+      delete S.cycle_states[id];
+      if (el) { el.className='cycle-item'; el.querySelector('.cycle-state-icon').textContent=''; }
+      const inclCycles = Object.entries(S.cycle_states).filter(([,v])=>v==='incl').map(([k])=>k);
+      chargerAttendus(inclCycles); S.offset=0; search();
+    });
   });
 
   // Attendus
-  S.attendu_ids.forEach(aid => {
-    const mode = ATTENDU_MODES[aid] || 'incl';
-    const cb = document.querySelector(`input[name="attendu"][value="${aid}"]`);
-    const lab = cb ? cb.closest('label').textContent.trim().substring(0,30) : 'Attendu '+aid;
-    addChip(lab + '…', mode,
-      () => { ATTENDU_MODES[aid] = mode==='incl'?'excl':'incl'; S.offset=0; search(); },
-      () => {
-        if (cb) cb.checked=false;
-        S.attendu_ids = S.attendu_ids.filter(x=>x!==aid && x!==parseInt(aid));
-        S.offset=0; search();
+  const opLabAtt = Object.keys(S.attendu_states).length > 1
+    ? ' [' + S.attendu_op.toUpperCase() + ']' : '';
+  Object.entries(S.attendu_states).forEach(([id, mode]) => {
+    const el = document.querySelector(`.attendu-item[data-id="${id}"]`);
+    const lab = el ? el.textContent.trim().substring(0,35) : 'Attendu';
+    addChip(lab + '…' + opLabAtt, mode, () => {
+      delete S.attendu_states[id];
+      if (el) {
+        el.className='attendu-item';
+        el.querySelector('.attendu-state-icon').textContent='';
       }
-    );
+      S.offset=0; search();
+    });
   });
 
   // Tags
-  S.tag_ids.forEach(tid => {
-    const mode = TAG_MODES[tid] || 'incl';
-    const cb = document.querySelector(`input[name="tag"][value="${tid}"]`);
-    const lab = cb ? cb.closest('label').textContent.trim() : 'Tag';
-    addChip('🏷 ' + lab, mode,
-      () => { TAG_MODES[tid] = mode==='incl'?'excl':'incl'; S.offset=0; search(); },
-      () => {
-        if (cb) cb.checked=false;
-        S.tag_ids = S.tag_ids.filter(x=>x!==tid && x!==parseInt(tid));
-        S.offset=0; search();
-      }
-    );
+  const opLabTag = Object.keys(S.tag_states).length > 1
+    ? ' [' + S.tag_op.toUpperCase() + ']' : '';
+  Object.entries(S.tag_states).forEach(([id, mode]) => {
+    const el = document.querySelector(`.tag-item[data-id="${id}"]`);
+    const lab = el ? el.dataset.nom : 'Tag';
+    addChip('🏷 ' + lab + opLabTag, mode, () => {
+      delete S.tag_states[id];
+      if (el) el.className='tag-item';
+      S.offset=0; search();
+    });
   });
 }
 
@@ -797,43 +919,45 @@ async function search() {
   if(S.groupe) p.set('competence',S.groupe);
   if(S.anime !== '') p.set('anime',S.anime);
 
-  // Thématique
-  if(S.thematique_id) {
-    if (S.thematique_mode === 'excl') p.set('exclude_thematique_id', S.thematique_id);
-    else p.set('thematique_id', S.thematique_id);
-  }
-  // Objectif
-  if(S.objectif_id) {
-    if (S.objectif_mode === 'excl') p.set('exclude_objectif_id', S.objectif_id);
-    else p.set('objectif_id', S.objectif_id);
-  }
-
-  // Météo — sépare incl / excl
+  // Météo
   const meteoIncl = S.meteo.filter(m => (METEO_MODES[m]||'incl')==='incl');
   const meteoExcl = S.meteo.filter(m => (METEO_MODES[m]||'incl')==='excl');
-  if(meteoIncl.length) p.set('meteo', meteoIncl[0]); // l'API prend 1 valeur à la fois
+  if(meteoIncl.length) p.set('meteo', meteoIncl[0]);
   if(meteoExcl.length) p.set('exclude_meteo', meteoExcl[0]);
 
-  // Attendus — sépare incl / excl
-  const attenduIncl = S.attendu_ids.filter(id => (ATTENDU_MODES[id]||'incl')==='incl');
-  const attenduExcl = S.attendu_ids.filter(id => (ATTENDU_MODES[id]||'incl')==='excl');
-  if(attenduIncl.length) p.set('attendu_ids', attenduIncl.join(','));
-  if(attenduExcl.length) p.set('exclude_attendu_ids', attenduExcl.join(','));
+  // Thématiques
+  const themIncl = Object.entries(S.thematique_states).filter(([k,v])=>!k.startsWith('__')&&v==='incl').map(([k])=>k);
+  const themExcl = Object.entries(S.thematique_states).filter(([k,v])=>!k.startsWith('__')&&v==='excl').map(([k])=>k);
+  if(themIncl.length) { p.set('thematique_ids', themIncl.join(',')); p.set('thematique_op', S.thematique_op); }
+  if(themExcl.length) p.set('exclude_thematique_ids', themExcl.join(','));
 
-  // Tags — sépare incl / excl
-  const tagIncl = S.tag_ids.filter(id => (TAG_MODES[id]||'incl')==='incl');
-  const tagExcl = S.tag_ids.filter(id => (TAG_MODES[id]||'incl')==='excl');
-  if(tagIncl.length) p.set('tag_ids', tagIncl.join(','));
+  // Objectifs
+  const objIncl = Object.entries(S.objectif_states).filter(([k,v])=>!k.startsWith('__')&&v==='incl').map(([k])=>k);
+  const objExcl = Object.entries(S.objectif_states).filter(([k,v])=>!k.startsWith('__')&&v==='excl').map(([k])=>k);
+  if(objIncl.length) { p.set('objectif_ids', objIncl.join(',')); p.set('objectif_op', S.objectif_op); }
+  if(objExcl.length) p.set('exclude_objectif_ids', objExcl.join(','));
+
+  // Attendus
+  const attIncl = Object.entries(S.attendu_states).filter(([,v])=>v==='incl').map(([k])=>k);
+  const attExcl = Object.entries(S.attendu_states).filter(([,v])=>v==='excl').map(([k])=>k);
+  if(attIncl.length) { p.set('attendu_ids', attIncl.join(',')); p.set('attendu_op', S.attendu_op); }
+  if(attExcl.length) p.set('exclude_attendu_ids', attExcl.join(','));
+
+  // Tags
+  const tagIncl = Object.entries(S.tag_states).filter(([,v])=>v==='incl').map(([k])=>k);
+  const tagExcl = Object.entries(S.tag_states).filter(([,v])=>v==='excl').map(([k])=>k);
+  if(tagIncl.length) { p.set('tag_ids', tagIncl.join(',')); p.set('tag_op', S.tag_op); }
   if(tagExcl.length) p.set('exclude_tag_ids', tagExcl.join(','));
 
-  // Cycles — sépare incl / excl (seulement si pas d'attendu incl)
-  const cycleIncl = S.cycle_ids.filter(id => (CYCLE_MODES[id]||'incl')==='incl');
-  const cycleExcl = S.cycle_ids.filter(id => (CYCLE_MODES[id]||'incl')==='excl');
-  if(!attenduIncl.length && cycleIncl.length) p.set('cycle_ids', cycleIncl.join(','));
+  // Cycles — inclus seulement si pas d'attendu inclus
+  const cycleIncl = Object.entries(S.cycle_states).filter(([,v])=>v==='incl').map(([k])=>k);
+  const cycleExcl = Object.entries(S.cycle_states).filter(([,v])=>v==='excl').map(([k])=>k);
+  if(!attIncl.length && cycleIncl.length) p.set('cycle_ids', cycleIncl.join(','));
   if(cycleExcl.length) p.set('exclude_cycle_ids', cycleExcl.join(','));
 
   p.set('sort', S.sort);
-  p.set('limit',S.limit); p.set('offset',S.offset);
+  p.set('limit', S.limit);
+  p.set('offset', S.offset);
 
   document.getElementById('results').innerHTML='<div class="loading">Recherche…</div>';
   try {
@@ -848,17 +972,11 @@ async function search() {
 // RENDER
 // ============================================================================
 function renderResults(data) {
-  // Compteur résultats
   document.getElementById('result-count').textContent=`${data.total} résultat${data.total>1?'s':''}`;
-
-  // Compteurs cycles
   if (data.cycle_counts) {
-    const parts = Object.entries(data.cycle_counts)
-      .filter(([,v]) => v > 0)
-      .map(([k,v]) => `${k}: ${v}`);
+    const parts = Object.entries(data.cycle_counts).filter(([,v])=>v>0).map(([k,v])=>`${k}: ${v}`);
     document.getElementById('cycle-counts').textContent = parts.length ? parts.join(' · ') : '';
   }
-
   const cnt=document.getElementById('results');
   if(!data.results.length){ cnt.innerHTML='<div class="empty">Aucune activité trouvée.</div>'; renderPagination(0); return; }
   cnt.innerHTML='';
@@ -924,9 +1042,8 @@ function buildDrawer(a) {
   const badges=(arr,k='nom')=>arr&&arr.length?arr.map(x=>`<span class="badge">${x[k]}</span>`).join(''):'<span style="color:var(--text-muted);font-size:.82rem">—</span>';
 
   let h=`<h2>${a.nom}</h2>
-  <div style="margin-bottom:8px;display:flex;gap:8px">
+  <div style="margin-bottom:8px">
     <button class="btn-edit" onclick="toggleEdit(${a.id})">✏️ Modifier</button>
-    <button class="btn-delete" onclick="confirmerSuppression(${a.id}, this)">🗑️ Supprimer</button>
   </div>`;
 
   h+=`<div class="drawer-section"><div class="info-grid">
@@ -973,10 +1090,10 @@ function buildDrawer(a) {
     });
     return s;
   }
-  h+=`<div class="drawer-section"><h3>Attendus <span style="font-size:.68rem;margin-left:6px;opacity:.7">` +
-    `<span style="display:inline-flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:50%;background:#4a7c59;display:inline-block"></span>EDD</span>` +
-    `&nbsp;&nbsp;<span style="display:inline-flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:50%;background:#7B6EE0;display:inline-block"></span>Disciplinaire</span>` +
-    `</span></h3>`+fmtAttendus(a.attendus)+'</div>';
+  h+=`<div class="drawer-section"><h3>Attendus <span style="font-size:.68rem;margin-left:6px;opacity:.7">
+    <span style="display:inline-flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:50%;background:#4a7c59;display:inline-block"></span>EDD</span>
+    &nbsp;&nbsp;<span style="display:inline-flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:50%;background:#7B6EE0;display:inline-block"></span>Disciplinaire</span>
+    </span></h3>`+fmtAttendus(a.attendus)+'</div>';
 
   h+=`<div class="drawer-section"><h3>Tags</h3>
     <div id="drawer-tags-wrap" class="badges-wrap" style="margin-bottom:6px">${
@@ -1009,7 +1126,146 @@ function buildDrawer(a) {
 }
 
 // ============================================================================
-// EDITION
+// MODALE ARBRE
+// ============================================================================
+const treeCache = { them: [], obj: [] };
+let modalMode = 'them';
+
+function openTreeModal(mode) {
+  modalMode = mode;
+  document.getElementById('modal-title').textContent =
+    mode === 'them' ? 'Choisir des thématiques' : 'Choisir des objectifs';
+  document.getElementById('modal-search').value = '';
+  const op = mode === 'them' ? S.thematique_op : S.objectif_op;
+  setModalOpUI(op);
+  renderModalTree(treeCache[mode]);
+  document.getElementById('tree-modal').classList.add('open');
+}
+
+function closeTreeModal() {
+  document.getElementById('tree-modal').classList.remove('open');
+  updateSelectedSummary('them');
+  updateSelectedSummary('obj');
+}
+
+function setModalOp(op) {
+  if (modalMode === 'them') { S.thematique_op = op; const b=document.getElementById('them-op-badge'); b.textContent=op.toUpperCase(); b.className='op-badge '+op; }
+  else { S.objectif_op = op; const b=document.getElementById('obj-op-badge'); b.textContent=op.toUpperCase(); b.className='op-badge '+op; }
+  setModalOpUI(op);
+  S.offset=0; search();
+}
+
+function setModalOpUI(op) {
+  document.getElementById('modal-op-or').className  = 'modal-op-btn' + (op==='or'  ? ' active-or'  : '');
+  document.getElementById('modal-op-and').className = 'modal-op-btn' + (op==='and' ? ' active-and' : '');
+}
+
+function renderModalTree(nodes, container) {
+  const c = container || document.getElementById('modal-tree');
+  c.innerHTML = '';
+  nodes.forEach(n => c.appendChild(makeMNode(n)));
+}
+
+function makeMNode(node) {
+  const stateMap = modalMode === 'them' ? S.thematique_states : S.objectif_states;
+  const div = document.createElement('div');
+  div.className = 'mnode';
+  div.dataset.id = node.id;
+  div.dataset.nom = node.nom;
+
+  const row = document.createElement('div');
+  const curState = stateMap[node.id] || null;
+  row.className = 'mrow' + (curState ? ' state-' + curState : '');
+
+  const chev = document.createElement('span');
+  chev.className = 'mchev';
+  chev.textContent = (node.children && node.children.length) ? '▶' : '';
+
+  const stateIcon = document.createElement('span');
+  stateIcon.className = 'mstate-icon';
+  stateIcon.textContent = curState === 'incl' ? '✓' : curState === 'excl' ? '✗' : '';
+
+  const lbl = document.createElement('span');
+  lbl.className = 'mlabel';
+  lbl.textContent = node.nom;
+
+  row.append(chev, stateIcon, lbl);
+  div.appendChild(row);
+
+  if (node.children && node.children.length) {
+    const kids = document.createElement('div');
+    kids.className = 'mchildren';
+    node.children.forEach(ch => kids.appendChild(makeMNode(ch)));
+    div.appendChild(kids);
+    chev.addEventListener('click', e => {
+      e.stopPropagation();
+      div.classList.toggle('open');
+    });
+  }
+
+  row.addEventListener('click', e => {
+    e.stopPropagation();
+    const newState = cycleState(stateMap, node.id);
+    row.className = 'mrow' + (newState ? ' state-' + newState : '');
+    stateIcon.textContent = newState === 'incl' ? '✓' : newState === 'excl' ? '✗' : '';
+    S.offset=0; search();
+  });
+
+  return div;
+}
+
+function updateSelectedSummary(mode) {
+  const stateMap = mode === 'them' ? S.thematique_states : S.objectif_states;
+  const nameMap  = mode === 'them' ? THEM_NAMES : OBJ_NAMES;
+  const el = document.getElementById((mode === 'them' ? 'them' : 'obj') + '-selected-summary');
+  if (!el) return;
+  const incl = Object.entries(stateMap).filter(([k,v])=>!k.startsWith('__')&&v==='incl');
+  const excl = Object.entries(stateMap).filter(([k,v])=>!k.startsWith('__')&&v==='excl');
+  let parts = [];
+  if (incl.length) parts.push(`✓ ${incl.map(([k])=>nameMap[k]||k).join(', ')}`);
+  if (excl.length) parts.push(`✗ ${excl.map(([k])=>nameMap[k]||k).join(', ')}`);
+  el.textContent = parts.join(' · ') || '';
+}
+
+function clearModalSelection() {
+  const stateMap = modalMode === 'them' ? S.thematique_states : S.objectif_states;
+  Object.keys(stateMap).forEach(k => delete stateMap[k]);
+  renderModalTree(treeCache[modalMode]);
+  S.offset=0; search();
+}
+
+function expandAllModal() {
+  document.querySelectorAll('#modal-tree .mnode').forEach(n => {
+    if (n.querySelector('.mchildren')) n.classList.add('open');
+  });
+}
+function collapseAllModal() {
+  document.querySelectorAll('#modal-tree .mnode').forEach(n => n.classList.remove('open'));
+}
+
+function filterModal(q) {
+  document.querySelectorAll('#modal-tree .mnode').forEach(n => { n.style.display=''; });
+  if (!q) return;
+  q = q.toLowerCase();
+  document.querySelectorAll('#modal-tree .mnode').forEach(n => { n.style.display='none'; });
+  document.querySelectorAll('#modal-tree .mnode').forEach(n => {
+    if (n.dataset.nom && n.dataset.nom.toLowerCase().includes(q)) {
+      n.style.display='';
+      let p = n.parentElement;
+      while (p && p.id !== 'modal-tree') {
+        if (p.classList.contains('mnode')) { p.style.display=''; p.classList.add('open'); }
+        p = p.parentElement;
+      }
+    }
+  });
+}
+
+document.getElementById('tree-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('tree-modal')) closeTreeModal();
+});
+
+// ============================================================================
+// EDITION (inchangée)
 // ============================================================================
 let currentActivite = null;
 
@@ -1041,10 +1297,10 @@ async function toggleEdit(id) {
   ).join('');
 
   const attByDom = {};
-  allAttendus.forEach(a => {
-    const k = a.cycle_code + ' — ' + a.domaine;
+  allAttendus.forEach(at => {
+    const k = at.cycle_code + ' — ' + at.domaine;
     if(!attByDom[k]) attByDom[k]=[];
-    attByDom[k].push(a);
+    attByDom[k].push(at);
   });
   let attHtml = '';
   Object.entries(attByDom).forEach(([grp, items]) => {
@@ -1060,7 +1316,6 @@ async function toggleEdit(id) {
 
   document.getElementById('drawer-content').innerHTML = `
     <h2 contenteditable="true" id="edit-nom" style="outline:1px dashed var(--border);padding:4px;border-radius:4px">${a.nom}</h2>
-
     <div class="edit-section-title">Informations générales</div>
     <div class="edit-check-grid" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:8px">
       <label class="check-item"><input type="checkbox" id="edit-anime" ${a.anime?'checked':''}> Animé</label>
@@ -1087,13 +1342,10 @@ async function toggleEdit(id) {
         </select>
       </div>
     </div>
-
     <div class="edit-section-title">Description</div>
     <textarea class="edit-field" id="edit-description" rows="4">${a.description||''}</textarea>
-
     <div class="edit-section-title">Visée pédagogique</div>
     <textarea class="edit-field" id="edit-objectif" rows="3">${a.objectif_texte||''}</textarea>
-
     <div class="edit-section-title">Météo requise</div>
     <div class="edit-check-grid">
       <label class="check-item"><input type="checkbox" id="edit-soleil" ${a.meteo_soleil?'checked':''}> ☀️ Soleil nécessaire</label>
@@ -1102,19 +1354,14 @@ async function toggleEdit(id) {
       <label class="check-item"><input type="checkbox" id="edit-nuage" ${a.meteo_nuage?'checked':''}> ☁️ Nuageux nécessaire</label>
       <label class="check-item"><input type="checkbox" id="edit-nuit" ${a.meteo_nuit?'checked':''}> 🌙 Activité de nuit</label>
     </div>
-
     <div class="edit-section-title">Mois</div>
     <div class="edit-check-grid">${moisHtml}</div>
-
     <div class="edit-section-title">Thématiques</div>
     <div class="edit-tree-wrap">${makeCheckboxes(allThemes, selThemIds, 'edit-them', x => x.nom)}</div>
-
     <div class="edit-section-title">Objectifs pédagogiques</div>
     <div class="edit-tree-wrap">${makeCheckboxes(allObjectifs, selObjIds, 'edit-obj', x => x.nom)}</div>
-
     <div class="edit-section-title">Attendus scolaires</div>
     <div class="edit-tree-wrap" style="max-height:300px">${attHtml}</div>
-
     <div class="edit-section-title">Tags</div>
     <div id="edit-tags-container" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px"></div>
     <div style="display:flex;gap:6px">
@@ -1128,7 +1375,6 @@ async function toggleEdit(id) {
       <input id="new-tag-input" class="edit-field" placeholder="Nom du tag" style="margin-bottom:4px">
       <button onclick="createAndAddTag(${id})" style="padding:5px 10px;background:var(--accent);color:white;border:none;border-radius:var(--radius);cursor:pointer;font-size:.82rem">Créer et ajouter</button>
     </div>
-
     <div style="display:flex;gap:8px;margin-top:12px;align-items:center">
       <button class="btn-save" onclick="saveEdit(${id})">Enregistrer</button>
       <button class="btn-cancel" onclick="openDrawer(${id})">Annuler</button>
@@ -1146,7 +1392,6 @@ async function saveEdit(id) {
     MOIS.forEach(m => obj['mois_'+m] = checked.includes(m) ? 1 : 0);
     return obj;
   };
-
   const payload = {
     nom: document.getElementById('edit-nom').textContent.trim(),
     description: document.getElementById('edit-description').value,
@@ -1166,7 +1411,6 @@ async function saveEdit(id) {
     tag_ids: editTagIds,
     ...getMoisChecked()
   };
-
   const status = document.getElementById('save-status');
   try {
     const r = await fetch(`/api/activites/${id}`, {
@@ -1186,150 +1430,7 @@ async function saveEdit(id) {
 }
 
 // ============================================================================
-// MODALE ARBRE
-// ============================================================================
-const treeCache = { them: [], obj: [] };
-let modalMode = 'them';
-let modalSelectedId = null;
-let modalSelectedNom = null;
-let modalExclMode = false;
-
-function openTreeModal(mode) {
-  modalMode = mode;
-  modalSelectedId   = mode === 'them' ? S.thematique_id   : S.objectif_id;
-  modalSelectedNom  = mode === 'them' ? S.thematique_nom  : S.objectif_nom;
-  modalExclMode     = mode === 'them' ? S.thematique_mode==='excl' : S.objectif_mode==='excl';
-  document.getElementById('modal-title').textContent = mode === 'them' ? 'Choisir une thématique' : 'Choisir un objectif';
-  document.getElementById('modal-search').value = '';
-  document.getElementById('modal-excl-check').checked = modalExclMode;
-  document.getElementById('modal-excl-check').onchange = (e) => { modalExclMode = e.target.checked; };
-  renderModalTree(treeCache[mode]);
-  document.getElementById('tree-modal').classList.add('open');
-}
-
-function closeTreeModal() {
-  document.getElementById('tree-modal').classList.remove('open');
-}
-
-function renderModalTree(nodes, container) {
-  const c = container || document.getElementById('modal-tree');
-  c.innerHTML = '';
-  nodes.forEach(n => c.appendChild(makeMNode(n)));
-}
-
-function makeMNode(node) {
-  const div = document.createElement('div');
-  div.className = 'mnode';
-  div.dataset.id = node.id;
-  div.dataset.nom = node.nom;
-
-  const row = document.createElement('div');
-  const isSelected = node.id === modalSelectedId;
-  const selClass = isSelected ? (modalExclMode ? 'selected-excl' : 'selected-incl') : '';
-  row.className = 'mrow' + (selClass ? ' ' + selClass : '');
-
-  const chev = document.createElement('span');
-  chev.className = 'mchev';
-  chev.textContent = (node.children && node.children.length) ? '▶' : '';
-
-  const lbl = document.createElement('span');
-  lbl.className = 'mlabel';
-  lbl.textContent = node.nom;
-
-  row.append(chev, lbl);
-  div.appendChild(row);
-
-  if (node.children && node.children.length) {
-    const kids = document.createElement('div');
-    kids.className = 'mchildren';
-    node.children.forEach(ch => kids.appendChild(makeMNode(ch)));
-    div.appendChild(kids);
-    chev.addEventListener('click', e => { e.stopPropagation(); div.classList.toggle('open'); });
-  }
-
-  row.addEventListener('click', e => {
-    e.stopPropagation();
-    if (node.id === modalSelectedId) {
-      modalSelectedId = null;
-      modalSelectedNom = null;
-    } else {
-      modalSelectedId = node.id;
-      modalSelectedNom = node.nom;
-    }
-    document.querySelectorAll('#modal-tree .mrow').forEach(r => r.classList.remove('selected-incl','selected-excl'));
-    if (modalSelectedId) {
-      const cls = modalExclMode ? 'selected-excl' : 'selected-incl';
-      row.classList.add(cls);
-    }
-    applyModalSelection();
-  });
-
-  return div;
-}
-
-function applyModalSelection() {
-  const stateKey    = modalMode === 'them' ? 'thematique_id'   : 'objectif_id';
-  const modeKey     = modalMode === 'them' ? 'thematique_mode' : 'objectif_mode';
-  const nomKey      = modalMode === 'them' ? 'thematique_nom'  : 'objectif_nom';
-  const btnId       = modalMode === 'them' ? 'btn-pick-them'   : 'btn-pick-obj';
-  const lblId       = modalMode === 'them' ? 'pick-them-label' : 'pick-obj-label';
-  const defLabel    = modalMode === 'them' ? 'Toutes' : 'Tous';
-
-  S[stateKey] = modalSelectedId;
-  S[modeKey]  = modalExclMode ? 'excl' : 'incl';
-  S[nomKey]   = modalSelectedNom;
-  S.offset = 0;
-
-  const btn = document.getElementById(btnId);
-  const lbl = document.getElementById(lblId);
-  if (modalSelectedId) {
-    btn.className = 'filter-pick-btn active-' + S[modeKey];
-    lbl.textContent = (modalExclMode ? '− ' : '+ ') + (modalSelectedNom || defLabel);
-  } else {
-    btn.className = 'filter-pick-btn';
-    lbl.textContent = defLabel;
-  }
-  search();
-}
-
-function clearModalSelection() {
-  modalSelectedId = null; modalSelectedNom = null;
-  document.querySelectorAll('#modal-tree .mrow').forEach(r => r.classList.remove('selected-incl','selected-excl'));
-  applyModalSelection();
-}
-
-function expandAllModal() {
-  document.querySelectorAll('#modal-tree .mnode').forEach(n => {
-    if (n.querySelector('.mchildren')) n.classList.add('open');
-  });
-}
-function collapseAllModal() {
-  document.querySelectorAll('#modal-tree .mnode').forEach(n => n.classList.remove('open'));
-}
-
-function filterModal(q) {
-  const nodes = document.querySelectorAll('#modal-tree .mnode');
-  if (!q) { nodes.forEach(n => { n.style.display=''; }); return; }
-  q = q.toLowerCase();
-  nodes.forEach(n => { n.style.display = 'none'; });
-  nodes.forEach(n => {
-    if (n.dataset.nom && n.dataset.nom.toLowerCase().includes(q)) {
-      n.style.display = '';
-      let p = n.parentElement;
-      while (p && p.id !== 'modal-tree') {
-        if (p.classList.contains('mnode')) { p.style.display=''; p.classList.add('open'); }
-        p = p.parentElement;
-      }
-    }
-  });
-}
-
-document.getElementById('tree-modal').addEventListener('click', e => {
-  if (e.target === document.getElementById('tree-modal')) closeTreeModal();
-});
-
-// ============================================================================
-// TAGS
+// TAGS (drawer)
 // ============================================================================
 let editTagIds = [];
 let allTagsCache = [];
@@ -1439,25 +1540,6 @@ async function initDrawerTagSelect(activiteId, activiteTags) {
     openDrawer(activiteId);
     search();
   };
-}
-
-async function confirmerSuppression(id, btn) {
-  const nom = btn.closest('.drawer').querySelector('h2').textContent.trim();
-  if (!confirm('Supprimer "' + nom + '" ?\n\nLe dossier sera déplacé vers la corbeille.\nCette action est irréversible depuis l\'interface.')) {
-    return;
-  }
-  try {
-    const r = await fetch('/api/activites/' + id, { method: 'DELETE' });
-    if (!r.ok) {
-      const err = await r.json();
-      alert('Erreur : ' + (err.detail || r.status));
-      return;
-    }
-    closeDrawer();
-    search();
-  } catch(e) {
-    alert('Erreur réseau : ' + e.message);
-  }
 }
 
 init();

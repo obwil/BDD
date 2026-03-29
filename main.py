@@ -8,7 +8,6 @@
 # Doc API automatique : http://localhost:8000/docs
 # =============================================================================
 
-import shutil
 import sqlite3
 import subprocess
 import sys
@@ -21,7 +20,6 @@ from fastapi.responses import HTMLResponse, FileResponse
 from pydantic import BaseModel
 
 DB_PATH = Path(__file__).parent / "activites.db"
-CORBEILLE_PATH = Path(r"C:\Users\moina\Dropbox\Animation\Activités v2\_CORBEILLE")
 
 app = FastAPI(title="Bibliothèque d'activités nature", version="1.0")
 
@@ -65,13 +63,24 @@ def liste_activites(
     lieu: Optional[str] = Query(None),
     mois: Optional[str] = Query(None),
     meteo: Optional[str] = Query(None),
-    thematique_id: Optional[int] = Query(None),
-    objectif_id: Optional[int] = Query(None),
+    # --- Thématiques : multi-sélection + opérateur ---
+    thematique_ids: Optional[str] = Query(None, description="CSV d'IDs de thématiques"),
+    thematique_op: Optional[str] = Query("or", description="'or' ou 'and'"),
+    # --- Objectifs : multi-sélection + opérateur ---
+    objectif_ids: Optional[str] = Query(None, description="CSV d'IDs d'objectifs"),
+    objectif_op: Optional[str] = Query("or", description="'or' ou 'and'"),
+    # --- Exclusions thématiques/objectifs ---
+    exclude_thematique_ids: Optional[str] = Query(None, description="CSV d'IDs à exclure"),
+    exclude_objectif_ids: Optional[str] = Query(None, description="CSV d'IDs à exclure"),
     pedagogie_id: Optional[int] = Query(None),
     theorie_id: Optional[int] = Query(None),
     cycle_ids: Optional[str] = Query(None),
+    # --- Attendus : multi-sélection + opérateur ---
     attendu_ids: Optional[str] = Query(None),
+    attendu_op: Optional[str] = Query("or", description="'or' ou 'and'"),
+    # --- Tags : multi-sélection + opérateur + exclusion ---
     tag_ids: Optional[str] = Query(None),
+    tag_op: Optional[str] = Query("or", description="'or' ou 'and'"),
     anime: Optional[str] = Query(None),
     competence: Optional[str] = Query(None),
     # --- Paramètres d'exclusion ---
@@ -81,14 +90,12 @@ def liste_activites(
     exclude_cycle_ids: Optional[str] = Query(None),
     exclude_attendu_ids: Optional[str] = Query(None),
     exclude_tag_ids: Optional[str] = Query(None),
-    exclude_thematique_id: Optional[int] = Query(None),
-    exclude_objectif_id: Optional[int] = Query(None),
     # --- Tri ---
     sort: Optional[str] = Query("nom", description="nom | nb_attendus | nb_thematiques"),
     limit: int = Query(50, le=200),
     offset: int = Query(0),
 ):
-    """Recherche et filtrage des activités avec support exclusions, tri et cycle_counts."""
+    """Recherche et filtrage des activités avec support multi-sélection, ET/OU, exclusions."""
     conn = get_db()
 
     conditions = []
@@ -131,9 +138,10 @@ def liste_activites(
         conditions.append("a.format_groupe = ?")
         params.append(competence)
 
-    # Thématique
-    if thematique_id:
-        conditions.append("""
+    # ---- THÉMATIQUES (multi-sélection + ET/OU) ----
+
+    def thematique_subquery(tid):
+        return """
             a.id IN (
                 SELECT at2.activite_id FROM activite_thematique at2
                 WHERE at2.thematique_id IN (
@@ -146,12 +154,44 @@ def liste_activites(
                     SELECT id FROM sous_themes
                 )
             )
-        """)
-        params.append(thematique_id)
+        """
 
-    # Objectif
-    if objectif_id:
-        conditions.append("""
+    if thematique_ids:
+        ids = [int(x) for x in thematique_ids.split(',') if x.strip().isdigit()]
+        if ids:
+            if thematique_op == "and":
+                for tid in ids:
+                    conditions.append(thematique_subquery(tid))
+                    params.append(tid)
+            else:
+                sub_parts = [thematique_subquery(tid) for tid in ids]
+                params += ids
+                conditions.append("(" + " OR ".join(sub_parts) + ")")
+
+    # Exclusion thématiques
+    if exclude_thematique_ids:
+        ids = [int(x) for x in exclude_thematique_ids.split(',') if x.strip().isdigit()]
+        for tid in ids:
+            conditions.append("""
+                a.id NOT IN (
+                    SELECT at2.activite_id FROM activite_thematique at2
+                    WHERE at2.thematique_id IN (
+                        WITH RECURSIVE sous_themes(id) AS (
+                            SELECT id FROM thematique WHERE id = ?
+                            UNION ALL
+                            SELECT t.id FROM thematique t
+                            INNER JOIN sous_themes st ON t.parent_id = st.id
+                        )
+                        SELECT id FROM sous_themes
+                    )
+                )
+            """)
+            params.append(tid)
+
+    # ---- OBJECTIFS (multi-sélection + ET/OU) ----
+
+    def objectif_subquery(oid):
+        return """
             a.id IN (
                 SELECT ao.activite_id FROM activite_objectif ao
                 WHERE ao.objectif_id IN (
@@ -164,8 +204,39 @@ def liste_activites(
                     SELECT id FROM sous_obj
                 )
             )
-        """)
-        params.append(objectif_id)
+        """
+
+    if objectif_ids:
+        ids = [int(x) for x in objectif_ids.split(',') if x.strip().isdigit()]
+        if ids:
+            if objectif_op == "and":
+                for oid in ids:
+                    conditions.append(objectif_subquery(oid))
+                    params.append(oid)
+            else:
+                sub_parts = [objectif_subquery(oid) for oid in ids]
+                params += ids
+                conditions.append("(" + " OR ".join(sub_parts) + ")")
+
+    # Exclusion objectifs
+    if exclude_objectif_ids:
+        ids = [int(x) for x in exclude_objectif_ids.split(',') if x.strip().isdigit()]
+        for oid in ids:
+            conditions.append("""
+                a.id NOT IN (
+                    SELECT ao.activite_id FROM activite_objectif ao
+                    WHERE ao.objectif_id IN (
+                        WITH RECURSIVE sous_obj(id) AS (
+                            SELECT id FROM objectif WHERE id = ?
+                            UNION ALL
+                            SELECT o.id FROM objectif o
+                            INNER JOIN sous_obj so ON o.parent_id = so.id
+                        )
+                        SELECT id FROM sous_obj
+                    )
+                )
+            """)
+            params.append(oid)
 
     # Pédagogie
     if pedagogie_id:
@@ -177,21 +248,31 @@ def liste_activites(
         conditions.append("a.id IN (SELECT activite_id FROM activite_theorie WHERE theorie_id = ?)")
         params.append(theorie_id)
 
-    # Attendus
+    # ---- ATTENDUS (ET/OU) ----
     if attendu_ids:
         ids = [int(x) for x in attendu_ids.split(',') if x.strip().isdigit()]
         if ids:
-            placeholders = ','.join('?' * len(ids))
-            conditions.append(f"a.id IN (SELECT activite_id FROM activite_attendu WHERE attendu_id IN ({placeholders}))")
-            params += ids
+            if attendu_op == "and":
+                for aid in ids:
+                    conditions.append("a.id IN (SELECT activite_id FROM activite_attendu WHERE attendu_id = ?)")
+                    params.append(aid)
+            else:
+                placeholders = ','.join('?' * len(ids))
+                conditions.append(f"a.id IN (SELECT activite_id FROM activite_attendu WHERE attendu_id IN ({placeholders}))")
+                params += ids
 
-    # Tags
+    # ---- TAGS (ET/OU) ----
     if tag_ids:
         ids = [int(x) for x in tag_ids.split(',') if x.strip().isdigit()]
         if ids:
-            placeholders = ','.join('?' * len(ids))
-            conditions.append(f"a.id IN (SELECT activite_id FROM activite_tag WHERE tag_id IN ({placeholders}))")
-            params += ids
+            if tag_op == "and":
+                for tid in ids:
+                    conditions.append("a.id IN (SELECT activite_id FROM activite_tag WHERE tag_id = ?)")
+                    params.append(tid)
+            else:
+                placeholders = ','.join('?' * len(ids))
+                conditions.append(f"a.id IN (SELECT activite_id FROM activite_tag WHERE tag_id IN ({placeholders}))")
+                params += ids
 
     # Cycles (seulement si pas d'attendu)
     if cycle_ids and not attendu_ids:
@@ -214,40 +295,6 @@ def liste_activites(
     if exclude_mois:
         col = f"mois_{exclude_mois}"
         conditions.append(f"(a.{col} IS NULL OR a.{col} = 0)")
-
-    if exclude_thematique_id:
-        conditions.append("""
-            a.id NOT IN (
-                SELECT at2.activite_id FROM activite_thematique at2
-                WHERE at2.thematique_id IN (
-                    WITH RECURSIVE sous_themes(id) AS (
-                        SELECT id FROM thematique WHERE id = ?
-                        UNION ALL
-                        SELECT t.id FROM thematique t
-                        INNER JOIN sous_themes st ON t.parent_id = st.id
-                    )
-                    SELECT id FROM sous_themes
-                )
-            )
-        """)
-        params.append(exclude_thematique_id)
-
-    if exclude_objectif_id:
-        conditions.append("""
-            a.id NOT IN (
-                SELECT ao.activite_id FROM activite_objectif ao
-                WHERE ao.objectif_id IN (
-                    WITH RECURSIVE sous_obj(id) AS (
-                        SELECT id FROM objectif WHERE id = ?
-                        UNION ALL
-                        SELECT o.id FROM objectif o
-                        INNER JOIN sous_obj so ON o.parent_id = so.id
-                    )
-                    SELECT id FROM sous_obj
-                )
-            )
-        """)
-        params.append(exclude_objectif_id)
 
     if exclude_attendu_ids:
         ids = [int(x) for x in exclude_attendu_ids.split(',') if x.strip().isdigit()]
@@ -281,12 +328,6 @@ def liste_activites(
         order_clause = """ORDER BY (
             SELECT COUNT(*) FROM activite_thematique at2 WHERE at2.activite_id = a.id
         ) DESC, a.nom"""
-    elif sort == "nb_mois":
-        order_clause = """ORDER BY (
-            a.mois_jan + a.mois_fev + a.mois_mar + a.mois_avr +
-            a.mois_mai + a.mois_jun + a.mois_jul + a.mois_aou +
-            a.mois_sep + a.mois_oct + a.mois_nov + a.mois_dec
-        ) ASC, a.nom"""
     else:
         order_clause = "ORDER BY a.nom"
 
@@ -295,7 +336,7 @@ def liste_activites(
         f"SELECT COUNT(*) FROM activite a {where_clause}", params
     ).fetchone()[0]
 
-    # Compteurs C1/C2/C3 sur le résultat filtré
+    # Compteurs C1/C2/C3
     cycle_rows = conn.execute("SELECT id, code FROM cycle ORDER BY id").fetchall()
     cycle_counts = {}
     for cr in cycle_rows:
@@ -460,64 +501,6 @@ def modifier_activite(activite_id: int, data: dict):
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
-
-
-@app.delete("/api/activites/{activite_id}")
-def supprimer_activite(activite_id: int):
-    """Supprime une activité de la BDD et déplace son dossier vers la corbeille."""
-    conn = get_db()
-    try:
-        row = conn.execute(
-            "SELECT nom, chemin_dossier FROM activite WHERE id = ?", (activite_id,)
-        ).fetchone()
-        if not row:
-            raise HTTPException(status_code=404, detail="Activité introuvable")
-
-        nom = row["nom"]
-        chemin = row["chemin_dossier"]
-
-        # --- Déplacement du dossier local ---
-        if chemin:
-            src = Path(chemin.replace("file:///", "").replace("/", "\\"))
-            if src.exists() and src.is_dir():
-                CORBEILLE_PATH.mkdir(parents=True, exist_ok=True)
-                dest = CORBEILLE_PATH / src.name
-                if dest.exists():
-                    dest = CORBEILLE_PATH / f"{src.name}__{activite_id}"
-                shutil.move(str(src), str(dest))
-
-        # --- Suppression en BDD (tables liées explicites) ---
-        tables_liees = [
-            "activite_thematique", "activite_objectif", "activite_pedagogie",
-            "activite_theorie", "activite_attendu", "activite_cycle",
-            "activite_cycle_analysee", "activite_tag", "activite_competence",
-            "sequence_activite",
-        ]
-        for table in tables_liees:
-            try:
-                conn.execute(f"DELETE FROM {table} WHERE activite_id = ?", (activite_id,))
-            except Exception:
-                pass  # table inexistante, on ignore
-        try:
-            conn.execute(
-                "DELETE FROM relation_activite WHERE activite_source_id = ? OR activite_cible_id = ?",
-                (activite_id, activite_id)
-            )
-        except Exception:
-            pass
-        conn.execute("DELETE FROM activite WHERE id = ?", (activite_id,))
-        conn.commit()
-
-        return {"ok": True, "nom": nom}
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        conn.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        conn.close()
-
 
 @app.get("/api/activites/{activite_id}/ouvrir-dossier")
 def ouvrir_dossier(activite_id: int):
