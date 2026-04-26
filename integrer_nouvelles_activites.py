@@ -5,8 +5,12 @@
 # et pour chacun ayant un fichier _DESC_ :
 #   1. Insere l'activite en BDD (nom = nom du dossier, chemin_dossier)
 #   2. Analyse via IA : description, meteo, thematiques, objectifs (etape A)
-#   3. Analyse via IA : attendus scolaires C1, C2, C3 (etape B)
+#   3. Saisie manuelle des cycles applicables
+#   4. Analyse via IA : attendus scolaires pour les cycles saisis (etape B)
+#      Les cycles non saisis sont enregistres comme 'inadapte'.
 #
+# SIMULATION = True  -> affiche uniquement la liste des activites detectees,
+#                       sans insertion BDD ni appel API.
 # =============================================================================
 
 import base64
@@ -21,7 +25,9 @@ from pathlib import Path
 # CONFIGURATION
 # =============================================================================
 
-DROPBOX_ACTIVITES = Path(r"C:\Users\moina\Dropbox\Animation\Activites v2")
+SIMULATION = True  # True = affichage seul, False = traitement reel
+
+DROPBOX_ACTIVITES = Path(r"C:\Users\moina\Dropbox\Animation\Activités v2")
 DB_PATH = Path(__file__).parent / "activites.db"
 
 # "gemini" ou "claude"
@@ -403,9 +409,8 @@ def construire_prompt_b(nom, cycle_num, referentiel):
 
     return f"""Tu vas identifier les attendus scolaires travailles par l'activite pedagogique nature intitulee : << {nom} >>.
 
-Tu dois d'abord juger si cette activite est adaptee au Cycle {cycle_num} ({label}).
-Si elle n'est pas adaptee a ce cycle, retourne {{"attendu_ids": [], "_inadapte": true}}.
-Sinon, selectionne les attendus pertinents parmi ceux disponibles.
+Cette activite a ete confirmee comme adaptee au Cycle {cycle_num} ({label}).
+Selectionne les attendus pertinents parmi ceux disponibles.
 
 === ATTENDUS SCOLAIRES DISPONIBLES (Cycle {cycle_num}) ===
 {ref_text}
@@ -413,11 +418,11 @@ Sinon, selectionne les attendus pertinents parmi ceux disponibles.
 === INSTRUCTIONS ===
 
 RAISONNEMENT (texte libre, 2-3 phrases) :
-Indique si l'activite est adaptee au cycle. Si oui, justifie les attendus retenus.
+Justifie les attendus retenus.
 
 JSON :
 ```json
-{{"attendu_ids": [liste des id ou tableau vide], "_inadapte": true/false}}
+{{"attendu_ids": [liste des id ou tableau vide]}}
 ```
 
 REGLES :
@@ -426,7 +431,7 @@ REGLES :
 - Un attendu ne doit etre retenu que si un animateur pourrait affirmer sans hesitation que l'activite le travaille vraiment.
 - Si l'activite est simple et ciblee, 1 ou 2 attendus suffisent.
 - Maximum 10 attendus au total. En cas de doute, ne pas retenir.
-- Si aucun attendu ne correspond clairement, retourne {{"attendu_ids": [], "_inadapte": false}}.
+- Si aucun attendu ne correspond clairement, retourne {{"attendu_ids": []}}.
 """
 
 
@@ -495,16 +500,59 @@ def analyser_etape_b(nom, fichiers, cycle_num, referentiel, client):
     return data, raisonnement
 
 # =============================================================================
+# SAISIE MANUELLE DES CYCLES
+# =============================================================================
+
+def saisir_cycles(nom, description, cycles_disponibles):
+    """
+    Affiche le nom et la description de l'activite, puis demande
+    interactivement quels cycles sont applicables.
+    Retourne un set d'ids de cycles valides (vide = aucun / inadapte pour tous).
+    """
+    codes_dispo = {str(int(cy["code"].replace("C", ""))): cy["id"] for cy in cycles_disponibles}
+
+    print()
+    print(f"  Description : {description or '(non disponible)'}")
+    print()
+    print(f"  Cycles disponibles : {', '.join(f'C{k}' for k in sorted(codes_dispo))}")
+    print(f"  Entrez les numeros de cycles applicables separes par des espaces (ex: 1 3)")
+    print(f"  Laissez vide ou entrez 0 = aucun cycle (inadapte pour tous)")
+
+    while True:
+        reponse = input("  Cycles > ").strip()
+        if reponse == "" or reponse == "0":
+            return set()
+        tokens = reponse.split()
+        ids_selectionnes = set()
+        valide = True
+        for t in tokens:
+            if t in codes_dispo:
+                ids_selectionnes.add(codes_dispo[t])
+            else:
+                print(f"  Valeur invalide : '{t}'. Utilisez : {', '.join(sorted(codes_dispo))}")
+                valide = False
+                break
+        if valide:
+            labels = [f"C{t}" for t in tokens if t in codes_dispo]
+            print(f"  Cycles retenus : {', '.join(labels)}")
+            return ids_selectionnes
+
+# =============================================================================
 # SCAN DES NOUVEAUX DOSSIERS
 # =============================================================================
 
 def scanner_nouveaux_dossiers(conn):
-    """Retourne les (dossier, fichiers_desc) pour les activites absentes de la BDD."""
+    """
+    Retourne :
+      - nouveaux_avec_desc  : liste de (nom, dossier, fichiers_desc)
+      - nouveaux_sans_desc  : liste de noms de dossiers sans fichier _DESC_
+    Les deux listes ne contiennent que les activites absentes de la BDD.
+    """
     noms_bdd = noms_activites_en_bdd(conn)
-    nouveaux = []
+    nouveaux_avec_desc = []
+    nouveaux_sans_desc = []
 
     for dossier in sorted(DROPBOX_ACTIVITES.iterdir()):
-        # Ignorer les fichiers et les dossiers de groupes (prefixe _)
         if not dossier.is_dir():
             continue
         if any(dossier.name.startswith(p) for p in PREFIXES_IGNORES):
@@ -515,12 +563,12 @@ def scanner_nouveaux_dossiers(conn):
             continue
 
         fichiers = trouver_fichiers_desc(dossier)
-        if not fichiers:
-            continue  # ignorer silencieusement
+        if fichiers:
+            nouveaux_avec_desc.append((nom, dossier, fichiers))
+        else:
+            nouveaux_sans_desc.append(nom)
 
-        nouveaux.append((nom, dossier, fichiers))
-
-    return nouveaux
+    return nouveaux_avec_desc, nouveaux_sans_desc
 
 # =============================================================================
 # MAIN
@@ -529,7 +577,10 @@ def scanner_nouveaux_dossiers(conn):
 def main():
     print("=" * 60)
     print("INTEGRATION DES NOUVELLES ACTIVITES")
-    print(f"API : {API_PROVIDER.upper()} ({GEMINI_MODEL if API_PROVIDER == 'gemini' else CLAUDE_MODEL})")
+    if SIMULATION:
+        print("MODE SIMULATION — aucune modification ne sera effectuee")
+    else:
+        print(f"API : {API_PROVIDER.upper()} ({GEMINI_MODEL if API_PROVIDER == 'gemini' else CLAUDE_MODEL})")
     print("=" * 60)
 
     if not DB_PATH.exists():
@@ -540,66 +591,101 @@ def main():
         print(f"ERREUR : Repertoire introuvable : {DROPBOX_ACTIVITES}")
         sys.exit(1)
 
-    # Initialiser le client API
-    if API_PROVIDER == "gemini":
-        import google.generativeai as genai
-        gemini_key = os.environ.get("GEMINI_API_KEY")
-        if not gemini_key:
-            print("ERREUR : variable GEMINI_API_KEY non definie.")
-            sys.exit(1)
-        genai.configure(api_key=gemini_key)
-        client = genai
-    else:
-        import anthropic
-        client = anthropic.Anthropic()
-
     conn = get_db()
 
-    # Verifier que les tables necessaires existent
-    tables = {r[0] for r in conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table'"
-    ).fetchall()}
-    for t in ["activite_cycle_analysee", "attendu_scolaire", "cycle"]:
-        if t not in tables:
-            print(f"ERREUR : table '{t}' absente. Verifiez que les migrations ont ete lancees.")
-            conn.close()
-            sys.exit(1)
+    if not SIMULATION:
+        # Verifier que les tables necessaires existent
+        tables = {r[0] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()}
+        for t in ["activite_cycle_analysee", "attendu_scolaire", "cycle"]:
+            if t not in tables:
+                print(f"ERREUR : table '{t}' absente. Verifiez que les migrations ont ete lancees.")
+                conn.close()
+                sys.exit(1)
 
-    # Charger les referentiels communs
-    print("\nChargement des referentiels...")
-    referentiels = charger_referentiels(conn)
-    cycles = referentiels["cycles"]
-    print(f"  {len(referentiels['thematiques'])} thematiques, {len(referentiels['objectifs'])} objectifs, {len(cycles)} cycles")
+        # Initialiser le client API
+        if API_PROVIDER == "gemini":
+            import google.generativeai as genai
+            gemini_key = os.environ.get("GEMINI_API_KEY")
+            if not gemini_key:
+                print("ERREUR : variable GEMINI_API_KEY non definie.")
+                conn.close()
+                sys.exit(1)
+            genai.configure(api_key=gemini_key)
+            client = genai
+        else:
+            import anthropic
+            client = anthropic.Anthropic()
 
-    # Charger les attendus par cycle
-    attendus_par_cycle = {}
-    ids_valides_par_cycle = {}
-    for cy in cycles:
-        attendus = charger_attendus_cycle(conn, cy["id"])
-        attendus_par_cycle[cy["id"]] = (cy, attendus)
-        ids_valides_par_cycle[cy["id"]] = {a["id"] for a in attendus}
-        print(f"  C{cy['code']} : {len(attendus)} attendus")
+        # Charger les referentiels
+        print("\nChargement des referentiels...")
+        referentiels = charger_referentiels(conn)
+        cycles = referentiels["cycles"]
+        print(f"  {len(referentiels['thematiques'])} thematiques, {len(referentiels['objectifs'])} objectifs, {len(cycles)} cycles")
+
+        attendus_par_cycle = {}
+        ids_valides_par_cycle = {}
+        for cy in cycles:
+            attendus = charger_attendus_cycle(conn, cy["id"])
+            attendus_par_cycle[cy["id"]] = (cy, attendus)
+            ids_valides_par_cycle[cy["id"]] = {a["id"] for a in attendus}
+            print(f"  C{cy['code']} : {len(attendus)} attendus")
+    else:
+        referentiels = None
+        cycles = []
+        client = None
 
     # Scanner les nouveaux dossiers
     print("\nScan des nouveaux dossiers...")
-    nouveaux = scanner_nouveaux_dossiers(conn)
+    nouveaux, sans_desc = scanner_nouveaux_dossiers(conn)
     print(f"  {len(nouveaux)} nouveau(x) dossier(s) avec fichier(s) _DESC_")
+    print(f"  {len(sans_desc)} nouveau(x) dossier(s) sans fichier _DESC_\n")
 
+    if not nouveaux and not sans_desc:
+        print("OK Rien a faire.")
+        conn.close()
+        return
+
+    # --- MODE SIMULATION : affichage seul ---
+    if SIMULATION:
+        if nouveaux:
+            print("Activites avec fichier _DESC_ (pret a traiter) :")
+            print("-" * 60)
+            for i, (nom, dossier, fichiers) in enumerate(nouveaux, 1):
+                exts = ", ".join(f.suffix.lower() for f in fichiers)
+                print(f"  {i:3}. {nom}  [{exts}]")
+            print("-" * 60)
+            print(f"  Sous-total : {len(nouveaux)} activite(s)\n")
+
+        if sans_desc:
+            print("Activites sans fichier _DESC_ (non traitables) :")
+            print("-" * 60)
+            for i, nom in enumerate(sans_desc, 1):
+                print(f"  {i:3}. {nom}")
+            print("-" * 60)
+            print(f"  Sous-total : {len(sans_desc)} activite(s)\n")
+
+        print(f"Total detecte : {len(nouveaux) + len(sans_desc)} activite(s) absentes de la BDD")
+        print("Passez SIMULATION = False pour lancer le traitement reel.")
+        conn.close()
+        return
+
+    # --- MODE REEL ---
     if not nouveaux:
-        print("\nOK Rien a faire.")
+        print("Aucune activite avec fichier _DESC_ a traiter.")
         conn.close()
         return
 
     if LIMITE:
         nouveaux = nouveaux[:LIMITE]
-        print(f"  Mode test : limite de {LIMITE}")
+        print(f"Mode test : limite de {LIMITE}\n")
 
-    # Initialiser le log
     log_path = Path(__file__).parent / "integration_raisonnements.log"
     with open(log_path, "w", encoding="utf-8") as f:
         f.write(f"=== INTEGRATION — {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
 
-    print(f"\n{'=' * 60}")
+    print(f"{'=' * 60}")
     print(f"Traitement de {len(nouveaux)} activite(s)...")
     print(f"{'=' * 60}\n")
 
@@ -622,20 +708,40 @@ def main():
             enregistrer_etape_a(conn, activite_id, resultats_a)
             nb_them = len(resultats_a.get("thematique_ids", []))
             nb_mois = sum(1 for v in resultats_a.get("mois", {}).values() if v)
-            print(f"   OK : {nb_them} thematique(s), {nb_mois} mois")
+            print(f"   OK etape A : {nb_them} thematique(s), {nb_mois} mois")
+
+            # --- Saisie manuelle des cycles ---
+            print(f"\n   [SAISIE MANUELLE] Activite : {nom}")
+            cycles_selectionnes = saisir_cycles(
+                nom,
+                resultats_a.get("description"),
+                cycles
+            )
 
             # --- Etape B : attendus par cycle ---
-            for cy_id, (cy, referentiel) in attendus_par_cycle.items():
+            for cy in cycles:
+                cy_id = cy["id"]
                 cycle_num = int(cy["code"].replace("C", ""))
-                print(f"   Etape B {cy['code']} : attendus...")
+
+                if cy_id not in cycles_selectionnes:
+                    # Cycle non retenu : inadapte
+                    conn.execute(
+                        "INSERT OR REPLACE INTO activite_cycle_analysee (activite_id, cycle_id, statut) VALUES (?, ?, ?)",
+                        (activite_id, cy_id, "inadapte")
+                    )
+                    conn.commit()
+                    print(f"      C{cycle_num} : inadapte (non selectionne)")
+                    continue
+
+                print(f"   Etape B C{cycle_num} : attendus...")
                 time.sleep(DELAI_ENTRE_APPELS)
 
-                data, raisonnement = analyser_etape_b(nom, fichiers, cycle_num, referentiel, client)
+                cy_info, referentiel_cycle = attendus_par_cycle[cy_id]
+                data, raisonnement = analyser_etape_b(nom, fichiers, cycle_num, referentiel_cycle, client)
 
-                # Ecrire le raisonnement dans le log
                 if raisonnement:
                     with open(log_path, "a", encoding="utf-8") as f:
-                        f.write(f"\n=== {nom} — {cy['code']} ===\n{raisonnement}\n")
+                        f.write(f"\n=== {nom} — C{cycle_num} ===\n{raisonnement}\n")
 
                 attendu_ids = data.get("attendu_ids", [])
                 if not isinstance(attendu_ids, list):
@@ -643,21 +749,16 @@ def main():
                 attendu_ids = [int(aid) for aid in attendu_ids
                                if str(aid).isdigit() or isinstance(aid, int)]
 
-                # Determiner le statut
                 statut_raw = data.get("_statut", "ok")
-                inadapte = data.get("_inadapte", False)
-
                 if statut_raw == "prohibited":
                     statut = "prohibited"
                 elif statut_raw == "erreur_parsing":
                     statut = "erreur_parsing"
-                elif inadapte:
-                    statut = "inadapte"
                 else:
                     statut = "ok"
 
                 enregistrer_etape_b(conn, activite_id, cy_id, attendu_ids, ids_valides_par_cycle[cy_id], statut)
-                print(f"      {cy['code']} : {statut} ({len(attendu_ids)} attendu(s))")
+                print(f"      C{cycle_num} : {statut} ({len(attendu_ids)} attendu(s))")
 
             succes += 1
 
@@ -677,3 +778,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    os.system("pause")
