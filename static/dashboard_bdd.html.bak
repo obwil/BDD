@@ -387,7 +387,7 @@ function goPage(id) {
   event.target.classList.add('active');
   if (id === 'attendus') renderAttendusTable();
   if (id === 'thematiques') renderThemList();
-  if (id === 'manquants') loadManquants();
+  if (id === 'manquants') initManquants();
 }
 
 // ============================================================
@@ -654,9 +654,9 @@ renderPairs();
 <div id="page-manquants" class="page">
 
   <div class="kpi-row">
-    <div class="kpi red"><div class="kpi-val" id="kpi-vides">…</div><div class="kpi-label">Complètement vides</div></div>
-    <div class="kpi amber"><div class="kpi-val" id="kpi-sans-desc">…</div><div class="kpi-label">Sans description</div></div>
-    <div class="kpi purple"><div class="kpi-val" id="kpi-sans-attendus">…</div><div class="kpi-label">Sans aucun attendu</div></div>
+    <div class="kpi red"><div class="kpi-val">41</div><div class="kpi-label">Complètement vides</div></div>
+    <div class="kpi amber"><div class="kpi-val">97</div><div class="kpi-label">Sans description</div></div>
+    <div class="kpi purple"><div class="kpi-val">8</div><div class="kpi-label">Sans aucun attendu</div></div>
   </div>
 
   <div class="section-grid grid-2" style="margin-bottom:20px">
@@ -664,32 +664,13 @@ renderPairs();
     <!-- Complètement vides -->
     <div class="panel">
       <div class="panel-header">
-        <span class="panel-title">Complètement vides <span style="color:var(--red)" id="titre-vides">(…)</span></span>
+        <span class="panel-title">Complètement vides <span style="color:var(--red)">(41)</span></span>
         <span style="font-size:10px;color:var(--muted)">Pas de description, thématique, ni cycle</span>
       </div>
       <div class="panel-body">
-        <!-- Onglets -->
-        <div style="display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap">
-          <button class="vides-tab-btn active" onclick="switchVidesTab('texte',this)"
-            style="padding:4px 10px;font-size:11px;border:1px solid var(--border);border-radius:4px;cursor:pointer;background:var(--accent);color:#fff">
-            📄 Texte <span id="count-texte">(…)</span>
-          </button>
-          <button class="vides-tab-btn" onclick="switchVidesTab('video',this)"
-            style="padding:4px 10px;font-size:11px;border:1px solid var(--border);border-radius:4px;cursor:pointer;background:var(--bg2);color:var(--fg)">
-            🎬 Vidéo <span id="count-video">(…)</span>
-          </button>
-          <button class="vides-tab-btn" onclick="switchVidesTab('autre',this)"
-            style="padding:4px 10px;font-size:11px;border:1px solid var(--border);border-radius:4px;cursor:pointer;background:var(--bg2);color:var(--fg)">
-            📎 Autre <span id="count-autre">(…)</span>
-          </button>
-          <button class="vides-tab-btn" onclick="switchVidesTab('aucun',this)"
-            style="padding:4px 10px;font-size:11px;border:1px solid var(--border);border-radius:4px;cursor:pointer;background:var(--bg2);color:var(--fg)">
-            ❌ Aucun _DESC_ <span id="count-aucun">(…)</span>
-          </button>
-        </div>
         <div class="table-wrap">
           <table class="data-table">
-            <thead><tr><th>#</th><th>Nom</th><th></th></tr></thead>
+            <thead><tr><th>#</th><th>Nom</th></tr></thead>
             <tbody id="vides-tbody"></tbody>
           </table>
         </div>
@@ -699,7 +680,7 @@ renderPairs();
     <!-- Sans description mais partiellement renseignées -->
     <div class="panel">
       <div class="panel-header">
-        <span class="panel-title">Sans description <span style="color:var(--amber)" id="titre-sans-desc">(…)</span></span>
+        <span class="panel-title">Sans description <span style="color:var(--amber)">(97)</span></span>
         <span style="font-size:10px;color:var(--muted)">Thématiques ou cycles présents, description absente</span>
       </div>
       <div class="panel-body">
@@ -731,50 +712,11 @@ renderPairs();
 </div>
 
 <script>
-let DATA_MANQUANTS = { vides: [], sans_desc: [], sans_attendus: [] };
-let VIDES_TAB_ACTIF = 'texte';
-
-async function loadManquants() {
-  try {
-    const data = await fetch('/api/dashboard/manquants').then(r => r.json());
-    DATA_MANQUANTS = data;
-    // Mettre à jour les compteurs KPI
-    document.getElementById('kpi-vides').textContent = data.vides.length;
-    document.getElementById('kpi-sans-desc').textContent = data.sans_desc.length;
-    document.getElementById('kpi-sans-attendus').textContent = data.sans_attendus.length;
-    document.getElementById('titre-vides').textContent = `(${data.vides.length})`;
-    document.getElementById('titre-sans-desc').textContent = `(${data.sans_desc.length})`;
-    // Mettre à jour les compteurs des onglets
-    ['texte','video','autre','aucun'].forEach(type => {
-      const items = data.vides.filter(a => a.desc_type === type);
-      const el = document.getElementById(`count-${type}`);
-      if (el) el.textContent = `(${items.length})`;
-    });
-    initManquants();
-  } catch(e) {
-    console.error('Erreur chargement manquants:', e);
-  }
-}
-
-function switchVidesTab(type, btn) {
-  VIDES_TAB_ACTIF = type;
-  // Styles des boutons
-  document.querySelectorAll('.vides-tab-btn').forEach(b => {
-    b.style.background = 'var(--bg2)';
-    b.style.color = 'var(--fg)';
-    b.classList.remove('active');
-  });
-  btn.style.background = 'var(--accent)';
-  btn.style.color = '#fff';
-  btn.classList.add('active');
-  renderVidesTab();
-}
-
-function renderVidesTab() {
-  const items = DATA_MANQUANTS.vides.filter(a => a.desc_type === VIDES_TAB_ACTIF);
-  document.getElementById('vides-tbody').innerHTML =
-    items.map((a, i) => rowActivite(a, i)).join('');
-}
+const DATA_MANQUANTS = {
+  vides: [{"id":920,"nom":"Attirer les gastéropodes"},{"id":236,"nom":"Automates"},{"id":923,"nom":"Claves naturelles"},{"id":926,"nom":"Construire et utiliser des dés forestiers"},{"id":430,"nom":"Conte sur le coeur"},{"id":505,"nom":"Créer de l'art avec des ombres"},{"id":380,"nom":"Créer des pinceaux naturels"},{"id":847,"nom":"Créer des pochoirs-cadres nature"},{"id":929,"nom":"Créer un tableau avec des éléments de la nature"},{"id":930,"nom":"Créer une carte des écosystèmes"},{"id":932,"nom":"Créer une guirlande de l'automne"},{"id":518,"nom":"Créer une maquette des abris des animaux"},{"id":939,"nom":"Dépliant sur le cycle de vie"},{"id":943,"nom":"Fabriquer des bouteilles musicales"},{"id":953,"nom":"Fabriquer un avion chauve souris"},{"id":954,"nom":"Fabriquer un avion en papier"},{"id":1203,"nom":"Faire de l'art de peinture"},{"id":1204,"nom":"Faire de la peinture avec du savon"},{"id":1206,"nom":"Faire des percussions avec des coquilles de noix"},{"id":1215,"nom":"Faire une fusée avec un brin d'herbe"},{"id":764,"nom":"Jeu - Concept kids animaux"},{"id":1227,"nom":"Jeu de plateau de poursuite"},{"id":258,"nom":"Jeu des animaux camouflés dans une image"},{"id":611,"nom":"Jeu sur les animaux de la forêt"},{"id":685,"nom":"Jeux d'extérieur divers"},{"id":469,"nom":"Kamishibai - l'eau à travers le temps"},{"id":449,"nom":"Les bruits de l'eau"},{"id":354,"nom":"Masque naturel sur tige"},{"id":757,"nom":"Mémory oiseaux"},{"id":755,"nom":"Mémory petite faune"},{"id":1241,"nom":"Observer la dispersion explosive des plantes"},{"id":70,"nom":"Observer les amphibiens"},{"id":77,"nom":"Observer les escargots et limaces"},{"id":220,"nom":"Peindre des oeufs"},{"id":583,"nom":"Photolangage - eau"},{"id":584,"nom":"Photolangage buissonnier en bois"},{"id":201,"nom":"Poisson en feuille de châtaignier"},{"id":547,"nom":"Pourquoi les feuilles sont si différentes"},{"id":157,"nom":"Reproduire des oiseaux à partir de leur code couleur"},{"id":1259,"nom":"Sentir les feuilles d'épiaire à l'odeur de cèpe"},{"id":1234,"nom":"jeu pour replacer les animaux dans leur milieu"}],
+  sans_desc: [{"id":1425,"nom":"Activité sur la chaîne alimentaire"},{"id":918,"nom":"Affiche pour chercher dans une image nocturne"},{"id":919,"nom":"Ananas en feuilles"},{"id":5,"nom":"Anim oiseaux migration - LPO"},{"id":921,"nom":"Balade musicale contée"},{"id":232,"nom":"Carte du ciel"},{"id":924,"nom":"Cliquet en bambou"},{"id":226,"nom":"Concours d'anecdotes"},{"id":423,"nom":"Conte - l'arbre triste"},{"id":669,"nom":"Conte philosophique sur l'oeuf"},{"id":927,"nom":"Course des chenilles"},{"id":933,"nom":"Créer une étoile - cœur végétal"},{"id":934,"nom":"Cueillir des orties"},{"id":937,"nom":"Découvrir le silex"},{"id":938,"nom":"Découvrir les bamboo pipe drums"},{"id":240,"nom":"Découvrir les décomposeurs"},{"id":940,"nom":"Déploiement des ailes de la coccinelle"},{"id":944,"nom":"Fabriquer des castagnettes en bambou"},{"id":946,"nom":"Fabriquer des mandalas mexicains"},{"id":947,"nom":"Fabriquer des rhombes"},{"id":948,"nom":"Fabriquer des tarranolas"},{"id":822,"nom":"Fabriquer et utiliser un nuageoscope"},{"id":957,"nom":"Fabriquer un Borrindo"},{"id":961,"nom":"Fabriquer un Fungo, fungadeira, bufagatos"},{"id":951,"nom":"Fabriquer un appeau à rainette"},{"id":955,"nom":"Fabriquer un bamboo shaker"},{"id":956,"nom":"Fabriquer un bamboo slit drum"},{"id":958,"nom":"Fabriquer un bungkaka"},{"id":960,"nom":"Fabriquer un claquoir en bambou"},{"id":971,"nom":"Fabriquer un hautbois primitif"},{"id":968,"nom":"Fabriquer un moulin à vent"},{"id":969,"nom":"Fabriquer un ney"},{"id":1182,"nom":"Fabriquer un ocarina en bambou"},{"id":1183,"nom":"Fabriquer un shakuhachi en bambou"},{"id":1184,"nom":"Fabriquer un sifflet coyok"},{"id":1186,"nom":"Fabriquer un sifflet en cannette d'alu"},{"id":1189,"nom":"Fabriquer un xylophone en bambou"},{"id":572,"nom":"Fabriquer un xylophone sauvage"},{"id":1201,"nom":"Fabriquer une Zambomba"},{"id":1190,"nom":"Fabriquer une canera"},{"id":1192,"nom":"Fabriquer une castanola de cana"},{"id":1193,"nom":"Fabriquer une chenille qui bouge sur une feuille"},{"id":1194,"nom":"Fabriquer une citare à tube en bambou"},{"id":1195,"nom":"Fabriquer une double anche"},{"id":1196,"nom":"Fabriquer une flèche polynésienne"},{"id":1412,"nom":"Fabriquer une flûte harmonique"},{"id":1198,"nom":"Fabriquer une flûte à eau"},{"id":1199,"nom":"Fabriquer une harpe éolienne"},{"id":1200,"nom":"Fabriquer une toupie buissonière"},{"id":1202,"nom":"Faire dancer des rameaux de pin"},{"id":1205,"nom":"Fabriquer une peinture eau - encre de chine"},{"id":1207,"nom":"Faire du light painting"},{"id":1210,"nom":"Faire sauter une grenouille"},{"id":1211,"nom":"Faire sortir les vers de terre"},{"id":158,"nom":"Faire un test de personnalité nature"},{"id":1213,"nom":"Faire une arche de pierre"},{"id":1217,"nom":"Feu d'artifice avec du zeste d'orange"},{"id":486,"nom":"Histoire loopstation"},{"id":256,"nom":"Illusions d'optique avec l'eau"},{"id":699,"nom":"Jeu d'orientation - La grande aventure des plantes_0"},{"id":701,"nom":"Jeu d'orientation sur les couleurs et leur utilisation dans la nature"},{"id":1270,"nom":"Jeu de baseball buissonnier"},{"id":1222,"nom":"Jeu de déplacement d'animaux en papier"},{"id":1223,"nom":"Jeu de la guise (bâtons)"},{"id":1224,"nom":"Jeu de plateau - Achi"},{"id":1226,"nom":"Jeu de plateau - len choa"},{"id":1228,"nom":"Jeu de pog à l'ancienne avec des cartes"},{"id":293,"nom":"Jeu des 10s"},{"id":1237,"nom":"Kazoo en houx"},{"id":892,"nom":"Land art"},{"id":758,"nom":"Loup garou nature"},{"id":262,"nom":"Modeler l'anatomie des arthropodes"},{"id":247,"nom":"Modèles_Animation"},{"id":215,"nom":"Montrer la gélifraction avec un oeuf"},{"id":1240,"nom":"Observer l'intérieur d'un oeuf"},{"id":455,"nom":"Observer l'osmose avec un oeuf"},{"id":1243,"nom":"Observer le fer dans les créréales"},{"id":193,"nom":"Observer le hérisson"},{"id":1244,"nom":"Observer les différents types de champignons"},{"id":48,"nom":"Observer les oiseaux"},{"id":1245,"nom":"Orgue éolien en bambous"},{"id":1246,"nom":"Panier en feuille"},{"id":581,"nom":"Photolangage - feuille et fonctions"},{"id":1250,"nom":"Porte plat - savon en vannerie"},{"id":379,"nom":"Poterie primitive"},{"id":259,"nom":"Qu'est-ce qu'un être vivant"},{"id":1054,"nom":"Redonner un visage à l'arbre en créant un petit bonhomme"},{"id":1413,"nom":"Réseau trophique et chaîne alimentaire"},{"id":1414,"nom":"S'orienter à la boussole"},{"id":242,"nom":"Sexualité des fleurs"},{"id":904,"nom":"Soulever avec un système de poulies"},{"id":586,"nom":"Trouver sa plante dans le calendrier républicain"},{"id":871,"nom":"escape game botanique"},{"id":1233,"nom":"jeu mémory carton sur le potager"},{"id":1272,"nom":"jeu pour replacer les cordes (corridors biologiques)"},{"id":809,"nom":"liste_fichiers_accentues"},{"id":239,"nom":"outputs"}],
+  sans_attendus: [{"id":1008,"nom":"Analyser ses préjugés à travers une mise en situation"},{"id":100,"nom":"Débat mouvant - genre"},{"id":717,"nom":"Découvrir des communautés - jeu des smarties"},{"id":1025,"nom":"Explorer la notion de loi par le brainstorming et l'auto-évaluation"},{"id":671,"nom":"Histoire sur le lapin de garenne"},{"id":1098,"nom":"Représenter la diffusion de la lumière dans l'atmosphère"},{"id":1039,"nom":"Réviser en groupe - expliquer aux autres pour mieux apprendre"},{"id":17,"nom":"Tramaturgie du bocage et de la haie"}]
+};
 
 function ouvrirDossier(id) {
   fetch(`http://localhost:8000/api/activites/${id}/ouvrir-dossier`)
@@ -799,7 +741,8 @@ function rowActivite(a, i) {
 }
 
 function initManquants() {
-  renderVidesTab();
+  document.getElementById('vides-tbody').innerHTML =
+    DATA_MANQUANTS.vides.map((a, i) => rowActivite(a, i)).join('');
   renderSansDesc(DATA_MANQUANTS.sans_desc);
   document.getElementById('sans-attendus-tbody').innerHTML =
     DATA_MANQUANTS.sans_attendus.map((a, i) => rowActivite(a, i)).join('');
@@ -817,7 +760,7 @@ function filterManquants(q) {
   renderSansDesc(filtered);
 }
 
-loadManquants();
+initManquants();
 </script>
 
 </body>

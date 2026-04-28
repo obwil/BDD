@@ -820,3 +820,77 @@ def statistiques():
     }
     conn.close()
     return stats
+
+
+# ============================================================================
+# DASHBOARD - DONNÉES MANQUANTES
+# ============================================================================
+
+@app.get("/api/dashboard/manquants")
+def dashboard_manquants():
+    conn = get_db()
+
+    # Activités complètement vides (pas de description, pas de thématique, pas de cycle)
+    vides_rows = conn.execute("""
+        SELECT a.id, a.nom, a.chemin_dossier FROM activite a
+        WHERE (a.description IS NULL OR a.description = '')
+        AND NOT EXISTS (SELECT 1 FROM activite_thematique at2 WHERE at2.activite_id = a.id)
+        AND NOT EXISTS (SELECT 1 FROM activite_cycle ac WHERE ac.activite_id = a.id)
+        ORDER BY a.nom
+    """).fetchall()
+
+    # Activités sans description mais avec au moins une thématique ou un cycle
+    sans_desc = conn.execute("""
+        SELECT a.id, a.nom FROM activite a
+        WHERE (a.description IS NULL OR a.description = '')
+        AND (
+            EXISTS (SELECT 1 FROM activite_thematique at2 WHERE at2.activite_id = a.id)
+            OR EXISTS (SELECT 1 FROM activite_cycle ac WHERE ac.activite_id = a.id)
+        )
+        ORDER BY a.nom
+    """).fetchall()
+
+    # Activités sans aucun attendu
+    sans_attendus = conn.execute("""
+        SELECT a.id, a.nom FROM activite a
+        WHERE NOT EXISTS (SELECT 1 FROM activite_attendu aa WHERE aa.activite_id = a.id)
+        AND (a.description IS NOT NULL AND a.description != '')
+        ORDER BY a.nom
+    """).fetchall()
+
+    conn.close()
+
+    # Extensions texte (lisibles par Gemini), vidéo, autres
+    EXT_TEXTE = {".txt", ".pdf", ".docx", ".html", ".md"}
+    EXT_VIDEO = {".mp4", ".avi", ".mov", ".mkv", ".webm", ".m4v"}
+
+    def classer_desc(chemin_dossier):
+        """Scan le dossier pour trouver les fichiers _DESC_ et les classer."""
+        if not chemin_dossier:
+            return "aucun", []
+        chemin = chemin_dossier.replace("file:///", "").replace("/", "\\")
+        dossier = Path(chemin)
+        if not dossier.exists():
+            return "aucun", []
+        desc_files = [f for f in dossier.iterdir() if "_DESC_" in f.name.upper()]
+        if not desc_files:
+            return "aucun", []
+        extensions = {f.suffix.lower() for f in desc_files}
+        noms = [f.name for f in desc_files]
+        if extensions & EXT_VIDEO:
+            return "video", noms
+        elif extensions & EXT_TEXTE:
+            return "texte", noms
+        else:
+            return "autre", noms
+
+    vides = []
+    for r in vides_rows:
+        categorie, fichiers = classer_desc(r["chemin_dossier"])
+        vides.append({"id": r[0], "nom": r[1], "desc_type": categorie, "desc_fichiers": fichiers})
+
+    return {
+        "vides": vides,
+        "sans_desc": [{"id": r[0], "nom": r[1]} for r in sans_desc],
+        "sans_attendus": [{"id": r[0], "nom": r[1]} for r in sans_attendus],
+    }

@@ -800,6 +800,15 @@ function applyURLParams() {
   }
 }
 
+async function applyURLActivite() {
+  const params = new URLSearchParams(window.location.search);
+  const activiteId = params.get('activite_id');
+  if (activiteId) {
+    await search();
+    openDrawer(parseInt(activiteId));
+  }
+}
+
 // ============================================================================
 // CHIPS
 // ============================================================================
@@ -1558,7 +1567,7 @@ async function supprimerActivite(id, nom) {
   }
 }
 
-init();
+init().then(() => applyURLActivite());
 </script>
 </body>
 </html>
