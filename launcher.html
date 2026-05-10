@@ -238,6 +238,7 @@ CATEGORIES.forEach(cat => {
   cat.scripts.forEach(s => {
     const card = document.createElement('div');
     card.className = 'card' + (s.type === 'danger' ? ' danger' : '');
+    const safeName = s.name.replace(/'/g, "\\'");
     card.innerHTML = `
       <div class="card-top">
         <div>
@@ -246,7 +247,7 @@ CATEGORIES.forEach(cat => {
         </div>
       </div>
       <div class="card-desc">${s.desc}</div>
-      <button class="btn-run ${s.type}" onclick="handleRun('${s.file}', '${s.name}', ${!!s.detached}, ${!!s.confirm}, this)">
+      <button class="btn-run ${s.type}" onclick="handleRun('${s.file}', '${safeName}', ${!!s.detached}, ${!!s.confirm}, this)">
         ${s.detached ? '▶ Ouvrir' : '▶ Lancer'}
       </button>`;
     cardsDiv.appendChild(card);
@@ -311,7 +312,13 @@ document.getElementById('modal-overlay').addEventListener('click', e => {
 let currentES = null;
 function runScript(file, name, detached, btn) {
   if (detached) {
-    fetch('/api/run', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({script: file}) });
+    fetch('/api/run', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({script: file}) })
+      .then(r => r.json())
+      .then(d => {
+        if (d.error) alert('Erreur : ' + d.error);
+        else { if (!consoleOpen) toggleConsole(); appendLine('▶ Lancé : ' + file, 'ok'); }
+      })
+      .catch(e => alert('Erreur réseau : ' + e));
     return;
   }
 

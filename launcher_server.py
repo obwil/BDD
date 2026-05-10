@@ -34,19 +34,13 @@ def run_script():
     is_detached = script in DETACHED
 
     if is_detached:
-        # Lancer en détaché sans capturer la sortie
-        if is_bat:
-            subprocess.Popen(
-                ["cmd", "/c", "start", "", str(script_path)],
-                cwd=str(OUTIL_DIR),
-                creationflags=subprocess.CREATE_NEW_CONSOLE,
-            )
-        else:
-            subprocess.Popen(
-                [PYTHON, str(script_path)],
-                cwd=str(OUTIL_DIR),
-                creationflags=subprocess.CREATE_NEW_CONSOLE,
-            )
+        print(f"[DETACHED] Lancement : {script_path}")
+        try:
+            result = subprocess.Popen(str(script_path), shell=True, cwd=str(OUTIL_DIR))
+            print(f"[DETACHED] PID : {result.pid}")
+        except Exception as e:
+            print(f"[DETACHED] ERREUR : {e}")
+            return jsonify({"error": str(e)}), 500
         return jsonify({"ok": True, "detached": True})
 
     def generate():
