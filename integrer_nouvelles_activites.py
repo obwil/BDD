@@ -25,13 +25,13 @@ from pathlib import Path
 # CONFIGURATION
 # =============================================================================
 
-SIMULATION = True  # True = affichage seul, False = traitement reel
+SIMULATION = False  # True = affichage seul, False = traitement reel
 
 DROPBOX_ACTIVITES = Path(r"C:\Users\moina\Dropbox\Animation\Activités v2")
 DB_PATH = Path(__file__).parent / "activites.db"
 
 # "gemini" ou "claude"
-API_PROVIDER = "gemini"
+API_PROVIDER = "claude"
 
 GEMINI_MODEL = "gemini-2.5-flash"
 CLAUDE_MODEL = "claude-haiku-4-5-20251001"
@@ -126,6 +126,7 @@ def enregistrer_etape_a(conn, activite_id, resultats):
             description    = ?,
             objectif_texte = ?,
             format_groupe  = ?,
+            lieu           = ?,
             duree_min      = ?,
             meteo_soleil   = ?,
             meteo_pluie    = ?,
@@ -137,6 +138,7 @@ def enregistrer_etape_a(conn, activite_id, resultats):
         resultats.get("description"),
         resultats.get("objectif_texte"),
         resultats.get("format_groupe"),
+        resultats.get("lieu"),
         resultats.get("duree_min"),
         1 if resultats.get("meteo_soleil") else 0,
         1 if resultats.get("meteo_pluie")  else 0,
@@ -292,7 +294,7 @@ def appel_api(content, system_prompt, client):
                 import anthropic
                 response = client.messages.create(
                     model=CLAUDE_MODEL,
-                    max_tokens=1500,
+                    max_tokens=4000,
                     system=system_prompt,
                     messages=[{"role": "user", "content": content}]
                 )
@@ -347,12 +349,13 @@ Retourne un JSON avec exactement ces champs :
   "description": "Resume concis de l'activite en 2-4 phrases. En francais.",
   "objectif_texte": "Objectif pedagogique principal en 1-2 phrases. En francais.",
   "format_groupe": "Une valeur parmi : individuel / binome / petit groupe / grand groupe. Null si non determinable.",
+  "lieu": "Une valeur parmi : Intérieur / Extérieur / Intérieur/Extérieur. Null si non determinable.",
   "duree_min": entier ou null,
-  "meteo_soleil": true/false — true UNIQUEMENT si l'activite necessite absolument le soleil,
-  "meteo_pluie": true/false — true UNIQUEMENT si l'activite necessite absolument la pluie,
-  "meteo_vent": true/false — true UNIQUEMENT si l'activite necessite absolument le vent,
-  "meteo_nuage": true/false — true UNIQUEMENT si l'activite necessite absolument un ciel nuageux,
-  "meteo_nuit": true/false — true UNIQUEMENT si l'activite se deroule obligatoirement de nuit,
+  "meteo_soleil": true/false — true UNIQUEMENT si l'activite necessite d'utiliser le soleil bien visible (ex: projeter des ombres, observer le soleil directement). Pas suffisant que le beau temps soit preferable.,
+  "meteo_pluie": true/false — true UNIQUEMENT si l'activite est impossible sans pluie (ex: sauter dans des flaques, suivre un ruissellement, instruments percutes par la pluie).,
+  "meteo_vent": true/false — true UNIQUEMENT si l'activite necessite absolument du vent (ex: fabriquer ou utiliser un cerf-volant, un orgue eolien).,
+  "meteo_nuage": true/false — true UNIQUEMENT s'il doit y avoir absolument des nuages dans le ciel pour que l'activite fonctionne.,
+  "meteo_nuit": true/false — true UNIQUEMENT s'il doit absolument faire nuit pour pouvoir realiser l'activite.,
   "mois": {{
     "jan": true/false, "fev": true/false, "mar": true/false, "avr": true/false,
     "mai": true/false, "jun": true/false, "jul": true/false, "aou": true/false,
@@ -500,42 +503,132 @@ def analyser_etape_b(nom, fichiers, cycle_num, referentiel, client):
     return data, raisonnement
 
 # =============================================================================
-# SAISIE MANUELLE DES CYCLES
+# ANALYSE AUTOMATIQUE DES CYCLES PAR L'IA
 # =============================================================================
 
-def saisir_cycles(nom, description, cycles_disponibles):
-    """
-    Affiche le nom et la description de l'activite, puis demande
-    interactivement quels cycles sont applicables.
-    Retourne un set d'ids de cycles valides (vide = aucun / inadapte pour tous).
-    """
-    codes_dispo = {str(int(cy["code"].replace("C", ""))): cy["id"] for cy in cycles_disponibles}
+SYSTEM_PROMPT_CYCLES = """Tu es un assistant specialise en pedagogie de la nature et en education a l'environnement.
+Tu analyses des fiches d'activites pedagogiques nature pour determiner quels cycles scolaires sont adaptes.
+Tu reponds toujours en deux blocs : d'abord un raisonnement en texte libre, puis un bloc JSON valide entre balises ```json.
+"""
 
-    print()
-    print(f"  Description : {description or '(non disponible)'}")
-    print()
-    print(f"  Cycles disponibles : {', '.join(f'C{k}' for k in sorted(codes_dispo))}")
-    print(f"  Entrez les numeros de cycles applicables separes par des espaces (ex: 1 3)")
-    print(f"  Laissez vide ou entrez 0 = aucun cycle (inadapte pour tous)")
 
-    while True:
-        reponse = input("  Cycles > ").strip()
-        if reponse == "" or reponse == "0":
-            return set()
-        tokens = reponse.split()
-        ids_selectionnes = set()
-        valide = True
-        for t in tokens:
-            if t in codes_dispo:
-                ids_selectionnes.add(codes_dispo[t])
+def construire_prompt_cycles(nom, description, cycles_disponibles):
+    cycles_text = "\n".join(
+        f"  C{int(cy['code'].replace('C',''))}: {cy['ages']} — {cy['nom']}"
+        for cy in cycles_disponibles
+    )
+    return f"""Tu dois determiner quels cycles scolaires sont adaptes pour l'activite pedagogique nature intitulee : << {nom} >>.
+
+Description de l'activite : {description or '(non disponible)'}
+
+=== CYCLES DISPONIBLES ===
+{cycles_text}
+
+=== CRITERES D'ADAPTATION ===
+
+C1 (maternelle, 3-6 ans) : adapte si l'activite est accessible SANS lecture ni ecriture, avec manipulation simple et consignes orales uniquement.
+C2 (CP-CE2, 6-9 ans) : adapte si l'activite peut impliquer de l'ecriture guidee, une lecture simple, un raisonnement concret.
+C3 (CM1-6e, 9-12 ans) : adapte si l'activite peut impliquer lecture autonome, raisonnement abstrait, notions plus complexes.
+
+EXCLUSIONS (a appliquer strictement) :
+- Si l'activite requiert la lecture autonome de regles ou de materiel -> exclure C1
+- Si l'activite requiert l'ecriture autonome -> exclure C1
+- Si l'activite requiert des calculs chiffres ou des stats -> exclure C1 voire C2
+- Si la fiche mentionne explicitement un age minimum ou un cycle cible superieur -> respecter cette indication
+
+=== INSTRUCTIONS ===
+
+RAISONNEMENT (texte libre, 3-5 phrases) :
+Justifie pour chaque cycle pourquoi il est adapte ou inadapte, en t'appuyant sur les criteres ci-dessus et sur la description de l'activite.
+
+JSON :
+```json
+{{"cycles_adaptes": [liste des numeros de cycles adaptes, ex: [1, 2] ou [2, 3] ou [1, 2, 3]]}}
+```
+
+Si aucun cycle n'est adapte, retourne {{"cycles_adaptes": []}}.
+"""
+
+
+def analyser_cycles(nom, description, fichiers, cycles_disponibles, client):
+    """Demande a l'IA de proposer les cycles adaptes avec justification.
+    Affiche le raisonnement et demande confirmation a l'utilisateur.
+    Retourne un set d'ids de cycles valides."""
+    codes_dispo = {int(cy["code"].replace("C", "")): cy["id"] for cy in cycles_disponibles}
+
+    content = [{"type": "text", "text": construire_prompt_cycles(nom, description, cycles_disponibles)}]
+    for f in fichiers:
+        bloc = fichier_vers_contenu(f)
+        if bloc:
+            content.append({"type": "text", "text": f"\n--- Fichier : {f.name} ---"})
+            content.append(bloc)
+
+    try:
+        raw = appel_api(content, SYSTEM_PROMPT_CYCLES, client)
+    except RuntimeError as e:
+        if "PROHIBITED_CONTENT" in str(e):
+            print("   PROHIBITED_CONTENT sur analyse cycles -> saisie manuelle requise")
+            return _saisie_manuelle_cycles(cycles_disponibles)
+        raise
+
+    # Parser la reponse
+    raisonnement = ""
+    cycles_proposes = []
+    try:
+        if "```json" in raw:
+            parties = raw.split("```json")
+            raisonnement = parties[0].strip()
+            json_str = parties[1].split("```")[0].strip()
+            data = json.loads(json_str)
+        else:
+            data = json.loads(raw.strip())
+            raisonnement = ""
+        cycles_proposes = [int(c) for c in data.get("cycles_adaptes", []) if str(c).isdigit() or isinstance(c, int)]
+    except Exception:
+        print("   Erreur parsing reponse cycles -> saisie manuelle requise")
+        return _saisie_manuelle_cycles(cycles_disponibles)
+
+    # Afficher le raisonnement et la proposition
+    print()
+    print(f"   --- Cycles retenus ---")
+    if raisonnement:
+        for ligne in raisonnement.splitlines():
+            if ligne.strip():
+                print(f"   {ligne}")
+    labels = [f"C{c}" for c in sorted(cycles_proposes)]
+    print(f"   => Cycles : {', '.join(labels) if labels else 'aucun'}")
+
+    ids = {codes_dispo[c] for c in cycles_proposes if c in codes_dispo}
+    return ids
+
+
+def _parser_cycles_input(reponse, codes_dispo):
+    """Parse une saisie manuelle de cycles et retourne un set d'ids."""
+    if reponse == "0" or reponse == "":
+        return set()
+    tokens = reponse.split()
+    ids = set()
+    for t in tokens:
+        try:
+            num = int(t)
+            if num in codes_dispo:
+                ids.add(codes_dispo[num])
             else:
-                print(f"  Valeur invalide : '{t}'. Utilisez : {', '.join(sorted(codes_dispo))}")
-                valide = False
-                break
-        if valide:
-            labels = [f"C{t}" for t in tokens if t in codes_dispo]
-            print(f"  Cycles retenus : {', '.join(labels)}")
-            return ids_selectionnes
+                print(f"   Valeur ignoree : '{t}'")
+        except ValueError:
+            print(f"   Valeur ignoree : '{t}'")
+    labels = [f"C{t}" for t in tokens if t.isdigit() and int(t) in codes_dispo]
+    print(f"   Cycles retenus : {', '.join(labels) if labels else 'aucun'}")
+    return ids
+
+
+def _saisie_manuelle_cycles(cycles_disponibles):
+    """Saisie manuelle de secours."""
+    codes_dispo = {int(cy["code"].replace("C", "")): cy["id"] for cy in cycles_disponibles}
+    print(f"   Cycles disponibles : {', '.join(f'C{k}' for k in sorted(codes_dispo))}")
+    print(f"   Entrez les numeros (ex: 1 2) ou 0 = aucun")
+    reponse = input("   Cycles > ").strip()
+    return _parser_cycles_input(reponse, codes_dispo)
 
 # =============================================================================
 # SCAN DES NOUVEAUX DOSSIERS
@@ -647,27 +740,87 @@ def main():
         conn.close()
         return
 
-    # --- MODE SIMULATION : affichage seul ---
+    # --- MODE SIMULATION : verification complete ---
     if SIMULATION:
+        print("\n" + "=" * 60)
+        print("VERIFICATION DES ACCES (mode simulation)")
+        print("=" * 60)
+
+        ok_total = True
+
+        # 1. BDD
+        try:
+            nb = conn.execute("SELECT COUNT(*) FROM activite").fetchone()[0]
+            print(f"  [OK] BDD accessible ({nb} activites en base)")
+        except Exception as e:
+            print(f"  [ERREUR] BDD : {e}")
+            ok_total = False
+
+        # 2. Referentiels BDD
+        try:
+            nb_them = conn.execute("SELECT COUNT(*) FROM thematique").fetchone()[0]
+            nb_obj  = conn.execute("SELECT COUNT(*) FROM objectif").fetchone()[0]
+            nb_att  = conn.execute("SELECT COUNT(*) FROM attendu_scolaire").fetchone()[0]
+            nb_cyc  = conn.execute("SELECT COUNT(*) FROM cycle").fetchone()[0]
+            print(f"  [OK] Referentiels : {nb_them} thematiques, {nb_obj} objectifs, {nb_att} attendus, {nb_cyc} cycles")
+        except Exception as e:
+            print(f"  [ERREUR] Referentiels BDD : {e}")
+            ok_total = False
+
+        # 3. Table activite_cycle_analysee
+        try:
+            conn.execute("SELECT COUNT(*) FROM activite_cycle_analysee").fetchone()
+            print(f"  [OK] Table activite_cycle_analysee accessible")
+        except Exception as e:
+            print(f"  [ERREUR] Table activite_cycle_analysee absente ou inaccessible : {e}")
+            ok_total = False
+
+        # 4. Dossier Activites v2
+        if DROPBOX_ACTIVITES.exists():
+            nb_dossiers = sum(1 for d in DROPBOX_ACTIVITES.iterdir() if d.is_dir())
+            print(f"  [OK] Dossier Activites v2 accessible ({nb_dossiers} sous-dossiers)")
+        else:
+            print(f"  [ERREUR] Dossier introuvable : {DROPBOX_ACTIVITES}")
+            ok_total = False
+
+        # 5. API Claude
+        try:
+            import anthropic
+            client_test = anthropic.Anthropic()
+            resp = client_test.messages.create(
+                model=CLAUDE_MODEL,
+                max_tokens=10,
+                messages=[{"role": "user", "content": "Reponds uniquement: OK"}]
+            )
+            print(f"  [OK] API Claude accessible (modele : {CLAUDE_MODEL})")
+        except Exception as e:
+            print(f"  [ERREUR] API Claude : {e}")
+            ok_total = False
+
+        # 6. Activites detectees
+        print()
         if nouveaux:
-            print("Activites avec fichier _DESC_ (pret a traiter) :")
+            print(f"Activites avec fichier _DESC_ (pret a traiter) : {len(nouveaux)}")
             print("-" * 60)
             for i, (nom, dossier, fichiers) in enumerate(nouveaux, 1):
                 exts = ", ".join(f.suffix.lower() for f in fichiers)
                 print(f"  {i:3}. {nom}  [{exts}]")
             print("-" * 60)
-            print(f"  Sous-total : {len(nouveaux)} activite(s)\n")
 
         if sans_desc:
-            print("Activites sans fichier _DESC_ (non traitables) :")
+            print(f"Activites sans fichier _DESC_ (non traitables) : {len(sans_desc)}")
             print("-" * 60)
             for i, nom in enumerate(sans_desc, 1):
                 print(f"  {i:3}. {nom}")
             print("-" * 60)
-            print(f"  Sous-total : {len(sans_desc)} activite(s)\n")
 
+        print()
         print(f"Total detecte : {len(nouveaux) + len(sans_desc)} activite(s) absentes de la BDD")
-        print("Passez SIMULATION = False pour lancer le traitement reel.")
+        print()
+        if ok_total:
+            print("Tous les acces sont OK. Passez SIMULATION = False pour lancer le traitement reel.")
+        else:
+            print("Des erreurs ont ete detectees. Corrigez-les avant de lancer le traitement reel.")
         conn.close()
         return
 
@@ -710,12 +863,15 @@ def main():
             nb_mois = sum(1 for v in resultats_a.get("mois", {}).values() if v)
             print(f"   OK etape A : {nb_them} thematique(s), {nb_mois} mois")
 
-            # --- Saisie manuelle des cycles ---
-            print(f"\n   [SAISIE MANUELLE] Activite : {nom}")
-            cycles_selectionnes = saisir_cycles(
+            # --- Analyse des cycles par l'IA (avec validation humaine) ---
+            print(f"\n   [CYCLES] Activite : {nom}")
+            time.sleep(DELAI_ENTRE_APPELS)
+            cycles_selectionnes = analyser_cycles(
                 nom,
                 resultats_a.get("description"),
-                cycles
+                fichiers,
+                cycles,
+                client
             )
 
             # --- Etape B : attendus par cycle ---

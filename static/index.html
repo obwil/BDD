@@ -361,10 +361,12 @@
       <button class="btn btn-primary" id="btn-search">Rechercher</button>
       <button class="btn btn-ghost" id="btn-reset-toolbar" title="Réinitialiser les filtres">✕</button>
       <select id="sort-select" class="sort-select" title="Tri">
+        <option value="id">Par ID</option>
         <option value="nom">Alphabétique</option>
         <option value="nb_attendus">Plus d'attendus</option>
         <option value="nb_thematiques">Plus de thématiques</option>
       </select>
+      <button id="sort-dir-btn" class="btn btn-ghost" title="Ordre croissant / décroissant" style="padding:4px 8px;font-size:.9rem;">↑ Croissant</button>
       <span class="result-count" id="result-count"></span>
       <span class="cycle-counts" id="cycle-counts"></span>
     </div>
@@ -428,7 +430,7 @@ const S = {
   // tags : Map id -> 'incl'|'excl'
   tag_states: {},
   tag_op: 'or',
-  search_mode:'titre', anime:'', sort:'nom',
+  search_mode:'titre', anime:'', sort:'nom', sort_dir:'asc',
   limit:40, offset:0, total:0
 };
 
@@ -709,6 +711,12 @@ function bindEvents() {
   document.getElementById('sort-select').addEventListener('change', e => {
     S.sort = e.target.value; S.offset=0; search();
   });
+  document.getElementById('sort-dir-btn').addEventListener('click', () => {
+    S.sort_dir = S.sort_dir === 'asc' ? 'desc' : 'asc';
+    const btn = document.getElementById('sort-dir-btn');
+    btn.textContent = S.sort_dir === 'asc' ? '↑ Croissant' : '↓ Décroissant';
+    S.offset=0; search();
+  });
   document.getElementById('f-lieu').addEventListener('change', e => { S.lieu=e.target.value; S.offset=0; search(); });
   document.getElementById('f-groupe').addEventListener('change', e => { S.groupe=e.target.value; S.offset=0; search(); });
   document.querySelectorAll('input[name="anime"]').forEach(r => {
@@ -755,11 +763,12 @@ function resetAll() {
   S.cycle_states={};
   S.attendu_states={};    S.attendu_op='or';
   S.tag_states={};        S.tag_op='or';
-  S.sort='nom'; S.offset=0; S.search_mode='titre'; S.anime='';
+  S.sort='nom'; S.sort_dir='asc'; S.offset=0; S.search_mode='titre'; S.anime='';
   Object.keys(METEO_MODES).forEach(k => { METEO_MODES[k]='incl'; });
   document.getElementById('search-input').value='';
   document.getElementById('search-mode').value='titre';
   document.getElementById('sort-select').value='nom';
+  document.getElementById('sort-dir-btn').textContent='↑ Croissant';
   document.getElementById('f-lieu').value='';
   document.getElementById('f-groupe').value='';
   document.querySelectorAll('input[name="meteo"]').forEach(cb=>cb.checked=false);
@@ -965,6 +974,7 @@ async function search() {
   if(cycleExcl.length) p.set('exclude_cycle_ids', cycleExcl.join(','));
 
   p.set('sort', S.sort);
+  p.set('sort_dir', S.sort_dir);
   p.set('limit', S.limit);
   p.set('offset', S.offset);
 

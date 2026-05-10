@@ -8,6 +8,7 @@
 # Doc API automatique : http://localhost:8000/docs
 # =============================================================================
 
+import json
 import sqlite3
 import subprocess
 import sys
@@ -91,7 +92,8 @@ def liste_activites(
     exclude_attendu_ids: Optional[str] = Query(None),
     exclude_tag_ids: Optional[str] = Query(None),
     # --- Tri ---
-    sort: Optional[str] = Query("nom", description="nom | nb_attendus | nb_thematiques"),
+    sort: Optional[str] = Query("nom", description="nom | nb_attendus | nb_thematiques | id"),
+    sort_dir: Optional[str] = Query("asc", description="asc | desc"),
     limit: int = Query(50, le=200),
     offset: int = Query(0),
 ):
@@ -320,16 +322,19 @@ def liste_activites(
     where_clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
 
     # ---- TRI ----
+    dir_sql = "DESC" if sort_dir == "desc" else "ASC"
     if sort == "nb_attendus":
-        order_clause = """ORDER BY (
+        order_clause = f"""ORDER BY (
             SELECT COUNT(*) FROM activite_attendu aa WHERE aa.activite_id = a.id
-        ) DESC, a.nom"""
+        ) {dir_sql}, a.nom"""
     elif sort == "nb_thematiques":
-        order_clause = """ORDER BY (
+        order_clause = f"""ORDER BY (
             SELECT COUNT(*) FROM activite_thematique at2 WHERE at2.activite_id = a.id
-        ) DESC, a.nom"""
+        ) {dir_sql}, a.nom"""
+    elif sort == "id":
+        order_clause = f"ORDER BY a.id {dir_sql}"
     else:
-        order_clause = "ORDER BY a.nom"
+        order_clause = f"ORDER BY a.nom {dir_sql}"
 
     # Compter le total
     total = conn.execute(
@@ -796,6 +801,44 @@ def detail_sejour(sejour_id: int):
         result["sequences"].append(seq_dict)
 
     conn.close()
+    return result
+
+# ============================================================================
+# SESSION FAVORIS
+# ============================================================================
+
+SESSION_FAVORIS_FILE = Path(__file__).parent / "favoris_session.json"
+
+@app.get("/api/favoris-session")
+def get_favoris_session():
+    """Retourne le contenu du fichier de session favoris."""
+    if SESSION_FAVORIS_FILE.exists():
+        return json.loads(SESSION_FAVORIS_FILE.read_text(encoding="utf-8"))
+    return {"consulted": {}}
+
+@app.post("/api/favoris-session")
+def save_favoris_session(data: dict):
+    """Enregistre la session favoris dans un fichier JSON local."""
+    SESSION_FAVORIS_FILE.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    return {"ok": True}
+
+@app.get("/api/activites-cycles-map")
+def activites_cycles_map():
+    """Retourne un dict {activite_id: [cycle_codes]} pour toutes les activités."""
+    conn = get_db()
+    rows = conn.execute("""
+        SELECT ac.activite_id, c.code
+        FROM activite_cycle ac
+        JOIN cycle c ON c.id = ac.cycle_id
+        ORDER BY ac.activite_id, c.id
+    """).fetchall()
+    conn.close()
+    result = {}
+    for r in rows:
+        aid = str(r["activite_id"])
+        result.setdefault(aid, []).append(r["code"])
     return result
 
 # ============================================================================
