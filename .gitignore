@@ -1,5 +1,10 @@
 activites.db
 activites.db.backup
+activites.db.bak
 __pycache__/
 *.pyc
 config.json
+*.log
+*.bak
+rapport_traduction.txt
+favoris_session.json
