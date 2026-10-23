@@ -433,10 +433,10 @@
 
   <aside class="sejour-panel" id="sejour-panel">
     <div class="sp-head">📅 Séjour
-      <button class="btn btn-ghost" onclick="spSync()" title="Relire les « Projets enseignants Trimestre N » (séjours où tu es médiateur d'après-midi)">🔄 Sync Doc 3</button>
+      <button class="btn btn-ghost" onclick="spSync()" title="Relire les « Projets enseignants Trimestre N » (séjours où tu es médiateur d'après-midi)">🔄 Synchroniser</button>
     </div>
     <div class="sp-day" id="sp-trim-box"><h4>🚀 Nouveau trimestre</h4>
-      <div class="sp-msg" style="white-space:normal">Lit le Doc 3, crée les dossiers (avec « déroulé et objectifs » pré-rempli) et remplit l'EDT du pôle biodiversité, d'un seul coup.</div>
+      <div class="sp-msg" style="white-space:normal">Lit les « Projets enseignants », crée les dossiers (avec « déroulé et objectifs » pré-rempli) et remplit l'EDT du pôle biodiversité, d'un seul coup.</div>
       <div style="display:flex;gap:6px">
         <select id="sp-trim" style="flex:1"><option value="1">Trimestre 1</option><option value="2">Trimestre 2</option><option value="3">Trimestre 3</option></select>
         <button class="btn btn-ghost" onclick="spApercuTrimestre()">Aperçu…</button>
@@ -1771,7 +1771,7 @@ async function spCreerDossiers() {
 // --- Démarrer un trimestre ---
 async function spApercuTrimestre() {
   const n=document.getElementById('sp-trim').value, out=document.getElementById('sp-trim-out');
-  out.innerHTML='<div class="sp-msg">Lecture du Doc 3…</div>';
+  out.innerHTML='<div class="sp-msg">Lecture des Projets enseignants…</div>';
   try {
     const a = await spJson(`/api/planning/trimestres/${n}/apercu`);
     const e = a.edt;
@@ -1798,7 +1798,7 @@ async function spDemarrerTrimestre(n) {
     if (SP.current) await spChoisir(SP.current);
     out.innerHTML='';
     const crees=r.dossiers.filter(x=>x.ok).length, doc2=r.dossiers.filter(x=>x.doc2 && !x.doc2.ok);
-    let m=`Trimestre ${n} démarré.\n• Doc 3 : ${r.sync.ajoutes} séjour(s) ajouté(s), ${r.sync.mis_a_jour} mis à jour\n• ${crees} dossier(s) créé(s), « déroulé et objectifs » pré-rempli\n• ${spResumeEdt({trimestre:n, ...r.edt})}`;
+    let m=`Trimestre ${n} démarré.\n• Projets enseignants : ${r.sync.ajoutes} séjour(s) ajouté(s), ${r.sync.mis_a_jour} mis à jour\n• ${crees} dossier(s) créé(s), « déroulé et objectifs » pré-rempli\n• ${spResumeEdt({trimestre:n, ...r.edt})}`;
     if (doc2.length) m+=`\n⚠ ${doc2.length} « déroulé et objectifs » non pré-rempli(s) : ${doc2[0].doc2.message}`;
     if (r.sync.avertissements.length) m+='\n⚠ '+r.sync.avertissements.join('\n⚠ ');
     spMsg(m, !!r.edt.erreur);

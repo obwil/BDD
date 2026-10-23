@@ -189,7 +189,7 @@ def _synchroniser(conn, trimestres=(1, 2, 3)) -> dict:
                 avertissements.append(f"École « {s['ecole']} » absente du référentiel des écoles.")
             if s["delai"] and s["delai"] > s["date_debut"]:
                 avertissements.append(f"Délai du dossier ({s['delai']}) postérieur au séjour du {s['date_debut']} "
-                                      f"({s['ecole']}, {s['enseignant']}) : à vérifier dans le Doc 3.")
+                                      f"({s['ecole']}, {s['enseignant']}) : à vérifier dans les Projets enseignants.")
             sid = _chercher_sejour(conn, s)
             if sid:
                 conn.execute("UPDATE sejour SET " + ", ".join(f"{c}=:{c}" for c in COLS_MAJ) + " WHERE id=:id",
@@ -206,7 +206,7 @@ def _synchroniser(conn, trimestres=(1, 2, 3)) -> dict:
           (SELECT 1 FROM sequence q JOIN sequence_activite sa ON sa.sequence_id=q.id WHERE q.sejour_id=s.id)
     """).fetchall()
     for o in orphelins:
-        avertissements.append(f"Ancien séjour non retrouvé dans le Doc 3, avec des activités placées : {o['nom']}")
+        avertissements.append(f"Ancien séjour non retrouvé dans les Projets enseignants, avec des activités placées : {o['nom']}")
     conn.commit()
     manquants = _dossiers_manquants(conn)
     return {"ajoutes": ajoutes, "mis_a_jour": maj, "trimestres": trimestres_lus,
@@ -289,7 +289,7 @@ def _creer_dossiers(conn, trimestre: Optional[int] = None) -> list:
 
 
 def _remplir_edt(n: int) -> dict:
-    """Pré-remplit « EDT trimestre N » (Doc 4) avec les semaines où tu es médiateur du matin."""
+    """Pré-remplit « EDT trimestre N » avec les semaines où tu es médiateur du matin."""
     return {"trimestre": n, **D4.remplir_edt(n, D.lire_doc3(n)["lignes"])}
 
 
@@ -640,7 +640,7 @@ class MailIn(BaseModel):
 
 @router.post("/sejours/{sejour_id}/mail")
 def rediger_mail(sejour_id: int, m: MailIn):
-    """Rédige un mail à partir du Doc 3 et l'enregistre dans le dossier du séjour."""
+    """Rédige un mail à partir des Projets enseignants et l'enregistre dans le dossier du séjour."""
     if m.modele not in MAILS.MODELES:
         raise HTTPException(400, "Modèle de mail inconnu.")
     ensure_schema()

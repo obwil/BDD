@@ -131,7 +131,7 @@ def remplir_edt(n: int, lignes_doc3: List[dict], dry_run: bool = False) -> dict:
         return res
     roulement, referentiel = D.lire_roulement(), D.lire_referentiel()
     if not roulement:
-        res["erreur"] = "Roulement des matinées introuvable (Doc 5)."
+        res["erreur"] = "Roulement des matinées introuvable (roulement des matinées)."
         return res
     semaines = semaines_matin(lignes_doc3)
     try:
