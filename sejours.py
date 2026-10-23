@@ -21,6 +21,8 @@ from pydantic import BaseModel
 
 import doc2 as D2
 import doc3 as D
+import mails as MAILS
+import suivi as SU
 
 BASE_DIR = Path(__file__).parent
 DB_PATH = BASE_DIR / "activites.db"
@@ -91,6 +93,15 @@ def ensure_schema():
             cle       TEXT NOT NULL,
             texte     TEXT,
             PRIMARY KEY (sejour_id, cle)
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS sejour_suivi (
+            sejour_id INTEGER NOT NULL REFERENCES sejour(id) ON DELETE CASCADE,
+            etape     TEXT NOT NULL,
+            fait      INTEGER NOT NULL DEFAULT 0,
+            date      TEXT,
+            PRIMARY KEY (sejour_id, etape)
         )
     """)
     conn.execute("""
@@ -471,6 +482,125 @@ def retirer_ressource(sejour_id: int, activite_id: int):
     res = _charger_sejour(conn, sejour_id)
     conn.close()
     return res
+
+
+# ----------------------------------------------------------------------------
+# Suivi des séjours et mails
+# ----------------------------------------------------------------------------
+
+def _dossier_existant(s: dict) -> Optional[Path]:
+    if s.get("dossier_path") and Path(s["dossier_path"]).is_dir():
+        return Path(s["dossier_path"])
+    return D.trouver_dossier(s)
+
+
+def _suivi_sejour(conn, sejour_id: int, manuels: Optional[dict] = None) -> dict:
+    """Étapes détectées (dossier, appel, emploi du temps, document) + étapes cochées à la main."""
+    s = _charger_sejour(conn, sejour_id)
+    if manuels is None:
+        manuels = {r["etape"]: bool(r["fait"]) for r in conn.execute(
+            "SELECT etape, fait FROM sejour_suivi WHERE sejour_id=?", (sejour_id,))}
+    dossier = _dossier_existant(s)
+    pl = s["planning"]
+    apres = sum(1 for j in JOURS if pl[j]["après-midi"])
+    veillees = sum(1 for j in JOURS if pl[j]["veillée"])
+    notes = SU.notes_appel(dossier) if dossier else None
+    auto = {
+        "dossier": (bool(dossier), None),
+        "appel": (bool(notes and notes[0] > 0), f"{notes[0]}/{notes[1]} réponses" if notes else None),
+        "planning": (apres == len(JOURS), f"après-midis {apres}/4 · veillées {veillees}/4"),
+        "document": (bool(dossier and SU.document_genere(dossier)), None),
+    }
+    etapes = []
+    for cle, libelle, est_auto in SU.ETAPES:
+        fait, detail = auto[cle] if est_auto else (manuels.get(cle, False), None)
+        etapes.append({"cle": cle, "label": libelle, "auto": est_auto, "fait": fait, "detail": detail})
+    valide = manuels.get("valide", False)
+    suivante = next((e["label"] for e in etapes if not e["fait"]), None)
+    return {
+        "id": s["id"], "nom": s["nom"], "trimestre": s["trimestre"], "date_debut": s["date_debut"],
+        "date_fin": s["date_fin"], "ecole": s["ecole"], "classes": s["niveau1"], "enseignant": s["enseignant"],
+        "delai": s["delai"], "delai_statut": SU.statut_delai(s["delai"], valide, s["date_fin"]),
+        "etapes": etapes, "faites": sum(1 for e in etapes if e["fait"]), "total": len(etapes),
+        "prochaine": suivante,
+    }
+
+
+@router.get("/suivi")
+def suivi_sejours():
+    """Une ligne par séjour, une colonne par étape."""
+    ensure_schema()
+    conn = get_db()
+    manuels: dict = {}
+    for r in conn.execute("SELECT sejour_id, etape, fait FROM sejour_suivi"):
+        manuels.setdefault(r["sejour_id"], {})[r["etape"]] = bool(r["fait"])
+    ids = [r["id"] for r in conn.execute("SELECT id FROM sejour WHERE doc3_key IS NOT NULL ORDER BY date_debut")]
+    res = [_suivi_sejour(conn, i, manuels.get(i, {})) for i in ids]
+    conn.close()
+    return res
+
+
+@router.get("/sejours/{sejour_id}/suivi")
+def suivi_un_sejour(sejour_id: int):
+    ensure_schema()
+    conn = get_db()
+    res = _suivi_sejour(conn, sejour_id)
+    conn.close()
+    return res
+
+
+class SuiviIn(BaseModel):
+    etape: str
+    fait: bool
+
+
+@router.put("/sejours/{sejour_id}/suivi")
+def cocher_etape(sejour_id: int, c: SuiviIn):
+    """Coche ou décoche une étape manuelle (mail d'invitation envoyé, document envoyé, validé)."""
+    if c.etape not in SU.MANUELLES:
+        raise HTTPException(400, "Cette étape se coche automatiquement.")
+    ensure_schema()
+    conn = get_db()
+    if not conn.execute("SELECT 1 FROM sejour WHERE id=?", (sejour_id,)).fetchone():
+        conn.close()
+        raise HTTPException(404, "Séjour introuvable")
+    conn.execute("""INSERT INTO sejour_suivi (sejour_id, etape, fait, date) VALUES (?,?,?,date('now'))
+                    ON CONFLICT(sejour_id, etape) DO UPDATE SET fait=excluded.fait, date=excluded.date""",
+                 (sejour_id, c.etape, int(c.fait)))
+    conn.commit()
+    res = _suivi_sejour(conn, sejour_id)
+    conn.close()
+    return res
+
+
+class MailIn(BaseModel):
+    modele: str
+    disponibilites: str = ""
+    enregistrer: bool = True
+
+
+@router.post("/sejours/{sejour_id}/mail")
+def rediger_mail(sejour_id: int, m: MailIn):
+    """Rédige un mail à partir du Doc 3 et l'enregistre dans le dossier du séjour."""
+    if m.modele not in MAILS.MODELES:
+        raise HTTPException(400, "Modèle de mail inconnu.")
+    ensure_schema()
+    conn = get_db()
+    s = _charger_sejour(conn, sejour_id)
+    conn.close()
+    dossier = _dossier_existant(s)
+    notes = SU.notes_appel(dossier) if dossier else None
+    objet, corps = MAILS.rediger(m.modele, s, m.disponibilites, appel_fait=bool(notes and notes[0] > 0))
+    fichier = None
+    if m.enregistrer and dossier:
+        f = dossier / f"Mail - {MAILS.MODELES[m.modele]}.txt"
+        try:
+            f.write_text(f"Objet : {objet}\n\n{corps}\n", encoding="utf-8")
+            fichier = str(f)
+        except PermissionError:
+            fichier = None
+    return {"objet": objet, "corps": corps, "fichier": fichier,
+            "a_preciser": MAILS.A_PRECISER in corps}
 
 
 # ----------------------------------------------------------------------------

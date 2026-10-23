@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Suivi des séjours</title>
+  <script>
+    (function () {
+      var t = 'dark';
+      try { t = localStorage.getItem('theme') || 'dark'; } catch (e) {}
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f5f5f0; --surface: #ffffff; --surface2: #f0efe8;
+      --border: #d8d6cc; --text: #2a2a25; --text-muted: #7a7a72;
+      --accent: #4a7c59; --accent-light: #d4e8db; --accent-dark: #2e5238; --accent-text: #2e5238;
+      --warn: #b26a00; --warn-bg: #fbeed4; --excl: #c0392b; --excl-bg: #fdecea;
+      color-scheme: light;
+    }
+    html[data-theme="dark"] {
+      --bg: #14181a; --surface: #1d2326; --surface2: #273033;
+      --border: #38424a; --text: #e6e8e3; --text-muted: #9aa59f;
+      --accent: #5a9a6e; --accent-light: #25392c; --accent-dark: #1c3326; --accent-text: #a9d8b8;
+      --warn: #e8b04f; --warn-bg: #3a2d12; --excl: #ef6b5b; --excl-bg: #3a2220;
+      color-scheme: dark;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    header { background: var(--accent-dark); color: white; padding: 14px 24px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    header h1 { font-size: 1.1rem; font-weight: 600; }
+    header a, header button { color: white; border: 1px solid rgba(255,255,255,.5); background: transparent; border-radius: 8px; padding: 4px 10px; font-size: .85rem; text-decoration: none; cursor: pointer; }
+    header .spacer { margin-left: auto; }
+    main { padding: 18px 24px 40px; display: flex; flex-direction: column; gap: 14px; }
+    .bar { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+    .chip { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 99px; padding: 4px 12px; font-size: .82rem; cursor: pointer; }
+    .chip.on { background: var(--accent); border-color: var(--accent); color: white; }
+    label.opt { font-size: .82rem; color: var(--text-muted); display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+    .sum { font-size: .85rem; color: var(--text-muted); margin-left: auto; }
+    .tablewrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
+    table { border-collapse: collapse; width: 100%; min-width: 980px; font-size: .86rem; }
+    th, td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
+    th { font-size: .7rem; text-transform: uppercase; letter-spacing: .6px; color: var(--text-muted); background: var(--surface2); position: sticky; top: 0; }
+    th.c, td.c { text-align: center; }
+    tr:last-child td { border-bottom: none; }
+    tr.trim td { background: var(--surface2); font-weight: 700; font-size: .78rem; text-transform: uppercase; letter-spacing: .6px; color: var(--accent-text); }
+    td.sej a { color: var(--text); text-decoration: none; font-weight: 600; }
+    td.sej a:hover { color: var(--accent); text-decoration: underline; }
+    td.sej small { display: block; color: var(--text-muted); font-weight: 400; }
+    .ok { color: var(--accent); font-size: 1.05rem; }
+    .todo { color: var(--text-muted); font-size: 1.05rem; opacity: .6; }
+    td.c input { width: 17px; height: 17px; cursor: pointer; accent-color: var(--accent); }
+    .delai { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: .76rem; white-space: nowrap; }
+    .delai.ok { background: transparent; color: var(--text-muted); font-size: .76rem; }
+    .delai.proche { background: var(--warn-bg); color: var(--warn); font-weight: 600; }
+    .delai.depasse { background: var(--excl-bg); color: var(--excl); font-weight: 600; }
+    .prog { display: flex; align-items: center; gap: 8px; min-width: 110px; }
+    .prog div { flex: 1; height: 6px; border-radius: 3px; background: var(--surface2); overflow: hidden; }
+    .prog i { display: block; height: 100%; background: var(--accent); }
+    .next { color: var(--text-muted); font-size: .78rem; }
+    .empty { padding: 40px; text-align: center; color: var(--text-muted); }
+    .err { color: var(--excl); font-size: .85rem; }
+  </style>
+</head>
+<body>
+<header>
+  <span style="font-size:1.3rem">📋</span>
+  <h1>Suivi des séjours</h1>
+  <span class="spacer"></span>
+  <a href="/">← Bibliothèque d'activités</a>
+  <button id="btn-theme" onclick="toggleTheme()" title="Basculer mode nuit / jour">☀️</button>
+</header>
+<main>
+  <div class="bar">
+    <span id="chips"></span>
+    <label class="opt"><input type="checkbox" id="hide-past" checked> Masquer les séjours terminés</label>
+    <span class="sum" id="sum"></span>
+  </div>
+  <div class="err" id="err"></div>
+  <div class="tablewrap"><table id="tbl"></table></div>
+</main>
+
+<script>
+const MOIS = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+let DATA = [];
+let FILTRE = 0; // 0 = tous les trimestres
+
+const esc = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const jm = iso => { const [y,m,d] = iso.split('-'); return `${+d} ${MOIS[+m-1]}`; };
+const jmy = iso => { const [y,m,d] = iso.split('-'); return `${+d} ${MOIS[+m-1]} ${y}`; };
+const aujourdhui = () => new Date().toISOString().slice(0, 10);
+
+function applyThemeIcon() {
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  document.getElementById('btn-theme').textContent = dark ? '☀️' : '🌙';
+}
+function toggleTheme() {
+  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  try { localStorage.setItem('theme', next); } catch (e) {}
+  applyThemeIcon();
+}
+
+async function charger() {
+  try {
+    const r = await fetch('/api/planning/suivi');
+    if (!r.ok) throw new Error(r.status);
+    DATA = await r.json();
+    document.getElementById('err').textContent = '';
+    rendre();
+  } catch (e) {
+    document.getElementById('err').textContent = 'Impossible de charger le suivi : ' + e.message + '. Lance d\'abord « Sync Doc 3 » dans le panneau Séjours.';
+  }
+}
+
+function rendre() {
+  const trims = [...new Set(DATA.map(s => s.trimestre))].sort();
+  document.getElementById('chips').innerHTML =
+    [`<button class="chip ${FILTRE===0?'on':''}" onclick="filtrer(0)">Tous</button>`]
+      .concat(trims.map(t => `<button class="chip ${FILTRE===t?'on':''}" onclick="filtrer(${t})">Trimestre ${t}</button>`)).join(' ');
+
+  const masquer = document.getElementById('hide-past').checked;
+  const auj = aujourdhui();
+  const liste = DATA.filter(s => (!FILTRE || s.trimestre === FILTRE) && !(masquer && s.date_fin < auj));
+  const retard = liste.filter(s => s.delai_statut === 'depasse').length;
+  const proche = liste.filter(s => s.delai_statut === 'proche').length;
+  document.getElementById('sum').textContent =
+    `${liste.length} séjour(s)` + (retard ? ` · ${retard} délai(s) dépassé(s)` : '') + (proche ? ` · ${proche} délai(s) proche(s)` : '');
+
+  const t = document.getElementById('tbl');
+  if (!liste.length) { t.innerHTML = '<tr><td class="empty">Aucun séjour à afficher.</td></tr>'; return; }
+  const cles = (DATA[0] || liste[0]).etapes;
+  let h = '<thead><tr><th>Séjour</th><th>Délai dossier</th>' +
+    cles.map(e => `<th class="c" title="${e.auto ? 'Détecté automatiquement' : 'À cocher'}">${esc(e.label)}</th>`).join('') +
+    '<th>Avancement</th></tr></thead><tbody>';
+  let dernier = null;
+  liste.forEach(s => {
+    if (s.trimestre !== dernier) { dernier = s.trimestre; h += `<tr class="trim"><td colspan="${cles.length + 3}">Trimestre ${esc(s.trimestre)}</td></tr>`; }
+    h += `<tr><td class="sej"><a href="/?sejour=${s.id}" title="Ouvrir dans la bibliothèque">${jm(s.date_debut)} → ${jm(s.date_fin)}</a>
+      <small>${esc(s.enseignant)} · ${esc(s.ecole)}${s.classes ? ' · ' + esc(s.classes) : ''}</small></td>
+      <td>${s.delai ? `<span class="delai ${s.delai_statut || 'ok'}">${s.delai_statut === 'depasse' ? 'dépassé · ' : ''}${jmy(s.delai)}</span>` : '<span class="next">—</span>'}</td>`;
+    s.etapes.forEach(e => {
+      const tip = esc(e.detail || (e.auto ? 'détecté automatiquement' : ''));
+      h += e.auto
+        ? `<td class="c" title="${tip}">${e.fait ? '<span class="ok">✔</span>' : '<span class="todo">○</span>'}</td>`
+        : `<td class="c"><input type="checkbox" ${e.fait ? 'checked' : ''} onchange="cocher(${s.id}, '${e.cle}', this.checked)" aria-label="${esc(e.label)}"></td>`;
+    });
+    h += `<td><div class="prog"><div><i style="width:${Math.round(100 * s.faites / s.total)}%"></i></div>${s.faites}/${s.total}</div>
+      <span class="next">${s.prochaine ? 'Ensuite : ' + esc(s.prochaine) : 'Terminé'}</span></td></tr>`;
+  });
+  t.innerHTML = h + '</tbody>';
+}
+
+function filtrer(t) { FILTRE = t; rendre(); }
+
+async function cocher(id, etape, fait) {
+  try {
+    const r = await fetch(`/api/planning/sejours/${id}/suivi`, {
+      method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({etape, fait})
+    });
+    if (!r.ok) throw new Error((await r.json()).detail || r.status);
+    const maj = await r.json();
+    DATA = DATA.map(s => s.id === id ? maj : s);
+    rendre();
+  } catch (e) {
+    document.getElementById('err').textContent = 'Erreur : ' + e.message;
+    charger();
+  }
+}
+
+document.getElementById('hide-past').addEventListener('change', rendre);
+applyThemeIcon();
+charger();
+</script>
+</body>
+</html>

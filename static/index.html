@@ -243,6 +243,7 @@
     .sp-empty { font-size: .76rem; color: var(--text-muted); font-style: italic; }
     .sp-matin { font-size: .78rem; background: var(--note-bg); border: 1px solid var(--note-border); border-radius: 6px; padding: 6px 8px; white-space: pre-line; }
     .sp-msg { font-size: .76rem; color: var(--text-muted); word-break: break-word; white-space: pre-line; }
+    .sp-ta { width: 100%; padding: 7px 9px; border: 1px solid var(--border); border-radius: var(--radius); font: inherit; font-size: .82rem; background: var(--surface); color: var(--text); resize: vertical; }
     .att-pick { display: flex; flex-direction: column; gap: 4px; max-height: 200px; overflow-y: auto; font-size: .8rem; }
     .att-pick label { display: flex; gap: 6px; align-items: flex-start; cursor: pointer; line-height: 1.35; }
 
@@ -280,6 +281,7 @@
   <h1>Bibliothèque d'activités nature</h1>
   <span class="stat" id="header-stat"></span>
   <button class="btn btn-ghost theme-toggle" id="btn-theme" onclick="toggleTheme()" title="Basculer mode nuit / jour">☀️</button>
+  <a class="btn btn-ghost" href="/static/suivi.html" style="color:white;border-color:rgba(255,255,255,.5);padding:4px 10px;text-decoration:none" title="Avancement de tous les séjours">📋 Suivi</a>
   <button class="btn btn-ghost" id="btn-sejours" style="color:white;border-color:rgba(255,255,255,.5);padding:4px 10px" onclick="toggleSejourPanel()">📅 Séjours</button>
 </header>
 
@@ -435,7 +437,9 @@
     <select id="sp-select" onchange="spChoisir(this.value)"><option value="">— choisir un séjour —</option></select>
     <div class="sp-msg" id="sp-msg"></div>
     <div id="sp-dossiers"></div>
+    <div id="sp-suivi"></div>
     <div id="sp-body"></div>
+    <div id="sp-mails"></div>
   </aside>
 </div>
 
@@ -1745,8 +1749,9 @@ async function spCreerDossiers() {
 async function spChoisir(id) {
   SP.current = id || null;
   try { localStorage.setItem('sp_current', id||''); } catch(e) {}
-  if (!id) { SP.data=null; spRendre(); return; }
-  try { SP.data = await spJson('/api/planning/sejours/'+id); spMsg(''); spRendre(); }
+  const sel=document.getElementById('sp-select'); if (sel) sel.value=id||'';
+  if (!id) { SP.data=null; SP.suivi=null; spRendre(); spRendreSuivi(); spRendreMails(); return; }
+  try { SP.data = await spJson('/api/planning/sejours/'+id); spMsg(''); spRendre(); spChargerSuivi(); spRendreMails(); }
   catch(e) { spMsg('Erreur : '+e.message, true); }
 }
 
@@ -1788,6 +1793,7 @@ async function spRetirer(jour, moment, aid) {
     SP.data = await spJson(`/api/planning/sejours/${SP.current}/slot?jour=${encodeURIComponent(jour)}&moment=${encodeURIComponent(moment)}&activite_id=${aid}`, {method:'DELETE'});
     spRendre(); spMajCompteur();
     spMsg('Activité retirée'+spStatutDoc2(SP.data.doc2), SP.data.doc2 && !SP.data.doc2.ok);
+    spChargerSuivi();
   } catch(e) { spMsg('Erreur : '+e.message, true); }
 }
 
@@ -1829,11 +1835,70 @@ function spStatutDoc2(d) {
   return d.remplis.length ? ' · « déroulé et objectifs » mis à jour' : '';
 }
 
+// --- Avancement ---
+async function spChargerSuivi() {
+  if (!SP.current) { SP.suivi=null; spRendreSuivi(); return; }
+  try { SP.suivi = await spJson(`/api/planning/sejours/${SP.current}/suivi`); spRendreSuivi(); }
+  catch(e) { SP.suivi=null; spRendreSuivi(); }
+}
+
+function spRendreSuivi() {
+  const el=document.getElementById('sp-suivi'); if(!el) return;
+  const d=SP.suivi;
+  if (!d) { el.innerHTML=''; return; }
+  const alerte={depasse:'⚠ délai dépassé', proche:'⏳ délai proche'}[d.delai_statut]||'';
+  el.innerHTML=`<div class="sp-day"><h4>Avancement · ${d.faites}/${d.total}</h4>`+
+    d.etapes.map(e=> e.auto
+      ? `<div class="sp-act"><span${e.fait?'':' style="opacity:.45"'}>${e.fait?'✅':'○'}</span><span class="nm" style="cursor:default">${spEsc(e.label)}${e.detail?` <span class="nb">${spEsc(e.detail)}</span>`:''}</span></div>`
+      : `<label class="sp-act" style="cursor:pointer"><input type="checkbox" ${e.fait?'checked':''} onchange="spCocher('${e.cle}',this.checked)"><span class="nm" style="cursor:pointer">${spEsc(e.label)}</span></label>`).join('')+
+    (d.delai?`<div class="sp-msg"${alerte?' style="color:var(--excl)"':''}>Délai du dossier : ${spEsc(d.delai.split('-').reverse().join('/'))}${alerte?' · '+alerte:''}</div>`:'')+
+    `</div>`;
+}
+
+async function spCocher(cle, fait) {
+  try {
+    SP.suivi = await spJson(`/api/planning/sejours/${SP.current}/suivi`, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({etape:cle, fait})});
+    spRendreSuivi();
+  } catch(e) { spMsg('Erreur : '+e.message, true); spChargerSuivi(); }
+}
+
+// --- Mails ---
+function spRendreMails() {
+  const el=document.getElementById('sp-mails'); if(!el) return;
+  if (!SP.current) { el.innerHTML=''; return; }
+  el.innerHTML=`<div class="sp-day"><h4>✉️ Mails</h4>
+    <div class="sp-slot-label">Mes disponibilités (à préciser à chaque fois)</div>
+    <textarea id="sp-dispo" class="sp-ta" rows="3" oninput="SP.dispo=this.value" placeholder="ex. mardi 12 de 17h à 19h, jeudi 14 toute la journée">${spEsc(SP.dispo||'')}</textarea>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">
+      <button class="btn btn-ghost" onclick="spMail('invitation')">Invitation à l'appel</button>
+      <button class="btn btn-ghost" onclick="spMail('recapitulatif')">Envoi du récapitulatif</button>
+      <button class="btn btn-ghost" onclick="spMail('relance')">Relance</button>
+    </div>
+    <div id="sp-mail-out"></div></div>`;
+}
+
+async function spMail(modele) {
+  const out=document.getElementById('sp-mail-out');
+  try {
+    const r = await spJson(`/api/planning/sejours/${SP.current}/mail`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({modele, disponibilites:SP.dispo||''})});
+    out.innerHTML=`<div class="sp-slot-label">Objet</div><input id="sp-mail-objet" class="sp-ta" value="${spEsc(r.objet)}">
+      <div class="sp-slot-label">Message</div><textarea id="sp-mail-corps" class="sp-ta" rows="14">${spEsc(r.corps)}</textarea>
+      <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-primary" onclick="spCopier('sp-mail-objet')">Copier l'objet</button><button class="btn btn-primary" onclick="spCopier('sp-mail-corps')">Copier le message</button></div>
+      <div class="sp-msg">${r.a_preciser?'⚠ Disponibilités non renseignées : le texte contient « [à préciser] ».\n':''}${r.fichier?'Enregistré : '+spEsc(r.fichier):'Pas de dossier : mail non enregistré.'}</div>`;
+  } catch(e) { out.innerHTML=`<div class="sp-msg" style="color:var(--excl)">Erreur : ${spEsc(e.message)}</div>`; }
+}
+
+async function spCopier(id) {
+  const el=document.getElementById(id); if(!el) return;
+  try { await navigator.clipboard.writeText(el.value); spMsg('Copié.'); }
+  catch(e) { el.select(); try { document.execCommand('copy'); spMsg('Copié.'); } catch(_) { spMsg('Sélectionne le texte puis copie-le avec Ctrl+C.', true); } }
+}
+
 async function spDocument() {
   spMsg('Génération du document…');
   try {
     const r = await spJson(`/api/planning/sejours/${SP.current}/document`, {method:'POST'});
-    spMsg('Document créé : '+r.chemin);
+    spMsg('Document créé : '+r.chemin); spChargerSuivi();
   } catch(e) { spMsg('Erreur : '+e.message, true); }
 }
 
@@ -1890,11 +1955,11 @@ async function spAjouter(aid) {
   try {
     SP.data = await spJson(`/api/planning/sejours/${SP.current}/slot`, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
     spRendre(); spMajCompteur(); spPrefill();
-    const dd=SP.data.doc2; msg.style.color=(dd&&!dd.ok)?'var(--excl)':''; msg.textContent=`✓ Enregistré (${body.jour}, ${body.moment})`+spStatutDoc2(dd);
+    const dd=SP.data.doc2; msg.style.color=(dd&&!dd.ok)?'var(--excl)':''; msg.textContent=`✓ Enregistré (${body.jour}, ${body.moment})`+spStatutDoc2(dd); spChargerSuivi();
   } catch(e) { msg.textContent='Erreur : '+e.message; msg.style.color='var(--excl)'; }
 }
 
-init().then(() => { applyURLActivite(); try{ if(localStorage.getItem('sp_current')) toggleSejourPanel(); }catch(e){} });
+init().then(() => { applyURLActivite(); try{ const q=new URLSearchParams(location.search).get('sejour'); if(q) localStorage.setItem('sp_current', q); if(localStorage.getItem('sp_current')) toggleSejourPanel(); }catch(e){} });
 </script>
 </body>
 </html>
