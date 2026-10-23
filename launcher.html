@@ -3,11 +3,41 @@
 <head>
 <meta charset="UTF-8">
 <title>BDD Activités — Launcher</title>
+<script>
+  (function () {
+    var t = 'dark';
+    try { t = localStorage.getItem('theme') || 'dark'; } catch (e) {}
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
 <style>
+:root {
+  --bg: #f0f2f5; --text: #1a1a2e; --surface: #fff; --border: #e2e8f0;
+  --header-bg: #1a202c; --console-bg: #1a202c;
+  --link: #4a5568; --hover-bg: #f7fafc; --hover-fg: #2d3748;
+  --active-bg: #ebf8ff; --active-fg: #2b6cb0;
+  --heading: #2d3748; --file: #a0aec0; --desc: #718096;
+  --cancel-bg: #e2e8f0; --cancel-fg: #4a5568; --shadow: rgba(0,0,0,0.2);
+  color-scheme: light;
+}
+html[data-theme="dark"] {
+  --bg: #12161c; --text: #e2e8f0; --surface: #1c222b; --border: #2d3748;
+  --header-bg: #0c1015; --console-bg: #0c1015;
+  --link: #a0aec0; --hover-bg: #252d38; --hover-fg: #edf2f7;
+  --active-bg: #1b2d45; --active-fg: #90cdf4;
+  --heading: #edf2f7; --file: #718096; --desc: #a0aec0;
+  --cancel-bg: #2d3748; --cancel-fg: #cbd5e0; --shadow: rgba(0,0,0,0.6);
+  color-scheme: dark;
+}
+.theme-toggle {
+  margin-left: auto; background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.4);
+  border-radius: 8px; padding: 5px 11px; font-size: 0.9rem; cursor: pointer;
+}
+.theme-toggle:hover { background: rgba(255,255,255,.1); }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #1a1a2e; }
+body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
 header {
-  background: #1a202c; color: #fff; padding: 18px 32px;
+  background: var(--header-bg); color: #fff; padding: 18px 32px;
   display: flex; align-items: center; gap: 14px;
 }
 header h1 { font-size: 1.2rem; font-weight: 700; }
@@ -16,37 +46,37 @@ header span { font-size: 0.85rem; color: #a0aec0; }
 
 /* SIDEBAR */
 .sidebar {
-  width: 260px; flex-shrink: 0; background: #fff;
-  border-right: 1px solid #e2e8f0; padding: 20px 0; position: sticky;
+  width: 260px; flex-shrink: 0; background: var(--surface);
+  border-right: 1px solid var(--border); padding: 20px 0; position: sticky;
   top: 0; height: calc(100vh - 60px); overflow-y: auto;
 }
 .sidebar a {
   display: block; padding: 9px 24px; font-size: 0.85rem;
-  color: #4a5568; text-decoration: none; cursor: pointer;
+  color: var(--link); text-decoration: none; cursor: pointer;
   border-left: 3px solid transparent;
 }
-.sidebar a:hover { background: #f7fafc; color: #2d3748; }
-.sidebar a.active { border-left-color: #4299e1; color: #2b6cb0; background: #ebf8ff; font-weight: 600; }
-.sidebar-sep { height: 1px; background: #e2e8f0; margin: 8px 16px; }
+.sidebar a:hover { background: var(--hover-bg); color: var(--hover-fg); }
+.sidebar a.active { border-left-color: #4299e1; color: var(--active-fg); background: var(--active-bg); font-weight: 600; }
+.sidebar-sep { height: 1px; background: var(--border); margin: 8px 16px; }
 
 /* CONTENT */
 .content { flex: 1; padding: 28px 32px; overflow-y: auto; }
 .category { margin-bottom: 36px; }
 .category h2 {
-  font-size: 1rem; font-weight: 700; color: #2d3748;
+  font-size: 1rem; font-weight: 700; color: var(--heading);
   margin-bottom: 14px; padding-bottom: 8px;
-  border-bottom: 2px solid #e2e8f0; display: flex; align-items: center; gap: 8px;
+  border-bottom: 2px solid var(--border); display: flex; align-items: center; gap: 8px;
 }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
 .card {
-  background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
   padding: 16px 18px; display: flex; flex-direction: column; gap: 10px;
 }
 .card.danger { border-left: 4px solid #fc8181; }
 .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
-.card-name { font-size: 0.88rem; font-weight: 700; color: #2d3748; }
-.card-file { font-size: 0.72rem; color: #a0aec0; font-family: monospace; }
-.card-desc { font-size: 0.83rem; color: #718096; line-height: 1.5; flex: 1; }
+.card-name { font-size: 0.88rem; font-weight: 700; color: var(--heading); }
+.card-file { font-size: 0.72rem; color: var(--file); font-family: monospace; }
+.card-desc { font-size: 0.83rem; color: var(--desc); line-height: 1.5; flex: 1; }
 .btn-run {
   align-self: flex-end; padding: 7px 16px; border-radius: 7px; border: none;
   font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: opacity 0.15s;
@@ -60,7 +90,7 @@ header span { font-size: 0.85rem; color: #a0aec0; }
 /* CONSOLE */
 .console-wrap {
   position: fixed; bottom: 0; left: 260px; right: 0;
-  background: #1a202c; border-top: 2px solid #4299e1;
+  background: var(--console-bg); border-top: 2px solid #4299e1;
   transition: height 0.2s ease; height: 42px; z-index: 100;
 }
 .console-wrap.open { height: 260px; }
@@ -93,14 +123,14 @@ header span { font-size: 0.85rem; color: #a0aec0; }
 }
 .modal-overlay.visible { display: flex; }
 .modal {
-  background: #fff; border-radius: 14px; padding: 28px 32px;
-  max-width: 420px; width: 90%; box-shadow: 0 8px 40px rgba(0,0,0,0.2);
+  background: var(--surface); border-radius: 14px; padding: 28px 32px;
+  max-width: 420px; width: 90%; box-shadow: 0 8px 40px var(--shadow);
 }
-.modal h3 { font-size: 1rem; color: #2d3748; margin-bottom: 10px; }
-.modal p { font-size: 0.88rem; color: #718096; margin-bottom: 20px; line-height: 1.5; }
+.modal h3 { font-size: 1rem; color: var(--heading); margin-bottom: 10px; }
+.modal p { font-size: 0.88rem; color: var(--desc); margin-bottom: 20px; line-height: 1.5; }
 .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
 .modal-actions button { padding: 8px 20px; border-radius: 7px; border: none; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
-#modal-cancel { background: #e2e8f0; color: #4a5568; }
+#modal-cancel { background: var(--cancel-bg); color: var(--cancel-fg); }
 #modal-confirm { background: #4299e1; color: #fff; }
 #modal-confirm.danger { background: #fc8181; }
 </style>
@@ -124,6 +154,7 @@ header span { font-size: 0.85rem; color: #a0aec0; }
     <h1>BDD Activités — Launcher</h1>
     <span>Gestion et maintenance de la base de données</span>
   </div>
+  <button class="theme-toggle" id="btn-theme" onclick="toggleTheme()" title="Basculer mode nuit / jour">☀️</button>
 </header>
 
 <div class="main">
@@ -141,6 +172,18 @@ header span { font-size: 0.85rem; color: #a0aec0; }
 </div>
 
 <script>
+function applyThemeIcon() {
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const b = document.getElementById('btn-theme');
+  if (b) b.textContent = dark ? '☀️' : '🌙';
+}
+function toggleTheme() {
+  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  try { localStorage.setItem('theme', next); } catch (e) {}
+  applyThemeIcon();
+}
+applyThemeIcon();
 const CATEGORIES = [
   {
     id: "lancer",
