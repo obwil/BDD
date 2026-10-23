@@ -8,3 +8,4 @@ config.json
 *.bak
 rapport_traduction.txt
 favoris_session.json
+activites.db.bak-*

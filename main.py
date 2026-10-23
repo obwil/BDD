@@ -29,6 +29,10 @@ STATIC_DIR = Path(__file__).parent / "static"
 STATIC_DIR.mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
+# Planification des séjours (lien Excel, créneaux, document Word)
+import sejours
+app.include_router(sejours.router)
+
 # ============================================================================
 # UTILITAIRES
 # ============================================================================
@@ -822,6 +826,14 @@ def save_favoris_session(data: dict):
     SESSION_FAVORIS_FILE.write_text(
         json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
     )
+    return {"ok": True}
+
+@app.get("/api/open-folder")
+def open_folder(path: str):
+    """Ouvre un dossier dans l'explorateur Windows."""
+    import subprocess
+    clean = path.replace("file:///", "").replace("/", "\\")
+    subprocess.Popen(["explorer.exe", clean])
     return {"ok": True}
 
 @app.get("/api/activites-cycles-map")
