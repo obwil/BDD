@@ -21,6 +21,7 @@ from pydantic import BaseModel
 
 import doc2 as D2
 import doc3 as D
+import doc4 as D4
 import mails as MAILS
 import suivi as SU
 
@@ -164,27 +165,24 @@ def _chercher_sejour(conn, s: dict):
     return None
 
 
-@router.post("/sync")
-def synchroniser():
+def _synchroniser(conn, trimestres=(1, 2, 3)) -> dict:
     """Lit les « Projets enseignants Trimestre N » et enregistre les séjours où tu es médiateur d'après-midi."""
-    ensure_schema()
     referentiel, roulement = D.lire_referentiel(), D.lire_roulement()
-    conn = get_db()
     if not conn.execute("SELECT 1 FROM sejour WHERE doc3_key IS NOT NULL").fetchone():
         import shutil  # première synchronisation : on garde une copie de la base
         shutil.copy2(DB_PATH, DB_PATH.with_name(DB_PATH.name + ".bak-avant-doc3"))
     ajoutes = maj = 0
-    trimestres, avertissements = [], []
+    trimestres_lus, avertissements = [], []
     if not roulement:
         avertissements.append("Roulement des matinées introuvable : les matinées ne seront pas renseignées.")
-    for n in (1, 2, 3):
+    for n in trimestres:
         doc = D.lire_doc3(n)
         avertissements += doc["avertissements"]
         if doc["fichier"] is None:
-            trimestres.append({"trimestre": n, "fichier": None, "sejours": 0})
+            trimestres_lus.append({"trimestre": n, "fichier": None, "sejours": 0})
             continue
         mes = D.mes_sejours(doc["lignes"], "am")
-        trimestres.append({"trimestre": n, "fichier": str(doc["fichier"]), "sejours": len(mes)})
+        trimestres_lus.append({"trimestre": n, "fichier": str(doc["fichier"]), "sejours": len(mes)})
         for l in mes:
             s = _sejour_depuis_ligne(l, referentiel, roulement)
             if not s["categorie"]:
@@ -211,9 +209,17 @@ def synchroniser():
         avertissements.append(f"Ancien séjour non retrouvé dans le Doc 3, avec des activités placées : {o['nom']}")
     conn.commit()
     manquants = _dossiers_manquants(conn)
-    conn.close()
-    return {"ajoutes": ajoutes, "mis_a_jour": maj, "trimestres": trimestres,
+    return {"ajoutes": ajoutes, "mis_a_jour": maj, "trimestres": trimestres_lus,
             "avertissements": sorted(set(avertissements)), "dossiers_manquants": len(manquants)}
+
+
+@router.post("/sync")
+def synchroniser():
+    ensure_schema()
+    conn = get_db()
+    res = _synchroniser(conn)
+    conn.close()
+    return res
 
 
 # ----------------------------------------------------------------------------
@@ -244,10 +250,12 @@ def liste_sejours():
 # Dossiers de séjour (copie du modèle B)
 # ----------------------------------------------------------------------------
 
-def _dossiers_manquants(conn) -> list:
+def _dossiers_manquants(conn, trimestre: Optional[int] = None) -> list:
     out = []
     for r in conn.execute("SELECT * FROM sejour WHERE doc3_key IS NOT NULL ORDER BY date_debut"):
         s = dict(r)
+        if trimestre is not None and s["trimestre"] != trimestre:
+            continue
         if not (s["dossier_path"] and Path(s["dossier_path"]).is_dir()):
             out.append(s)
     return out
@@ -266,22 +274,73 @@ def dossiers_manquants():
     return res
 
 
-@router.post("/dossiers/creer")
-def dossiers_creer():
-    """Crée les dossiers manquants à partir du modèle B."""
-    ensure_schema()
-    conn = get_db()
+def _creer_dossiers(conn, trimestre: Optional[int] = None) -> list:
+    """Crée les dossiers manquants depuis le modèle B ; « déroulé et objectifs » est pré-rempli aussitôt."""
     res = []
-    for s in _dossiers_manquants(conn):
+    for s in _dossiers_manquants(conn, trimestre):
         r = D.creer_dossier(s)
         if r["ok"]:
             conn.execute("UPDATE sejour SET dossier_path=? WHERE id=?", (r["dossier"], s["id"]))
             conn.commit()
             r["doc2"] = _maj_doc2(conn, s["id"])
-        res.append({"id": s["id"], "nom": s["nom"], **r})
+        res.append({"id": s["id"], "nom": s["nom"], "trimestre": s["trimestre"], **r})
     conn.commit()
-    conn.close()
     return res
+
+
+def _remplir_edt(n: int) -> dict:
+    """Pré-remplit « EDT trimestre N » (Doc 4) avec les semaines où tu es médiateur du matin."""
+    return {"trimestre": n, **D4.remplir_edt(n, D.lire_doc3(n)["lignes"])}
+
+
+@router.post("/dossiers/creer")
+def dossiers_creer():
+    """Crée les dossiers manquants (tous trimestres) puis met à jour l'EDT des trimestres concernés."""
+    ensure_schema()
+    conn = get_db()
+    res = _creer_dossiers(conn)
+    conn.close()
+    trimestres = sorted({r["trimestre"] for r in res if r["ok"] and r["trimestre"]})
+    return {"dossiers": res, "edt": [_remplir_edt(n) for n in trimestres]}
+
+
+# ----------------------------------------------------------------------------
+# Démarrer un trimestre : tout d'un coup
+# ----------------------------------------------------------------------------
+
+@router.get("/trimestres/{n}/apercu")
+def apercu_trimestre(n: int):
+    """Ce que « Démarrer le trimestre » ferait. Rien n'est écrit."""
+    doc = D.lire_doc3(n)
+    if doc["fichier"] is None:
+        raise HTTPException(404, f"Aucun « Projets enseignants Trimestre {n} » trouvé "
+                                 f"(dossier « Trimestre {n} » ou dossier de l'année).")
+    referentiel, roulement = D.lire_referentiel(), D.lire_roulement()
+    sejours = []
+    for l in D.mes_sejours(doc["lignes"], "am"):
+        s = _sejour_depuis_ligne(l, referentiel, roulement)
+        existant = D.trouver_dossier(s)
+        sejours.append({"nom": s["nom"], "dossier_existe": bool(existant),
+                        "dossier": str(existant or D.dossier_trimestre(n) / D.nom_dossier(s))})
+    return {"trimestre": n, "fichier": str(doc["fichier"]), "sejours": sejours,
+            "a_creer": sum(1 for x in sejours if not x["dossier_existe"]),
+            "edt": D4.remplir_edt(n, doc["lignes"], dry_run=True),
+            "avertissements": doc["avertissements"]}
+
+
+@router.post("/trimestres/{n}/demarrer")
+def demarrer_trimestre(n: int):
+    """Enchaîne : lecture du Doc 3, création des dossiers (avec « déroulé et objectifs » pré-rempli),
+    puis pré-remplissage de l'EDT du trimestre (Doc 4)."""
+    ensure_schema()
+    if D.lire_doc3(n)["fichier"] is None:
+        raise HTTPException(404, f"Aucun « Projets enseignants Trimestre {n} » trouvé.")
+    conn = get_db()
+    sync = _synchroniser(conn, (n,))
+    conn.commit()
+    dossiers = _creer_dossiers(conn, n)
+    conn.close()
+    return {"trimestre": n, "sync": sync, "dossiers": dossiers, "edt": _remplir_edt(n)}
 
 
 def _maj_doc2(conn, sejour_id: int, strict: bool = False) -> dict:
