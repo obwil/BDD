@@ -168,7 +168,7 @@ const CATEGORIES = [
     icon: "📥",
     label: "Intégration",
     scripts: [
-      { file: "integrer_nouvelles_activites.bat", name: "Intégrer de nouvelles activités", desc: "Détecte les dossiers d'activités absents de la BDD et les intègre (description, cycles, attendus). Mode SIMULATION par défaut.", type: "normal", confirm: true },
+      { file: "integrer_nouvelles_activites.bat", name: "Intégrer de nouvelles activités", desc: "Détecte les dossiers d'activités absents de la BDD et les intègre (description, cycles, attendus). Mode SIMULATION par défaut.", type: "normal", detached: true, confirm: true },
       { file: "migrate_excel.bat", name: "Migrer depuis Excel", desc: "Importe les activités depuis le fichier Excel source vers la base SQLite.", type: "normal", confirm: true },
       { file: "importer_cycles_excel.bat", name: "Importer les cycles (Excel)", desc: "Lit l'Excel et marque les activités non prévues pour chaque cycle avec statut 'inadapte'.", type: "normal", confirm: true },
       { file: "renommer_videos_desc.bat", name: "Renommer les vidéos DESC", desc: "Renomme les fichiers vidéo _DESC_xxx.mp4 en xxx.mp4 après génération du _DESC_.txt. Mode SIMULATION par défaut.", type: "normal", confirm: true },

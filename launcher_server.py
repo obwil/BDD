@@ -15,6 +15,7 @@ DETACHED = {
     "demarrer_app.bat",
     "demarrer_favoris.bat",
     "reinitialiser_bdd.bat",
+    "integrer_nouvelles_activites.bat",  # interactif (input) : besoin d'une vraie console
 }
 
 @app.route("/")
@@ -36,7 +37,8 @@ def run_script():
     if is_detached:
         print(f"[DETACHED] Lancement : {script_path}")
         try:
-            result = subprocess.Popen(str(script_path), shell=True, cwd=str(OUTIL_DIR))
+            # shell=True masque la fenêtre (SW_HIDE) ; "start" en ouvre une visible
+            result = subprocess.Popen(f'start "" "{script_path}"', shell=True, cwd=str(OUTIL_DIR))
             print(f"[DETACHED] PID : {result.pid}")
         except Exception as e:
             print(f"[DETACHED] ERREUR : {e}")
