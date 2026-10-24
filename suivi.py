@@ -16,7 +16,6 @@ ETAPES = [
     ("invitation", "Mail d'invitation envoyé", False),
     ("appel", "Appel fait", True),
     ("planning", "Emploi du temps rempli", True),
-    ("document", "Document généré", True),
     ("envoye", "Document envoyé", False),
     ("valide", "Validé par l'enseignant", False),
 ]
@@ -36,10 +35,6 @@ def notes_appel(dossier: Path) -> Optional[Tuple[int, int]]:
         return None
     lignes = table.rows[1:]  # la première ligne contient les en-têtes
     return sum(1 for r in lignes if r.cells[-1].text.strip()), len(lignes)
-
-
-def document_genere(dossier: Path) -> bool:
-    return any(not f.name.startswith("~$") for f in dossier.glob("Planning détaillé*.docx"))
 
 
 def statut_delai(delai: Optional[str], valide: bool, date_fin: Optional[str] = None,

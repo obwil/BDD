@@ -4,8 +4,8 @@
 # « Déroulé et objectifs » (ex Doc 2) d'un dossier de séjour :
 # « Séjour_JJ-MM_Nom_Déroulé&Objectifs-pédagogiques.docx ».
 #
-#   - remplir_doc2 : écrit les infos du Doc 3, les matinées (Doc 5) et les activités choisies.
-#   - lire_doc2    : relit le document (tes retouches comprises) pour générer le nouveau document.
+#   - remplir_doc2 : écrit les infos du séjour (Projets enseignants), les matinées (roulement),
+#                    les activités choisies et les ressources en autonomie.
 #
 # Règle de sécurité : une case n'est modifiée que si elle est vide, ou si elle contient encore
 # exactement ce que l'outil y avait écrit la dernière fois. Un texte que tu as retouché est conservé.
@@ -100,6 +100,89 @@ def _texte_detail(acts: List[dict], champ: str, prefixe: str = "") -> str:
     if len(acts) == 1 and not prefixe:
         return acts[0][champ]
     return "\n".join(f"{prefixe}{a['nom']} : {a[champ]}" for a in acts)
+
+
+TITRE_RESSOURCES = "Ressources en autonomie"
+
+
+def _details_ressource(r: dict) -> str:
+    bouts = []
+    if r.get("effectif_min") and r.get("effectif_max"):
+        bouts.append(f"{r['effectif_min']} à {r['effectif_max']} joueurs" if r["effectif_min"] != r["effectif_max"]
+                     else f"{r['effectif_min']} joueurs")
+    elif r.get("effectif_min"):
+        bouts.append(f"à partir de {r['effectif_min']} joueurs")
+    if r.get("duree_min"):
+        bouts.append(f"environ {r['duree_min']} min")
+    if r.get("format_groupe"):
+        bouts.append(r["format_groupe"])
+    return " · ".join(bouts)
+
+
+def _resume(texte: Optional[str], limite: int = 220) -> str:
+    t = " ".join((texte or "").split())
+    if len(t) <= limite:
+        return t
+    coupe = t[:limite]
+    fin = max(coupe.rfind(". "), coupe.rfind(" "))
+    return coupe[:fin if fin > 60 else limite].rstrip(" ,;:.") + "…"
+
+
+def _texte_ressources(ressources: List[dict]) -> str:
+    lignes = []
+    for r in ressources:
+        det = _details_ressource(r)
+        ligne = r["nom"] + (f" ({det})" if det else "")
+        if r.get("description"):
+            ligne += " : " + _resume(r["description"])
+        lignes.append(ligne)
+    return "\n".join(lignes)
+
+
+def _maj_ressources(doc, ressources: List[dict], ecrits: dict, nouveaux: dict, remplis: list, conserves: list):
+    """Titre « Ressources en autonomie » puis un paragraphe géré par l'outil. Tu peux écrire à la suite.
+    Le paragraphe n'est modifié que s'il est inchangé depuis la dernière écriture de l'outil."""
+    import copy
+    cle, valeur = "ressources", _texte_ressources(ressources)
+    titre = next((p for p in doc.paragraphs if p.text.strip().lower() == TITRE_RESSOURCES.lower()), None)
+    if titre is None:
+        if not ressources:
+            return  # rien à écrire : pas de rubrique vide
+        modele = next((p for p in doc.paragraphs if p.text.strip().startswith("Emploi du temps de la semaine")), None)
+        if modele is not None:  # même présentation que les autres titres du document
+            doc.element.body.sectPr.addprevious(copy.deepcopy(modele._p))
+            titre = doc.paragraphs[-1]
+            _ecrire_paragraphe(titre, TITRE_RESSOURCES)
+        else:
+            titre = doc.add_paragraph()
+            titre.add_run(TITRE_RESSOURCES).bold = True
+        corps = doc.add_paragraph(valeur)
+        nouveaux[cle] = valeur
+        remplis.append("Ressources en autonomie")
+        return
+    suivant = titre._p.getnext()
+    corps = next((p for p in doc.paragraphs if p._p is suivant), None)
+    if corps is None:
+        corps = doc.add_paragraph("")
+        titre._p.addnext(corps._p)
+    actuel, avant = corps.text.strip(), ecrits.get(cle)
+    if actuel == valeur.strip():
+        nouveaux[cle] = valeur
+    elif actuel in VIDES or (avant is not None and actuel == avant.strip()):
+        _ecrire_paragraphe(corps, valeur)
+        nouveaux[cle] = valeur
+        remplis.append("Ressources en autonomie")
+    else:
+        conserves.append("Ressources en autonomie")
+
+
+def _ecrire_paragraphe(p, texte: str):
+    if p.runs:
+        p.runs[0].text = texte
+        for r in p.runs[1:]:
+            r.text = ""
+    else:
+        p.add_run(texte)
 
 
 def remplir_doc2(chemin: Path, s: dict, planning: Optional[dict] = None, ecrits: Optional[dict] = None) -> dict:
@@ -207,39 +290,10 @@ def remplir_doc2(chemin: Path, s: dict, planning: Optional[dict] = None, ecrits:
                         poser(cells[2], _texte_detail(planning[j]["après-midi"], champ), f"detail:{j}:{court}",
                               f"{j.capitalize()} après-midi : {court}")
 
+    # 5. Ressources en autonomie
+    if "ressources" in s:
+        _maj_ressources(doc, s["ressources"], ecrits, nouveaux, remplis, conserves)
+
     if remplis:
         doc.save(chemin)
     return {"fichier": str(chemin), "remplis": remplis, "conserves": conserves, "ecrits": nouveaux}
-
-
-# ----------------------------------------------------------------------------
-# Lecture : le nouveau document se base sur ce que contient le fichier
-# ----------------------------------------------------------------------------
-
-def lire_doc2(chemin: Path) -> dict:
-    """Fiche et matinées telles qu'elles sont écrites dans le document (retouches comprises)."""
-    from docx import Document
-    doc = Document(chemin)
-    out: dict = {"matins": {}}
-    vide = lambda t: t.strip() in VIDES
-    for row in doc.tables[0].rows:
-        cells = _cellules_distinctes(row)
-        lib = D.norm(cells[0].text)
-        if lib == "mediateurreferent" and len(cells) >= 5:
-            out["mediateur_matin"] = None if vide(cells[2].text) else cells[2].text.strip()
-            out["mediateur_am"] = None if vide(cells[4].text) else cells[4].text.strip()
-        elif len(cells) >= 2:
-            cle = {"thematique": "thematique", "objectifsdusejour": "objectifs", "ecoleclasse": "ecole_classe",
-                   "enseignantreferent": "enseignant", "unite": "unite"}.get(lib)
-            if cle:
-                out[cle] = None if vide(cells[-1].text) else cells[-1].text.strip()
-    if len(doc.tables) > 1:
-        edt = doc.tables[1]
-        entetes = [c.text.strip().capitalize() for c in edt.rows[0].cells]
-        ligne = next((r for r in edt.rows[1:] if r.cells[0].text.strip().lower() == "matin"), None)
-        if ligne:
-            for i, jour in enumerate(entetes):
-                t = ligne.cells[i].text.strip()
-                if jour in JOURS_SEMAINE and t not in VIDES and t != "—":
-                    out["matins"][jour] = t
-    return out
