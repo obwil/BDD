@@ -1,4 +1,4 @@
-# =============================================================================
+﻿# =============================================================================
 # attribuer_tag.py
 # =============================================================================
 # Cree un tag et l'attribue aux activites dont le nom est liste dans un
@@ -14,8 +14,8 @@ from pathlib import Path
 DB_PATH = Path(__file__).parent.parent / "activites.db"
 
 # --- A MODIFIER ---
-NOM_TAG = "Incarner le vivant"
-FICHIER_NOMS = Path(__file__).parent / "tags" / "incarner_le_vivant.txt"
+NOM_TAG = "Pôle biodiversité"
+FICHIER_NOMS = Path(__file__).parent / "tags" / "pole_biodiversite.txt"
 # ------------------
 
 # Mettre False pour ecrire reellement en base
