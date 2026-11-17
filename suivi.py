@@ -18,6 +18,7 @@ ETAPES = [
     ("planning", "Emploi du temps rempli", True),
     ("envoye", "Document envoyé", False),
     ("valide", "Validé par l'enseignant", False),
+    ("retours", "Retours d'activités rédigés", True),
 ]
 MANUELLES = {cle for cle, _, auto in ETAPES if not auto}
 JOURS_DELAI_PROCHE = 14

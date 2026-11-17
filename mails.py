@@ -7,7 +7,8 @@
 # =============================================================================
 
 import re
-from typing import Optional, Tuple
+import unicodedata
+from typing import List, Optional, Tuple
 
 import doc3 as D
 
@@ -18,6 +19,102 @@ MODELES = {
 }
 
 A_PRECISER = "[à préciser]"
+
+CONTACTS = "Contacts enseignants.xlsx"  # dans le dossier de l'année
+
+
+def _mots(s) -> List[str]:
+    """« LE GUÉVELLOU Anne » → ['le', 'guevellou', 'anne']."""
+    s = unicodedata.normalize("NFKD", str(s or "")).encode("ascii", "ignore").decode().lower()
+    return re.findall(r"[a-z0-9]+", s)
+
+
+def _contient(mots: List[str], nom: List[str]) -> bool:
+    return any(mots[i:i + len(nom)] == nom for i in range(len(mots) - len(nom) + 1))
+
+
+def _emails(cellule) -> List[str]:
+    return [re.sub(r"\s+", "", e) for e in re.findall(r"[\w.+-]+\s*@\s*[\w-]+(?:\.[\w-]+)+", str(cellule or ""))]
+
+
+def _lignes(cellule) -> List[str]:
+    return [l for l in str(cellule or "").splitlines() if l.strip()]
+
+
+def _blocs_contacts() -> List[List[Tuple[str, str]]]:
+    """Un bloc par trimestre (de gauche à droite) : liste de (cellule noms, cellule adresses)."""
+    import openpyxl
+    wb = openpyxl.load_workbook(D.dossier_annee() / CONTACTS, read_only=True, data_only=True)
+    lignes = [list(r) for r in wb.worksheets[0].iter_rows(values_only=True)]
+    wb.close()
+    for i, entete in enumerate(lignes):
+        cols_mail = [j for j, v in enumerate(entete) if "adressemail" in D.norm(v)]
+        if not cols_mail:
+            continue
+        blocs = []
+        for j in cols_mail:  # colonne des noms : la plus proche à gauche dont l'en-tête commence par « Enseignant »
+            col_nom = next((k for k in range(j - 1, -1, -1) if D.norm(entete[k]).startswith("enseignant")), None)
+            if col_nom is None:
+                continue
+            blocs.append([(r[col_nom] if col_nom < len(r) else None, r[j] if j < len(r) else None)
+                          for r in lignes[i + 1:]])
+        return blocs
+    return []
+
+
+def _majuscules(ligne: str) -> List[str]:
+    """Mots écrits en capitales (le nom de famille, dans « DELORME Laurelène »)."""
+    return _mots(" ".join(w for w in re.split(r"[\s\-']+", ligne) if len(w) > 1 and w.isupper()))
+
+
+def _proche(mots: List[str], nom: List[str]) -> bool:
+    """Orthographe voisine (« Dominichini » / « DOMENICHINI »), sur des noms d'au moins 5 lettres."""
+    from difflib import SequenceMatcher
+    cle = "".join(nom)
+    return len(cle) >= 5 and any(SequenceMatcher(None, w, cle).ratio() >= 0.85 for w in mots)
+
+
+# Du plus sûr au plus large : nom en capitales, n'importe quel mot, orthographe voisine.
+_PASSES = [
+    (lambda l, nom: _contient(_majuscules(l), nom), False),
+    (lambda l, nom: _contient(_mots(l), nom), False),
+    (lambda l, nom: _proche(_majuscules(l) or _mots(l), nom), True),
+]
+
+
+def adresses(s: dict) -> Tuple[List[str], List[str], List[str]]:
+    """Adresses des enseignants du séjour d'après « Contacts enseignants.xlsx ».
+    Cherche d'abord dans le bloc du trimestre du séjour, puis dans tous.
+    Retourne (adresses, noms non trouvés, noms rapprochés d'une orthographe voisine)."""
+    noms = [n.strip() for n in re.split(r"\s+et\s+|,", D.nom_court(s.get("enseignant"))) if n.strip()]
+    blocs = _blocs_contacts()
+    t = s.get("trimestre")
+    ordre = ([blocs[t - 1]] if t and 0 < t <= len(blocs) else []) + blocs
+    trouvees, manquants, approches = [], [], []
+    for nom in noms:
+        cle, res = _mots(nom), []
+        for correspond, approx in _PASSES:
+            for bloc in ordre:
+                for cell_noms, cell_mails in bloc:
+                    ln, lm = _lignes(cell_noms), _lignes(cell_mails)
+                    lignes_ok = [i for i, l in enumerate(ln) if correspond(l, cle)]
+                    if not cle or not lignes_ok:
+                        continue
+                    if len(ln) > 1 and len(ln) == len(lm):  # une adresse par ligne : seulement celle de cet enseignant
+                        res += [e for i in lignes_ok for e in _emails(lm[i])]
+                    else:
+                        res += _emails(cell_mails)
+                    if approx:
+                        approches.append(f"{nom} → {' / '.join(ln[i].strip() for i in lignes_ok)}")
+                if res:
+                    break
+            if res:
+                break
+        if res:
+            trouvees += [e for e in res if e.lower() not in {x.lower() for x in trouvees}]
+        else:
+            manquants.append(nom)
+    return trouvees, manquants, approches
 
 
 def civilite(enseignants: Optional[str]) -> str:

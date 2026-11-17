@@ -61,6 +61,29 @@ def index():
 # ACTIVITÉS
 # ============================================================================
 
+MOIS = ["jan","fev","mar","avr","mai","jun","jul","aou","sep","oct","nov","dec"]
+
+
+def duree_periode(activite, mois=None):
+    """Nombre de mois de la période (plage continue, circulaire) contenant `mois`.
+    Sans mois : nombre total de mois actifs. Aucun mois actif : 99 (rejeté en fin de liste)."""
+    actifs = [bool(activite[f"mois_{m}"]) for m in MOIS]
+    if not any(actifs):
+        return 99
+    if mois not in MOIS or all(actifs):
+        return sum(actifs)
+    i = MOIS.index(mois)
+    if not actifs[i]:
+        return 99
+    n = 1
+    while n < 12 and actifs[(i - n) % 12]:
+        n += 1
+    j = 1
+    while n < 12 and actifs[(i + j) % 12]:
+        n += 1
+        j += 1
+    return n
+
 @app.get("/api/activites")
 def liste_activites(
     q: Optional[str] = Query(None, description="Recherche texte"),
@@ -337,6 +360,9 @@ def liste_activites(
         ) {dir_sql}, a.nom"""
     elif sort == "id":
         order_clause = f"ORDER BY a.id {dir_sql}"
+    elif sort == "saison":
+        # Tri fait en Python (voir duree_periode), après la requête
+        order_clause = "ORDER BY a.nom"
     else:
         order_clause = f"ORDER BY a.nom {dir_sql}"
 
@@ -358,8 +384,7 @@ def liste_activites(
         cycle_counts[cr["code"]] = cnt
 
     # Récupérer les résultats
-    rows = conn.execute(
-        f"""
+    select_sql = f"""
         SELECT a.id, a.nom, a.lieu, a.duree_min, a.format_groupe,
                a.meteo_nuage, a.meteo_soleil, a.meteo_pluie, a.meteo_vent, a.meteo_nuit,
                a.mois_jan, a.mois_fev, a.mois_mar, a.mois_avr,
@@ -370,10 +395,14 @@ def liste_activites(
         FROM activite a
         {where_clause}
         {order_clause}
-        LIMIT ? OFFSET ?
-        """,
-        params + [limit, offset]
-    ).fetchall()
+        """
+    if sort == "saison":
+        # Période la plus courte contenant le mois sélectionné d'abord
+        rows = conn.execute(select_sql, params).fetchall()
+        rows = sorted(rows, key=lambda r: duree_periode(r, mois), reverse=(sort_dir == "desc"))
+        rows = rows[offset:offset + limit]
+    else:
+        rows = conn.execute(select_sql + " LIMIT ? OFFSET ?", params + [limit, offset]).fetchall()
 
     conn.close()
     return {

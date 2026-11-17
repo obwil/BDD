@@ -5,7 +5,7 @@
 # « Séjour_JJ-MM_Nom_Déroulé&Objectifs-pédagogiques.docx ».
 #
 #   - remplir_doc2 : écrit les infos du séjour (Projets enseignants), les matinées (roulement),
-#                    les activités choisies et les ressources en autonomie.
+#                    les activités choisies, l'activité « si pluie » et les ressources en autonomie.
 #
 # Règle de sécurité : une case n'est modifiée que si elle est vide, ou si elle contient encore
 # exactement ce que l'outil y avait écrit la dernière fois. Un texte que tu as retouché est conservé.
@@ -92,14 +92,127 @@ def _cellules_distinctes(row) -> list:
     return out
 
 
-def _texte_detail(acts: List[dict], champ: str, prefixe: str = "") -> str:
-    """Texte d'un créneau : celui de l'activité si elle est seule, sinon « titre : texte » pour chacune."""
-    acts = [a for a in acts if a.get(champ)]
-    if not acts:
-        return ""
+COULEUR_TITRE = "1F3864"  # bleu des libellés du document
+
+
+def _blocs_detail(acts: List[dict], champ: str, prefixe: str = "") -> List[tuple]:
+    """[(titre, texte)] d'un créneau. Une activité seule : son texte sans titre (son nom figure déjà
+    dans le tableau de l'emploi du temps) ; plusieurs : un bloc par activité, titré de son nom."""
+    if not any(a.get(champ) for a in acts):
+        return []
     if len(acts) == 1 and not prefixe:
-        return acts[0][champ]
-    return "\n".join(f"{prefixe}{a['nom']} : {a[champ]}" for a in acts)
+        return [(None, acts[0][champ])]
+    # plusieurs activités : on les liste toutes, pour que « objectifs » et « descriptif » restent alignés
+    return [(f"{prefixe}{a['nom']}", a.get(champ) or "—") for a in acts]
+
+
+def _texte_blocs(blocs: List[tuple]) -> str:
+    """Texte à plat des blocs (un paragraphe par ligne) : sert à repérer si tu as retouché la case."""
+    lignes = []
+    for titre, texte in blocs:
+        if titre:
+            lignes.append(titre)
+        lignes.append(texte)
+    return "\n".join(lignes)
+
+
+def _ecrire_blocs(cell, blocs: List[tuple]):
+    """Un paragraphe pour le titre de chaque activité (gras, bleu, espacé de la précédente), puis un
+    paragraphe pour son texte. La pagination de la case (maintien avec la ligne suivante) est conservée."""
+    import copy
+    from docx.shared import Pt, RGBColor
+    p0 = cell.paragraphs[0]
+    for p in cell.paragraphs[1:]:
+        p._p.getparent().remove(p._p)
+    for r in list(p0.runs):
+        r._r.getparent().remove(r._r)
+    lignes = []
+    for k, (titre, texte) in enumerate(blocs):
+        if titre:
+            lignes.append((titre, True, k > 0))
+        lignes.append((texte, False, False))
+    ppr = p0._p.pPr
+    for i, (texte, est_titre, espace) in enumerate(lignes):
+        if i == 0:
+            p = p0
+        else:
+            p = cell.add_paragraph()
+            if ppr is not None:
+                p._p.insert(0, copy.deepcopy(ppr))
+        run = p.add_run(texte)
+        if est_titre:
+            run.bold = True
+            run.font.color.rgb = RGBColor.from_string(COULEUR_TITRE)
+        if espace:
+            p.paragraph_format.space_before = Pt(8)
+
+
+LIBELLE_PLUIE = "Si pluie"
+MENTION_PLUIE = "uniquement par temps de pluie, à la place de l'activité d'une des après-midis"
+
+
+def _est_pluie(texte: str) -> bool:
+    return D.norm(texte).startswith("sipluie")
+
+
+def _vider(cell):
+    """Vide une cellule en gardant la mise en forme de son premier paragraphe."""
+    for p in cell.paragraphs[1:]:
+        p._p.getparent().remove(p._p)
+    _ecrire_paragraphe(cell.paragraphs[0], "")
+
+
+def _ligne_pluie_edt(edt, entetes: List[str]):
+    """Ligne « Si pluie » de l'emploi du temps, ajoutée sous « Après-midi » si elle manque.
+    Lundi → jeudi ne forment qu'une case : l'activité ne dépend pas du jour."""
+    lignes = list(edt.rows[1:])
+    for r in lignes:
+        if _est_pluie(r.cells[0].text):
+            return r
+    apres = next((r for r in lignes if D.norm(r.cells[0].text) == "apresmidi"), None)
+    modele = next((r for r in lignes if D.norm(r.cells[0].text) == "veillee"), apres)
+    if apres is None or not all(j in entetes for j in JOURS_ACTIVITES):
+        return None
+    import copy
+    tr = copy.deepcopy(modele._tr)
+    apres._tr.addnext(tr)
+    row = next(r for r in edt.rows if r._tr is tr)
+    _ecrire(row.cells[0], LIBELLE_PLUIE)
+    debut, fin = entetes.index(JOURS_ACTIVITES[0]), entetes.index(JOURS_ACTIVITES[-1])
+    for i in range(debut, fin + 1):
+        _vider(row.cells[i])
+    row.cells[debut].merge(row.cells[fin])
+    row = next(r for r in edt.rows if r._tr is tr)
+    _vider(row.cells[debut])  # la fusion laisse un paragraphe vide par case regroupée
+    _ecrire(row.cells[debut], "…")
+    for i, jour in enumerate(entetes):
+        if i and jour not in JOURS_ACTIVITES:
+            _ecrire(row.cells[i], "—")
+    return row
+
+
+def _bloc_pluie_detail(table):
+    """Ajoute au détail des activités un bloc « Si pluie / Après-midi » (objectifs, descriptif),
+    copié du bloc du jeudi, s'il n'existe pas encore."""
+    lignes = [(r, _cellules_distinctes(r)) for r in table.rows]
+    if any(c and _est_pluie(c[0].text) for _, c in lignes):
+        return
+    jeudi = [r for r, c in lignes if len(c) >= 3 and D.norm(c[0].text).startswith("jeudi")]
+    if not jeudi:
+        return
+    import copy
+    ancre, nouveaux = jeudi[-1]._tr, []
+    for r in jeudi:
+        tr = copy.deepcopy(r._tr)
+        ancre.addnext(tr)
+        ancre = tr
+        nouveaux.append(tr)
+    for k, tr in enumerate(nouveaux):
+        row = next(r for r in table.rows if r._tr is tr)
+        cells = _cellules_distinctes(row)
+        if k == 0:
+            _ecrire_paragraphe(cells[0].paragraphs[0], LIBELLE_PLUIE)
+        _vider(cells[2])
 
 
 TITRE_RESSOURCES = "Ressources en autonomie"
@@ -194,8 +307,9 @@ def remplir_doc2(chemin: Path, s: dict, planning: Optional[dict] = None, ecrits:
     nouveaux: Dict[str, str] = dict(ecrits)
     remplis: List[str] = []
     conserves: List[str] = []
+    pluie = s.get("pluie")  # None : séjour sans plan pluie connu, on ne touche pas au document
 
-    def poser(cell, valeur: Optional[str], cle: str, nom: str, style_de=None):
+    def poser(cell, valeur: Optional[str], cle: str, nom: str, style_de=None, ecrire=None):
         if valeur is None:
             return
         actuel = cell.text.strip()
@@ -204,7 +318,10 @@ def remplir_doc2(chemin: Path, s: dict, planning: Optional[dict] = None, ecrits:
             nouveaux[cle] = valeur
             return
         if actuel in VIDES or (avant is not None and actuel == avant.strip()):
-            _ecrire(cell, valeur)
+            if ecrire is not None:
+                ecrire(cell)
+            else:
+                _ecrire(cell, valeur)
             if style_de is not None:
                 _style_comme(cell, style_de)
             nouveaux[cle] = valeur
@@ -271,8 +388,23 @@ def remplir_doc2(chemin: Path, s: dict, planning: Optional[dict] = None, ecrits:
                     poser(ligne.cells[entetes.index(jour)], " + ".join(a["nom"] for a in acts) or "…",
                           f"edt:{jour}:{moment}", f"{moment.capitalize()} du {jour}", modele_style)
 
+        if planning is not None and pluie is not None:
+            n = len(edt.rows)
+            ligne = _ligne_pluie_edt(edt, entetes)
+            if len(edt.rows) > n:
+                remplis.append("Ligne « Si pluie » de l'emploi du temps")
+            if ligne is not None:
+                noms = " + ".join(a["nom"] for a in pluie)
+                poser(ligne.cells[entetes.index(JOURS_ACTIVITES[0])],
+                      f"{noms} ({MENTION_PLUIE})" if noms else "…", "edt:pluie", "Activité si pluie", modele_style)
+
     # 4. Détail des activités (troisième tableau)
     if planning is not None and len(doc.tables) > 2:
+        if pluie is not None:
+            n = len(doc.tables[2].rows)
+            _bloc_pluie_detail(doc.tables[2])
+            if len(doc.tables[2].rows) > n:
+                remplis.append("Bloc « Si pluie » du détail des activités")
         for row in doc.tables[2].rows:
             cells = _cellules_distinctes(row)
             if len(cells) < 3:
@@ -281,14 +413,23 @@ def remplir_doc2(chemin: Path, s: dict, planning: Optional[dict] = None, ecrits:
             champ = "objectif_texte" if D.norm(cells[1].text).startswith("objectifs") else "description"
             court = "objectifs" if champ == "objectif_texte" else "descriptif"
             if bloc.startswith("veillee"):
-                lignes_v = [t for j in JOURS_ACTIVITES
-                            if (t := _texte_detail(planning[j]["veillée"], champ, prefixe=f"{j.capitalize()} — "))]
-                poser(cells[2], "\n".join(lignes_v), f"detail:veillee:{court}", f"Veillée : {court}")
+                blocs = []
+                for j in JOURS_ACTIVITES:
+                    blocs += _blocs_detail(planning[j]["veillée"], champ, prefixe=f"{j.capitalize()} — ")
+                poser(cells[2], _texte_blocs(blocs), f"detail:veillee:{court}", f"Veillée : {court}",
+                      ecrire=lambda c, b=blocs: _ecrire_blocs(c, b))
+            elif _est_pluie(bloc):
+                if pluie is not None:
+                    blocs = _blocs_detail(pluie, champ)
+                    poser(cells[2], _texte_blocs(blocs), f"detail:pluie:{court}", f"Si pluie : {court}",
+                          ecrire=lambda c, b=blocs: _ecrire_blocs(c, b))
             else:
                 for j in JOURS_ACTIVITES:
                     if bloc.startswith(j):
-                        poser(cells[2], _texte_detail(planning[j]["après-midi"], champ), f"detail:{j}:{court}",
-                              f"{j.capitalize()} après-midi : {court}")
+                        blocs = _blocs_detail(planning[j]["après-midi"], champ)
+                        poser(cells[2], _texte_blocs(blocs), f"detail:{j}:{court}",
+                              f"{j.capitalize()} après-midi : {court}",
+                              ecrire=lambda c, b=blocs: _ecrire_blocs(c, b))
 
     # 5. Ressources en autonomie
     if "ressources" in s:

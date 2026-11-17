@@ -48,6 +48,7 @@
     td.sej a { color: var(--text); text-decoration: none; font-weight: 600; }
     td.sej a:hover { color: var(--accent); text-decoration: underline; }
     td.sej small { display: block; color: var(--text-muted); font-weight: 400; }
+    td.sej small.com { color: var(--warn); font-style: italic; white-space: pre-line; max-width: 380px; margin-top: 2px; }
     .ok { color: var(--accent); font-size: 1.05rem; }
     .todo { color: var(--text-muted); font-size: 1.05rem; opacity: .6; }
     td.c input { width: 17px; height: 17px; cursor: pointer; accent-color: var(--accent); }
@@ -138,7 +139,7 @@ function rendre() {
   liste.forEach(s => {
     if (s.trimestre !== dernier) { dernier = s.trimestre; h += `<tr class="trim"><td colspan="${cles.length + 3}">Trimestre ${esc(s.trimestre)}</td></tr>`; }
     h += `<tr><td class="sej"><a href="/?sejour=${s.id}" title="Ouvrir dans la bibliothèque">${jm(s.date_debut)} → ${jm(s.date_fin)}</a>
-      <small>${esc(s.enseignant)} · ${esc(s.ecole)}${s.classes ? ' · ' + esc(s.classes) : ''}</small></td>
+      <small>${esc(s.enseignant)} · ${esc(s.ecole)}${s.classes ? ' · ' + esc(s.classes) : ''}</small>${s.commentaire ? `<small class="com">💬 ${esc(s.commentaire)}</small>` : ''}</td>
       <td>${s.delai ? `<span class="delai ${s.delai_statut || 'ok'}">${s.delai_statut === 'depasse' ? 'dépassé · ' : ''}${jmy(s.delai)}</span>` : '<span class="next">—</span>'}</td>`;
     s.etapes.forEach(e => {
       const tip = esc(e.detail || (e.auto ? 'détecté automatiquement' : ''));

@@ -19,6 +19,7 @@ import doc2 as D2
 import doc3 as D
 import doc4 as D4
 import mails as MAILS
+import retours as RET
 import suivi as SU
 
 BASE_DIR = Path(__file__).parent
@@ -64,6 +65,7 @@ SEJOUR_COLS = {
     "delai": "TEXT",              # date limite du dossier (colonne Délais)
     "objectifs_texte": "TEXT",    # objectifs pédagogiques du Doc 3
     "dossier_path": "TEXT",       # dossier du séjour dans Dropbox
+    "commentaire": "TEXT",        # note libre (jamais touchée par la synchronisation)
 }
 
 
@@ -108,6 +110,15 @@ def ensure_schema():
             PRIMARY KEY (sejour_id, activite_id)
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS sejour_pluie (
+            sejour_id   INTEGER NOT NULL REFERENCES sejour(id) ON DELETE CASCADE,
+            activite_id INTEGER NOT NULL REFERENCES activite(id) ON DELETE CASCADE,
+            ordre       INTEGER DEFAULT 0,
+            PRIMARY KEY (sejour_id, activite_id)
+        )
+    """)
+    conn.execute(RET.SCHEMA)
     conn.commit()
     conn.close()
 
@@ -227,7 +238,7 @@ def liste_sejours():
     conn = get_db()
     rows = conn.execute("""
         SELECT s.id, s.nom, s.date_debut, s.date_fin, s.enseignant, s.ecole, s.public, s.trimestre,
-          s.categorie, s.delai, s.dossier_path,
+          s.categorie, s.delai, s.dossier_path, s.commentaire,
           (SELECT COUNT(*) FROM sequence q JOIN sequence_activite sa ON sa.sequence_id=q.id
             WHERE q.sejour_id=s.id) AS nb_activites
         FROM sejour s WHERE s.doc3_key IS NOT NULL
@@ -403,6 +414,14 @@ def _charger_sejour(conn, sejour_id: int) -> dict:
                a.lieu, a.format_groupe, sr.ordre
         FROM sejour_ressource sr JOIN activite a ON a.id = sr.activite_id
         WHERE sr.sejour_id = ? ORDER BY sr.ordre""", (sejour_id,))]
+    res["pluie"] = [dict(r) for r in conn.execute("""
+        SELECT a.id, a.nom, a.description, a.objectif_texte, sp.ordre
+        FROM sejour_pluie sp JOIN activite a ON a.id = sp.activite_id
+        WHERE sp.sejour_id = ? ORDER BY sp.ordre""", (sejour_id,))]
+    # Retours d'expérience déjà rédigés, clés « activite_id|creneau »
+    res["retours"] = {f"{r['activite_id']}|{r['creneau']}": {"bien": r["bien"] or "", "ameliorer": r["ameliorer"] or ""}
+                      for r in conn.execute("SELECT activite_id, creneau, bien, ameliorer FROM retour_activite WHERE sejour_id=?",
+                                            (sejour_id,))}
     return res
 
 
@@ -491,18 +510,20 @@ class RessourceIn(BaseModel):
     activite_id: int
 
 
-@router.put("/sejours/{sejour_id}/ressource")
-def ajouter_ressource(sejour_id: int, r: RessourceIn):
+def _ajouter_a_liste(table: str, sejour_id: int, activite_id: int) -> dict:
+    """Ajoute une activité à une liste du séjour (ressources en autonomie, plan pluie)."""
     ensure_schema()
     conn = get_db()
     if not conn.execute("SELECT 1 FROM sejour WHERE id=?", (sejour_id,)).fetchone():
+        conn.close()
         raise HTTPException(404, "Séjour introuvable")
-    if not conn.execute("SELECT 1 FROM activite WHERE id=?", (r.activite_id,)).fetchone():
+    if not conn.execute("SELECT 1 FROM activite WHERE id=?", (activite_id,)).fetchone():
+        conn.close()
         raise HTTPException(404, "Activité introuvable")
-    nxt = conn.execute("SELECT COALESCE(MAX(ordre),-1)+1 FROM sejour_ressource WHERE sejour_id=?",
+    nxt = conn.execute(f"SELECT COALESCE(MAX(ordre),-1)+1 FROM {table} WHERE sejour_id=?",
                        (sejour_id,)).fetchone()[0]
-    conn.execute("INSERT OR IGNORE INTO sejour_ressource (sejour_id, activite_id, ordre) VALUES (?,?,?)",
-                 (sejour_id, r.activite_id, nxt))
+    conn.execute(f"INSERT OR IGNORE INTO {table} (sejour_id, activite_id, ordre) VALUES (?,?,?)",
+                 (sejour_id, activite_id, nxt))
     conn.commit()
     res = _charger_sejour(conn, sejour_id)
     res["doc2"] = _maj_doc2(conn, sejour_id)
@@ -510,15 +531,110 @@ def ajouter_ressource(sejour_id: int, r: RessourceIn):
     return res
 
 
-@router.delete("/sejours/{sejour_id}/ressource/{activite_id}")
-def retirer_ressource(sejour_id: int, activite_id: int):
+def _retirer_de_liste(table: str, sejour_id: int, activite_id: int) -> dict:
     ensure_schema()
     conn = get_db()
-    conn.execute("DELETE FROM sejour_ressource WHERE sejour_id=? AND activite_id=?",
-                 (sejour_id, activite_id))
+    conn.execute(f"DELETE FROM {table} WHERE sejour_id=? AND activite_id=?", (sejour_id, activite_id))
     conn.commit()
     res = _charger_sejour(conn, sejour_id)
     res["doc2"] = _maj_doc2(conn, sejour_id)
+    conn.close()
+    return res
+
+
+@router.put("/sejours/{sejour_id}/ressource")
+def ajouter_ressource(sejour_id: int, r: RessourceIn):
+    return _ajouter_a_liste("sejour_ressource", sejour_id, r.activite_id)
+
+
+@router.delete("/sejours/{sejour_id}/ressource/{activite_id}")
+def retirer_ressource(sejour_id: int, activite_id: int):
+    return _retirer_de_liste("sejour_ressource", sejour_id, activite_id)
+
+
+# ----------------------------------------------------------------------------
+# Plan pluie : activité(s) d'après-midi de secours, sans jour fixé
+# (elle remplace l'activité de l'après-midi où il pleut)
+# ----------------------------------------------------------------------------
+
+@router.put("/sejours/{sejour_id}/pluie")
+def ajouter_pluie(sejour_id: int, r: RessourceIn):
+    return _ajouter_a_liste("sejour_pluie", sejour_id, r.activite_id)
+
+
+@router.delete("/sejours/{sejour_id}/pluie/{activite_id}")
+def retirer_pluie(sejour_id: int, activite_id: int):
+    return _retirer_de_liste("sejour_pluie", sejour_id, activite_id)
+
+
+# ----------------------------------------------------------------------------
+# Commentaire libre du séjour (usage interne : n'apparaît ni dans les documents ni dans les mails)
+# ----------------------------------------------------------------------------
+
+class CommentaireIn(BaseModel):
+    texte: str = ""
+
+
+@router.put("/sejours/{sejour_id}/commentaire")
+def enregistrer_commentaire(sejour_id: int, c: CommentaireIn):
+    ensure_schema()
+    conn = get_db()
+    texte = c.texte.strip() or None
+    n = conn.execute("UPDATE sejour SET commentaire=? WHERE id=?", (texte, sejour_id)).rowcount
+    conn.commit()
+    conn.close()
+    if not n:
+        raise HTTPException(404, "Séjour introuvable")
+    return {"ok": True, "commentaire": texte}
+
+
+# ----------------------------------------------------------------------------
+# Retours d'expérience (par activité et par créneau)
+# ----------------------------------------------------------------------------
+
+class RetourIn(BaseModel):
+    activite_id: int
+    creneau: str          # « lundi|après-midi » ou « pluie »
+    bien: str = ""
+    ameliorer: str = ""
+
+
+@router.put("/sejours/{sejour_id}/retour")
+def enregistrer_retour(sejour_id: int, r: RetourIn):
+    """Enregistre (ou efface, si les deux zones sont vides) le retour d'une activité, puis réécrit retours.md."""
+    if r.creneau != RET.PLUIE:
+        jour, _, moment = r.creneau.partition("|")
+        _check_slot(jour, moment)
+    ensure_schema()
+    conn = get_db()
+    if not conn.execute("SELECT 1 FROM sejour WHERE id=?", (sejour_id,)).fetchone():
+        conn.close()
+        raise HTTPException(404, "Séjour introuvable")
+    if not conn.execute("SELECT 1 FROM activite WHERE id=?", (r.activite_id,)).fetchone():
+        conn.close()
+        raise HTTPException(404, "Activité introuvable")
+    bien, ameliorer = r.bien.strip(), r.ameliorer.strip()
+    if bien or ameliorer:
+        conn.execute("""INSERT INTO retour_activite (sejour_id, activite_id, creneau, bien, ameliorer, maj)
+                        VALUES (?,?,?,?,?,datetime('now','localtime'))
+                        ON CONFLICT(sejour_id, activite_id, creneau)
+                        DO UPDATE SET bien=excluded.bien, ameliorer=excluded.ameliorer, maj=excluded.maj""",
+                     (sejour_id, r.activite_id, r.creneau, bien, ameliorer))
+    else:
+        conn.execute("DELETE FROM retour_activite WHERE sejour_id=? AND activite_id=? AND creneau=?",
+                     (sejour_id, r.activite_id, r.creneau))
+    conn.commit()
+    fichier = RET.ecrire_fichier(conn, r.activite_id)
+    conn.close()
+    return {"ok": True, "rempli": bool(bien or ameliorer), "fichier": fichier}
+
+
+@router.get("/activites/{activite_id}/retours")
+def retours_activite(activite_id: int):
+    """Tous les retours d'une activité, du plus récent au plus ancien (affichés dans sa fiche)."""
+    ensure_schema()
+    conn = get_db()
+    res = RET.lister(conn, activite_id)
     conn.close()
     return res
 
@@ -543,11 +659,16 @@ def _suivi_sejour(conn, sejour_id: int, manuels: Optional[dict] = None) -> dict:
     pl = s["planning"]
     apres = sum(1 for j in JOURS if pl[j]["après-midi"])
     veillees = sum(1 for j in JOURS if pl[j]["veillée"])
+    pluie = len(s["pluie"])
     notes = SU.notes_appel(dossier) if dossier else None
+    prevues = sum(len(pl[j][m]) for j in JOURS for m in MOMENTS)
+    rediges = len(s["retours"])
     auto = {
+        "retours": (prevues > 0 and rediges >= prevues, f"{rediges}/{prevues} activités"),
         "dossier": (bool(dossier), None),
         "appel": (bool(notes and notes[0] > 0), f"{notes[0]}/{notes[1]} réponses" if notes else None),
-        "planning": (apres == len(JOURS), f"après-midis {apres}/4 · veillées {veillees}/4"),
+        "planning": (apres == len(JOURS) and pluie >= 1,
+                     f"après-midis {apres}/4 · pluie {min(pluie, 1)}/1 · veillées {veillees}/4"),
     }
     etapes = []
     for cle, libelle, est_auto in SU.ETAPES:
@@ -558,6 +679,7 @@ def _suivi_sejour(conn, sejour_id: int, manuels: Optional[dict] = None) -> dict:
     return {
         "id": s["id"], "nom": s["nom"], "trimestre": s["trimestre"], "date_debut": s["date_debut"],
         "date_fin": s["date_fin"], "ecole": s["ecole"], "classes": s["niveau1"], "enseignant": s["enseignant"],
+        "commentaire": s.get("commentaire"),
         "delai": s["delai"], "delai_statut": SU.statut_delai(s["delai"], valide, s["date_fin"]),
         "etapes": etapes, "faites": sum(1 for e in etapes if e["fait"]), "total": len(etapes),
         "prochaine": suivante,
@@ -629,13 +751,20 @@ def rediger_mail(sejour_id: int, m: MailIn):
     dossier = _dossier_existant(s)
     notes = SU.notes_appel(dossier) if dossier else None
     objet, corps = MAILS.rediger(m.modele, s, m.disponibilites, appel_fait=bool(notes and notes[0] > 0))
+    try:
+        destinataires, non_trouves, approches = MAILS.adresses(s)
+        erreur_contacts = None
+    except Exception as e:  # fichier absent, ouvert ailleurs, illisible…
+        destinataires, non_trouves, approches, erreur_contacts = [], [], [], f"{MAILS.CONTACTS} illisible : {e}"
+    a = "; ".join(destinataires)
     fichier = None
     if m.enregistrer and dossier:
         f = dossier / f"Mail - {MAILS.MODELES[m.modele]}.txt"
         try:
-            f.write_text(f"Objet : {objet}\n\n{corps}\n", encoding="utf-8")
+            f.write_text((f"À : {a}\n" if a else "") + f"Objet : {objet}\n\n{corps}\n", encoding="utf-8")
             fichier = str(f)
         except PermissionError:
             fichier = None
-    return {"objet": objet, "corps": corps, "fichier": fichier,
+    return {"destinataires": a, "non_trouves": non_trouves, "approches": approches, "erreur_contacts": erreur_contacts,
+            "objet": objet, "corps": corps, "fichier": fichier,
             "a_preciser": MAILS.A_PRECISER in corps}

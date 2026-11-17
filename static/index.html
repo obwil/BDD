@@ -135,6 +135,10 @@
     /* CARDS */
     .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 13px 15px; cursor: pointer; transition: box-shadow .15s, border-color .15s; }
     .card:hover { box-shadow: var(--shadow); border-color: var(--accent); }
+    .frise { display: inline-flex; gap: 1px; vertical-align: middle; }
+    .frise span { width: 13px; height: 15px; line-height: 15px; text-align: center; font-size: .62rem; border-radius: 2px; background: var(--border); color: var(--text-muted); }
+    .frise span.on { background: var(--accent); color: white; }
+    .frise span.sel { outline: 2px solid var(--accent-dark); outline-offset: 1px; font-weight: 700; }
     .card-title { font-size: .95rem; font-weight: 600; margin-bottom: 5px; }
     .card-meta { font-size: .78rem; color: var(--text-muted); display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 5px; }
     .card-desc { font-size: .81rem; color: var(--text-muted); line-height: 1.45; }
@@ -240,6 +244,15 @@
     .sp-act .nb { font-size: .68rem; color: var(--text-muted); white-space: nowrap; }
     .sp-act button { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: .9rem; }
     .sp-act button:hover { color: var(--excl); }
+    .sp-act .sp-ret-btn { opacity: .4; }
+    .sp-act .sp-ret-btn.on { opacity: 1; }
+    .sp-act .sp-ret-btn:hover { color: inherit; opacity: 1; }
+    .sp-retour { display: flex; flex-direction: column; gap: 4px; border-left: 3px solid var(--accent); padding: 2px 0 4px 8px; margin: -2px 0 2px; }
+    .retour-item { font-size: .84rem; line-height: 1.5; border-left: 3px solid var(--border); padding-left: 9px; margin-bottom: 9px; }
+    .retour-item .rh { font-weight: 700; font-size: .8rem; }
+    .retour-item .rc { font-size: .72rem; color: var(--text-muted); margin-bottom: 2px; }
+    .retour-item .rl { font-size: .7rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-top: 3px; }
+    .retour-item .rt { white-space: pre-line; }
     .sp-empty { font-size: .76rem; color: var(--text-muted); font-style: italic; }
     .sp-matin { font-size: .78rem; background: var(--note-bg); border: 1px solid var(--note-border); border-radius: 6px; padding: 6px 8px; white-space: pre-line; }
     .sp-msg { font-size: .76rem; color: var(--text-muted); word-break: break-word; white-space: pre-line; }
@@ -419,6 +432,7 @@
         <option value="nom">Alphabétique</option>
         <option value="nb_attendus">Plus d'attendus</option>
         <option value="nb_thematiques">Plus de thématiques</option>
+        <option value="saison">Période la plus courte</option>
       </select>
       <button id="sort-dir-btn" class="btn btn-ghost" title="Ordre croissant / décroissant" style="padding:4px 8px;font-size:.9rem;">↑ Croissant</button>
       <span class="result-count" id="result-count"></span>
@@ -1076,14 +1090,16 @@ function renderResults(data) {
   data.results.forEach(a => {
     const card=document.createElement('div'); card.className='card';
     const meteos=['nuage','soleil','pluie','vent','nuit'].filter(m=>a[`meteo_${m}`]).map(m=>METEO_ICO[m]).join(' ');
-    const mActifs=MOIS_NOMS.filter(m=>a[`mois_${m}`]);
-    const mStr=mActifs.length===12?"Toute l'année":mActifs.map(m=>MOIS_COURT[MOIS_NOMS.indexOf(m)]).join(' ');
+    const moisSel = S.mois && S.moisMode === 'incl' ? S.mois : null;
+    const frise = MOIS_NOMS.map((m,i) =>
+      `<span class="${a[`mois_${m}`]?'on':''}${m===moisSel?' sel':''}" title="${MOIS_LAB[i]}">${MOIS_COURT[i]}</span>`
+    ).join('');
     card.innerHTML=`
       <div class="card-title">${a.nom}</div>
       <div class="card-meta">
         ${a.lieu?`<span>📍 ${a.lieu}</span>`:''}
         ${meteos?`<span>${meteos}</span>`:''}
-        ${mStr?`<span>📅 ${mStr}</span>`:''}
+        <span class="frise">${frise}</span>
         ${a.duree_min?`<span>⏱ ${a.duree_min} min</span>`:''}
         ${a.format_groupe?`<span>👥 ${a.format_groupe}</span>`:''}
       </div>
@@ -1121,7 +1137,28 @@ async function openDrawer(id) {
     if(btn) btn.addEventListener('click',()=>fetch(`/api/activites/${id}/ouvrir-dossier`).catch(()=>{}));
     await initDrawerTagSelect(id, a.tags);
     initSejourSection(a);
+    chargerRetoursFiche(id);
   } catch(e){ c.innerHTML=`<div class="empty">Erreur : ${e.message}</div>`; }
+}
+
+// Retours d'expérience rédigés après les séjours (les 3 derniers, les autres repliés)
+async function chargerRetoursFiche(id) {
+  try {
+    const l = await api(`/api/planning/activites/${id}/retours`);
+    const box = document.getElementById('drawer-retours');
+    if (!box || !l.length) return;
+    const item = r => {
+      const d = r.date ? r.date.split('-').reverse().join('/') : '';
+      const ctx = [r.public, r.effectif ? r.effectif+' élèves' : ''].filter(Boolean).join(' · ');
+      return `<div class="retour-item"><div class="rh">${spEsc([d, r.creneau_label].filter(Boolean).join(' — '))}</div>
+        <div class="rc">${spEsc([r.nom, ctx].filter(Boolean).join(' · '))}</div>
+        ${r.bien ? `<div class="rl">✅ Ce qui a bien marché</div><div class="rt">${spEsc(r.bien)}</div>` : ''}
+        ${r.ameliorer ? `<div class="rl">🔧 À améliorer</div><div class="rt">${spEsc(r.ameliorer)}</div>` : ''}</div>`;
+    };
+    box.innerHTML = `<h3>Retours d'expérience (${l.length})</h3>` + l.slice(0,3).map(item).join('') +
+      (l.length > 3 ? `<details><summary style="cursor:pointer;font-size:.8rem;color:var(--text-muted);margin-bottom:8px">Voir les ${l.length-3} autre(s)</summary>${l.slice(3).map(item).join('')}</details>` : '');
+    box.style.display = '';
+  } catch(e) { /* pas de retours : la section reste masquée */ }
 }
 
 function closeDrawer(){
@@ -1210,6 +1247,8 @@ function buildDrawer(a) {
     });
     h+=`</div>`;
   }
+
+  h+=`<div class="drawer-section" id="drawer-retours" style="display:none"></div>`;
 
   h+=buildSejourSection(a);
 
@@ -1710,7 +1749,7 @@ async function spCharger() {
 
 function spRemplirSelect() {
   const sel=document.getElementById('sp-select');
-  const opt=s=>`<option value="${s.id}">${s.dossier_existe?'':'📁✗ '}${spEsc(s.nom)}${s.nb_activites?` — ${s.nb_activites} act.`:''}</option>`;
+  const opt=s=>`<option value="${s.id}"${s.commentaire?` title="${spEsc(s.commentaire)}"`:''}>${s.dossier_existe?'':'📁✗ '}${s.commentaire?'💬 ':''}${spEsc(s.nom)}${s.nb_activites?` — ${s.nb_activites} act.`:''}</option>`;
   const trims=[...new Set(SP.sejours.map(s=>s.trimestre))].sort();
   sel.innerHTML='<option value="">— choisir un séjour —</option>'+
     trims.map(t=>`<optgroup label="Trimestre ${t||'?'}">${SP.sejours.filter(s=>s.trimestre===t).map(opt).join('')}</optgroup>`).join('');
@@ -1804,6 +1843,7 @@ async function spDemarrerTrimestre(n) {
 }
 
 async function spChoisir(id) {
+  spCommentaireFlush();
   SP.current = id || null;
   try { localStorage.setItem('sp_current', id||''); } catch(e) {}
   const sel=document.getElementById('sp-select'); if (sel) sel.value=id||'';
@@ -1817,6 +1857,9 @@ function spRendre() {
   const d=SP.data;
   if (!d) { b.innerHTML="<div class=\"sp-empty\">Choisis un séjour, puis ouvre une activité pour l'ajouter à un créneau.</div>"; return; }
   let h=`<div style="font-size:.78rem;color:var(--text-muted);margin-bottom:6px">${spEsc([d.ecole,d.categorie,d.unite&&('unité '+d.unite),d.thematique_excel].filter(Boolean).join(' · '))}${d.delai?`<br>Délai du dossier : ${spEsc(d.delai.split('-').reverse().join('/'))}`:''}</div>`;
+  h+=`<div class="sp-day"><h4>💬 Commentaire</h4>
+    <textarea id="sp-com" class="sp-ta" rows="2" placeholder="Infos diverses (ex. l'enseignante confirme sa venue d'ici deux semaines)" oninput="spCommentaireSaisi(this.value)" onblur="spCommentaireFlush()">${spEsc(d.commentaire||'')}</textarea>
+    <div class="sp-msg" id="sp-com-msg">Pour toi seulement : n'apparaît ni dans les documents ni dans les mails.</div></div>`;
   h+=`<div class="sp-matin"><b>Matins</b>\n${spEsc(d.matin_texte||'—')}</div>`;
   SP_JOURS.forEach(j=>{
     h+=`<div class="sp-day"><h4>${j}</h4>`;
@@ -1826,11 +1869,22 @@ function spRendre() {
       if (!acts.length) h+='<div class="sp-empty">—</div>';
       acts.forEach(a=>{
         h+=`<div class="sp-act"><span class="nm" onclick="openDrawer(${a.id})">${spEsc(a.nom)}</span>
-          <button title="Retirer" onclick="spRetirer('${j}','${m}',${a.id})">✕</button></div>`;
+          ${spBoutonRetour(a.id, j+'|'+m)}
+          <button title="Retirer" onclick="spRetirer('${j}','${m}',${a.id})">✕</button></div>`+spPanneauRetour(a.id, j+'|'+m);
       });
     });
     h+='</div>';
   });
+  h+=`<div class="sp-day"><h4>☔ Si pluie</h4>
+    <div class="sp-msg">Remplace l'activité de l'après-midi où il pleut, quel que soit le jour.</div>`;
+  const pluie=d.pluie||[];
+  if (!pluie.length) h+=`<div class="sp-empty">À choisir : ouvre une activité d'intérieur et clique « Ajouter comme activité si pluie ».</div>`;
+  pluie.forEach(a=>{
+    h+=`<div class="sp-act"><span class="nm" onclick="openDrawer(${a.id})">${spEsc(a.nom)}</span>
+      ${spBoutonRetour(a.id, 'pluie')}
+      <button title="Retirer" onclick="spRetirerPluie(${a.id})">✕</button></div>`+spPanneauRetour(a.id, 'pluie');
+  });
+  h+='</div>';
   h+=`<div class="sp-day"><h4>📚 Ressources en autonomie</h4>`;
   const res=d.ressources||[];
   if (!res.length) h+='<div class="sp-empty">Aucune — ouvre un jeu (filtre Tags) et clique « Ajouter aux ressources ».</div>';
@@ -1872,9 +1926,120 @@ async function spAjouterRessource(aid) {
 
 function spRefreshRessBtn() {
   const sec=document.getElementById('sp-section'); if(!sec||!SP.data) return;
-  const aid=+sec.dataset.aid, b=document.getElementById('sp-add-res'); if(!b) return;
-  const deja=(SP.data.ressources||[]).some(r=>r.id===aid);
-  b.disabled=deja; b.textContent=deja?'✓ Déjà dans les ressources en autonomie':'📚 Ajouter aux ressources en autonomie';
+  const aid=+sec.dataset.aid, b=document.getElementById('sp-add-res');
+  if (b) {
+    const deja=(SP.data.ressources||[]).some(r=>r.id===aid);
+    b.disabled=deja; b.textContent=deja?'✓ Déjà dans les ressources en autonomie':'📚 Ajouter aux ressources en autonomie';
+  }
+  const bp=document.getElementById('sp-add-pluie');
+  if (bp) {
+    const deja=(SP.data.pluie||[]).some(r=>r.id===aid);
+    bp.disabled=deja; bp.textContent=deja?'✓ Déjà activité si pluie':'☔ Ajouter comme activité si pluie';
+  }
+}
+
+// --- Plan pluie ---
+async function spAjouterPluie(aid) {
+  const msg=document.getElementById('sp-add-msg');
+  try {
+    SP.data = await spJson(`/api/planning/sejours/${SP.current}/pluie`, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({activite_id:aid})});
+    spRendre(); spRefreshRessBtn(); spChargerSuivi();
+    const dd=SP.data.doc2; msg.style.color=(dd&&!dd.ok)?'var(--excl)':''; msg.textContent='✓ Ajouté comme activité si pluie'+spStatutDoc2(dd);
+  } catch(e) { msg.textContent='Erreur : '+e.message; msg.style.color='var(--excl)'; }
+}
+
+async function spRetirerPluie(aid) {
+  try {
+    SP.data = await spJson(`/api/planning/sejours/${SP.current}/pluie/${aid}`, {method:'DELETE'});
+    spRendre(); spRefreshRessBtn(); spChargerSuivi();
+    spMsg('Activité si pluie retirée'+spStatutDoc2(SP.data.doc2), SP.data.doc2 && !SP.data.doc2.ok);
+  } catch(e) { spMsg('Erreur : '+e.message, true); }
+}
+
+// --- Commentaire (enregistré tout seul, peu après la frappe) ---
+let spComAttente=null;
+function spCommentaireSaisi(v) {
+  if (SP.data) SP.data.commentaire=v;
+  const m=document.getElementById('sp-com-msg'); if (m) { m.textContent='Enregistrement…'; m.style.color=''; }
+  if (spComAttente) clearTimeout(spComAttente.timer);
+  const id=SP.current;
+  spComAttente={timer:setTimeout(()=>spEnregistrerCommentaire(id, v), 800), id, v};
+}
+function spCommentaireFlush() {
+  if (!spComAttente) return;
+  clearTimeout(spComAttente.timer);
+  spEnregistrerCommentaire(spComAttente.id, spComAttente.v);
+}
+async function spEnregistrerCommentaire(id, v) {
+  spComAttente=null;
+  const msg=()=>String(id)===String(SP.current)?document.getElementById('sp-com-msg'):null;
+  try {
+    const r = await spJson(`/api/planning/sejours/${id}/commentaire`, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({texte:v})});
+    const s=SP.sejours.find(x=>String(x.id)===String(id));
+    if (s) { const avant=!!s.commentaire; s.commentaire=r.commentaire; if (avant!==!!s.commentaire) spRemplirSelect(); }
+    const el=msg(); if (el) { el.textContent='✓ Enregistré'; el.style.color=''; }
+  } catch(e) { const el=msg(); if (el) { el.textContent='⚠ Commentaire non enregistré : '+e.message; el.style.color='var(--excl)'; } }
+}
+
+// --- Retours d'expérience (une fois l'activité faite) ---
+// Clé d'un retour : « id de l'activité|créneau », ex. « 42|lundi|après-midi » ou « 42|pluie ».
+const spRetourOuverts = new Set();
+const spRetourTimers = {};
+const spRetourK = (aid, cr) => aid+'|'+cr;
+const spRetourSel = k => `[data-k="${k.replace(/"/g,'\\"')}"]`;
+
+function spBoutonRetour(aid, cr) {
+  const k=spRetourK(aid, cr), r=(SP.data.retours||{})[k];
+  return `<button class="sp-ret-btn${r?' on':''}" data-k="${k}" title="${r?'Retour rédigé — le modifier':"Écrire un retour d'expérience"}" onclick="spToggleRetour(${aid},'${cr}')">📝</button>`;
+}
+
+function spPanneauRetour(aid, cr) {
+  const k=spRetourK(aid, cr);
+  if (!spRetourOuverts.has(k)) return '';
+  const r=(SP.data.retours||{})[k]||{bien:'',ameliorer:''};
+  return `<div class="sp-retour" data-k="${k}">
+    <div class="sp-slot-label">✅ Ce qui a bien marché</div>
+    <textarea class="sp-ta" rows="3" data-f="bien" oninput="spRetourSaisi(${aid},'${cr}')" onblur="spRetourFlush('${k}')">${spEsc(r.bien)}</textarea>
+    <div class="sp-slot-label">🔧 À améliorer</div>
+    <textarea class="sp-ta" rows="3" data-f="ameliorer" oninput="spRetourSaisi(${aid},'${cr}')" onblur="spRetourFlush('${k}')">${spEsc(r.ameliorer)}</textarea>
+    <div class="sp-msg" data-msg>Enregistré automatiquement, avec la date et les infos du séjour.</div>
+  </div>`;
+}
+
+function spToggleRetour(aid, cr) {
+  const k=spRetourK(aid, cr);
+  if (spRetourOuverts.has(k)) { spRetourFlush(k); spRetourOuverts.delete(k); } else spRetourOuverts.add(k);
+  spRendre();
+}
+
+function spRetourSaisi(aid, cr) {
+  const k=spRetourK(aid, cr), p=document.querySelector('.sp-retour'+spRetourSel(k)); if (!p) return;
+  const bien=p.querySelector('[data-f=bien]').value, ameliorer=p.querySelector('[data-f=ameliorer]').value;
+  SP.data.retours = SP.data.retours||{};
+  if (bien.trim()||ameliorer.trim()) SP.data.retours[k]={bien, ameliorer}; else delete SP.data.retours[k];
+  document.querySelectorAll('.sp-ret-btn'+spRetourSel(k)).forEach(b=>b.classList.toggle('on', !!SP.data.retours[k]));
+  p.querySelector('[data-msg]').textContent='Enregistrement…'; p.querySelector('[data-msg]').style.color='';
+  if (spRetourTimers[k]) clearTimeout(spRetourTimers[k].timer);
+  const id=SP.current;
+  spRetourTimers[k]={timer:setTimeout(()=>spRetourEnvoyer(k, id, aid, cr, bien, ameliorer), 800), id, aid, cr, bien, ameliorer};
+}
+
+function spRetourFlush(k) {
+  const t=spRetourTimers[k]; if (!t) return;
+  clearTimeout(t.timer);
+  spRetourEnvoyer(k, t.id, t.aid, t.cr, t.bien, t.ameliorer);
+}
+
+async function spRetourEnvoyer(k, sejourId, aid, cr, bien, ameliorer) {
+  delete spRetourTimers[k];
+  const msg=()=>{ const p=String(sejourId)===String(SP.current)?document.querySelector('.sp-retour'+spRetourSel(k)):null; return p&&p.querySelector('[data-msg]'); };
+  try {
+    const r = await spJson(`/api/planning/sejours/${sejourId}/retour`, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({activite_id:aid, creneau:cr, bien, ameliorer})});
+    const el=msg(); if (!el) return;
+    if (r.fichier && !r.fichier.ok) { el.textContent='✓ Enregistré dans la base · ⚠ '+r.fichier.message; el.style.color='var(--excl)'; }
+    else { el.textContent='✓ Enregistré'+(r.fichier&&r.fichier.fichier?' · retours.md mis à jour':''); el.style.color=''; }
+    spChargerSuivi();
+  } catch(e) { const el=msg(); if (el) { el.textContent='⚠ Retour non enregistré : '+e.message; el.style.color='var(--excl)'; } }
 }
 
 async function spDoc2() {
@@ -1937,10 +2102,14 @@ async function spMail(modele) {
   const out=document.getElementById('sp-mail-out');
   try {
     const r = await spJson(`/api/planning/sejours/${SP.current}/mail`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({modele, disponibilites:SP.dispo||''})});
-    out.innerHTML=`<div class="sp-slot-label">Objet</div><input id="sp-mail-objet" class="sp-ta" value="${spEsc(r.objet)}">
+    const avertContacts = r.erreur_contacts ? `⚠ ${r.erreur_contacts}\n`
+      : ((r.non_trouves||[]).length ? `⚠ Adresse introuvable dans les contacts pour : ${r.non_trouves.join(', ')}.\n` : '')
+        + ((r.approches||[]).length ? `⚠ Orthographe différente dans les contacts, à vérifier : ${r.approches.join(' ; ')}.\n` : '');
+    out.innerHTML=`<div class="sp-slot-label">Destinataires</div><input id="sp-mail-a" class="sp-ta" value="${spEsc(r.destinataires||'')}" placeholder="aucune adresse trouvée">
+      <div class="sp-slot-label">Objet</div><input id="sp-mail-objet" class="sp-ta" value="${spEsc(r.objet)}">
       <div class="sp-slot-label">Message</div><textarea id="sp-mail-corps" class="sp-ta" rows="14">${spEsc(r.corps)}</textarea>
-      <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-primary" onclick="spCopier('sp-mail-objet')">Copier l'objet</button><button class="btn btn-primary" onclick="spCopier('sp-mail-corps')">Copier le message</button></div>
-      <div class="sp-msg">${r.a_preciser?'⚠ Disponibilités non renseignées : le texte contient « [à préciser] ».\n':''}${r.fichier?'Enregistré : '+spEsc(r.fichier):'Pas de dossier : mail non enregistré.'}</div>`;
+      <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-primary" onclick="spCopier('sp-mail-a')">Copier les adresses</button><button class="btn btn-primary" onclick="spCopier('sp-mail-objet')">Copier l'objet</button><button class="btn btn-primary" onclick="spCopier('sp-mail-corps')">Copier le message</button></div>
+      <div class="sp-msg">${spEsc(avertContacts)}${r.a_preciser?'⚠ Disponibilités non renseignées : le texte contient « [à préciser] ».\n':''}${r.fichier?'Enregistré : '+spEsc(r.fichier):'Pas de dossier : mail non enregistré.'}</div>`;
   } catch(e) { out.innerHTML=`<div class="sp-msg" style="color:var(--excl)">Erreur : ${spEsc(e.message)}</div>`; }
 }
 
@@ -1968,6 +2137,7 @@ function buildSejourSection(a) {
       <select id="sp-moment" onchange="spPrefill()">${SP_MOMENTS.map(([m,l])=>`<option value="${m}">${l}</option>`).join('')}</select>
     </div>
     <button class="btn btn-primary" id="sp-add" onclick="spAjouter(${a.id})">＋ Ajouter</button>
+    <button class="btn btn-ghost" id="sp-add-pluie" onclick="spAjouterPluie(${a.id})">☔ Ajouter comme activité si pluie</button>
     <button class="btn btn-ghost" id="sp-add-res" onclick="spAjouterRessource(${a.id})">📚 Ajouter aux ressources en autonomie</button>
     <div class="sp-msg" id="sp-add-msg"></div>
   </div>`;
