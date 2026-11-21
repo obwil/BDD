@@ -11,6 +11,7 @@
 
 from datetime import date, timedelta
 from pathlib import Path
+from chemins import localiser
 from typing import Optional
 
 FICHIER = "retours.md"
@@ -33,7 +34,7 @@ CREATE TABLE IF NOT EXISTS retour_activite (
 def dossier_activite(chemin: Optional[str]) -> Optional[Path]:
     if not chemin:
         return None
-    p = Path(chemin.replace("file:///", "").replace("/", "\\"))
+    p = Path(localiser(chemin))
     return p if p.is_dir() else None
 
 

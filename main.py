@@ -13,6 +13,7 @@ import sqlite3
 import subprocess
 import sys
 from pathlib import Path
+from chemins import localiser
 from typing import Optional
 
 from fastapi import FastAPI, Query, HTTPException
@@ -33,6 +34,14 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 import sejours
 app.include_router(sejours.router)
 
+# Avancement du travail (tâches par catégorie)
+import taches
+app.include_router(taches.router)
+
+# Calendrier des rendez-vous de la nature (affiché près du filtre « Mois »)
+import calendrier
+app.include_router(calendrier.router)
+
 # ============================================================================
 # UTILITAIRES
 # ============================================================================
@@ -45,6 +54,24 @@ def get_db():
 
 def rows_to_list(rows):
     return [dict(r) for r in rows]
+
+
+def ensure_vues():
+    """Journal des consultations de fiches (une ligne par ouverture)."""
+    conn = get_db()
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS activite_vue (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            activite_id INTEGER NOT NULL REFERENCES activite(id) ON DELETE CASCADE,
+            date_vue    TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+        )
+    """)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_vue_activite ON activite_vue(activite_id, date_vue)")
+    conn.commit()
+    conn.close()
+
+
+ensure_vues()
 
 # ============================================================================
 # PAGE PRINCIPALE
@@ -486,6 +513,24 @@ def detail_activite(activite_id: int):
     return result
 
 
+@app.post("/api/activites/{activite_id}/vue")
+def enregistrer_vue(activite_id: int):
+    """Compte une consultation de fiche (ignorée si la même fiche a été ouverte il y a moins de 10 min)."""
+    conn = get_db()
+    try:
+        if not conn.execute("SELECT 1 FROM activite WHERE id=?", (activite_id,)).fetchone():
+            raise HTTPException(status_code=404, detail="Activité introuvable")
+        recent = conn.execute("""SELECT 1 FROM activite_vue WHERE activite_id=?
+                                 AND date_vue > datetime('now','localtime','-10 minutes')""",
+                              (activite_id,)).fetchone()
+        if not recent:
+            conn.execute("INSERT INTO activite_vue (activite_id) VALUES (?)", (activite_id,))
+            conn.commit()
+        return {"ok": True, "compte": not recent}
+    finally:
+        conn.close()
+
+
 @app.put("/api/activites/{activite_id}")
 def modifier_activite(activite_id: int, data: dict):
     """Met a jour les champs d'une activite."""
@@ -550,7 +595,7 @@ def ouvrir_dossier(activite_id: int):
     if not row or not row["chemin_dossier"]:
         raise HTTPException(status_code=404, detail="Chemin introuvable")
 
-    chemin = row["chemin_dossier"].replace("file:///", "").replace("/", "\\")
+    chemin = localiser(row["chemin_dossier"])
     path = Path(chemin)
 
     if not path.exists():
@@ -570,7 +615,7 @@ def supprimer_activite(activite_id: int):
 
     chemin = row["chemin_dossier"]
     if chemin:
-        chemin = chemin.replace("file:///", "").replace("/", "\\")
+        chemin = localiser(chemin)
         path = Path(chemin)
         if path.exists():
             corbeille = path.parent.parent / "_CORBEILLE"
@@ -952,7 +997,7 @@ def dashboard_manquants():
         """Scan le dossier pour trouver les fichiers _DESC_ et les classer."""
         if not chemin_dossier:
             return "aucun", []
-        chemin = chemin_dossier.replace("file:///", "").replace("/", "\\")
+        chemin = localiser(chemin_dossier)
         dossier = Path(chemin)
         if not dossier.exists():
             return "aucun", []
@@ -978,3 +1023,40 @@ def dashboard_manquants():
         "sans_desc": [{"id": r[0], "nom": r[1]} for r in sans_desc],
         "sans_attendus": [{"id": r[0], "nom": r[1]} for r in sans_attendus],
     }
+
+
+# ============================================================================
+# DASHBOARD - UTILISATION DES ACTIVITÉS (consultations + séjours)
+# ============================================================================
+
+@app.get("/api/dashboard/utilisation")
+def dashboard_utilisation():
+    """Pour chaque activité : consultations de la fiche et nombre de séjours où elle est utilisée
+    (créneaux, ressources, plan pluie)."""
+    conn = get_db()
+    rows = conn.execute("""
+        WITH usage AS (
+            SELECT s.sejour_id, sa.activite_id FROM sequence_activite sa
+              JOIN sequence s ON s.id = sa.sequence_id
+            UNION SELECT sejour_id, activite_id FROM sejour_ressource
+            UNION SELECT sejour_id, activite_id FROM sejour_pluie
+        ),
+        u AS (
+            SELECT usage.activite_id, COUNT(*) AS nb_sejours, MAX(sj.date_debut) AS dernier_sejour
+            FROM usage JOIN sejour sj ON sj.id = usage.sejour_id GROUP BY usage.activite_id
+        ),
+        v AS (
+            SELECT activite_id, COUNT(*) AS nb_vues, MAX(date_vue) AS derniere_vue,
+                   SUM(date_vue > datetime('now','localtime','-90 days')) AS vues_90j
+            FROM activite_vue GROUP BY activite_id
+        )
+        SELECT a.id, a.nom, a.anime, a.date_creation,
+               COALESCE(v.nb_vues,0) AS nb_vues, COALESCE(v.vues_90j,0) AS vues_90j, v.derniere_vue,
+               COALESCE(u.nb_sejours,0) AS nb_sejours, u.dernier_sejour,
+               (SELECT COUNT(*) FROM retour_activite r WHERE r.activite_id = a.id) AS nb_retours
+        FROM activite a LEFT JOIN v ON v.activite_id = a.id LEFT JOIN u ON u.activite_id = a.id
+        ORDER BY a.nom
+    """).fetchall()
+    premiere = conn.execute("SELECT MIN(date_vue) FROM activite_vue").fetchone()[0]
+    conn.close()
+    return {"suivi_depuis": premiere, "activites": rows_to_list(rows)}

@@ -27,7 +27,7 @@ from pathlib import Path
 
 SIMULATION = False  # True = affichage seul, False = traitement reel
 
-DROPBOX_ACTIVITES = Path(r"C:\Users\moina\Dropbox\Animation\Activités v2")
+from chemins import ACTIVITES_DIR as DROPBOX_ACTIVITES
 DB_PATH = Path(__file__).parent / "activites.db"
 
 # "gemini" ou "claude"

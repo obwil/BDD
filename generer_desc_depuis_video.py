@@ -27,7 +27,7 @@ from pathlib import Path
 
 SIMULATION = False  # Mettre False pour vraiment uploader et écrire les fichiers
 
-DROPBOX_ACTIVITES = Path(r"C:\Users\moina\Dropbox\Animation\Activités v2")
+from chemins import ACTIVITES_DIR as DROPBOX_ACTIVITES
 DB_PATH = Path(__file__).parent / "activites.db"
 
 GEMINI_MODEL = "gemini-2.5-flash"

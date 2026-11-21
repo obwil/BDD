@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Avancement du travail</title>
+  <script>
+    (function () {
+      var t = 'dark';
+      try { t = localStorage.getItem('theme') || 'dark'; } catch (e) {}
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f5f5f0; --surface: #ffffff; --surface2: #f0efe8;
+      --border: #d8d6cc; --text: #2a2a25; --text-muted: #7a7a72;
+      --accent: #4a7c59; --accent-light: #d4e8db; --accent-dark: #2e5238; --accent-text: #2e5238;
+      --warn: #b26a00; --warn-bg: #fbeed4; --excl: #c0392b; --excl-bg: #fdecea;
+      --info: #2f6690; --info-bg: #dcebf5;
+      color-scheme: light;
+    }
+    html[data-theme="dark"] {
+      --bg: #14181a; --surface: #1d2326; --surface2: #273033;
+      --border: #38424a; --text: #e6e8e3; --text-muted: #9aa59f;
+      --accent: #5a9a6e; --accent-light: #25392c; --accent-dark: #1c3326; --accent-text: #a9d8b8;
+      --warn: #e8b04f; --warn-bg: #3a2d12; --excl: #ef6b5b; --excl-bg: #3a2220;
+      --info: #7fb6dc; --info-bg: #1c2e3b;
+      color-scheme: dark;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    header { background: var(--accent-dark); color: white; padding: 14px 24px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    header h1 { font-size: 1.1rem; font-weight: 600; }
+    header a, header button { color: white; border: 1px solid rgba(255,255,255,.5); background: transparent; border-radius: 8px; padding: 4px 10px; font-size: .85rem; text-decoration: none; cursor: pointer; }
+    header .spacer { margin-left: auto; }
+    main { padding: 18px 24px 40px; display: flex; flex-direction: column; gap: 14px; }
+    .bar { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+    .bar .sum { font-size: .9rem; color: var(--text-muted); }
+    .bar .sum b { color: var(--text); }
+    .bar .spacer { margin-left: auto; }
+    .btn { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 8px; padding: 5px 12px; font-size: .84rem; cursor: pointer; }
+    .btn:hover { border-color: var(--accent); }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: white; }
+    .btn.danger { color: var(--excl); }
+    .err { color: var(--excl); font-size: .85rem; }
+
+    .board { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 14px; align-items: start; }
+    .col { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+    .col-head { display: flex; align-items: center; gap: 8px; }
+    .col-head h2 { font-size: .95rem; font-weight: 700; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+    .col-head .count { font-size: .78rem; color: var(--text-muted); white-space: nowrap; }
+    .icon-btn { border: none; background: transparent; color: var(--text-muted); cursor: pointer; font-size: 1rem; padding: 2px 6px; border-radius: 6px; }
+    .icon-btn:hover { background: var(--surface2); color: var(--text); }
+    .prog { height: 5px; border-radius: 3px; background: var(--surface2); overflow: hidden; }
+    .prog i { display: block; height: 100%; background: var(--accent); transition: width .2s; }
+
+    form.add { display: flex; flex-direction: column; gap: 6px; }
+    form.add textarea { width: 100%; min-height: 4.2em; resize: vertical; line-height: 1.35; font-size: .92rem; padding: 8px 10px; }
+    form.add .add-row { display: flex; gap: 6px; align-items: center; font-size: .78rem; color: var(--text-muted); }
+    form.add .add-row input { width: 4.2em; }
+    form.add .add-row .btn { margin-left: auto; }
+    form.add .aide { font-size: .72rem; color: var(--text-muted); }
+    input, select, textarea { font: inherit; font-size: .86rem; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; }
+    input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+    ul.tasks { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .task { display: flex; gap: 8px; align-items: flex-start; background: var(--bg); border: 1px solid var(--border); border-left: 4px solid var(--border); border-radius: 8px; padding: 7px 9px; }
+    .task.premier { border-left-color: var(--accent); }
+    .task .gauche { flex: none; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+    input.rang { width: 3.1em; text-align: center; font-weight: 700; font-size: .9rem; padding: 3px 2px; }
+    .task.premier input.rang { background: var(--accent); color: white; border-color: var(--accent); }
+    .task.fait { opacity: .6; }
+    .task.fait .t { text-decoration: line-through; }
+    .task .body { flex: 1; min-width: 0; cursor: pointer; }
+    .task .t { font-size: .9rem; overflow-wrap: anywhere; white-space: pre-line; }
+    .task .meta { display: flex; flex-wrap: wrap; gap: 4px 8px; margin-top: 3px; font-size: .74rem; color: var(--text-muted); }
+    .task .note { font-size: .78rem; color: var(--text-muted); margin-top: 3px; white-space: pre-line; overflow-wrap: anywhere; }
+    .st { flex: none; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); border-radius: 99px; padding: 2px 8px; font-size: .72rem; cursor: pointer; white-space: nowrap; }
+    .st.en_cours { background: var(--info-bg); color: var(--info); border-color: transparent; font-weight: 600; }
+    .st.fait { background: var(--accent-light); color: var(--accent-text); border-color: transparent; font-weight: 600; }
+    .ech.proche { color: var(--warn); font-weight: 600; }
+    .ech.depasse { color: var(--excl); font-weight: 600; }
+    .vide { font-size: .8rem; color: var(--text-muted); text-align: center; padding: 6px; }
+
+    details.done summary { font-size: .78rem; color: var(--text-muted); cursor: pointer; padding: 2px 0; }
+    details.done ul { margin-top: 6px; }
+
+    .rappels { border: 1px solid var(--warn); background: var(--warn-bg); border-radius: 8px; padding: 8px 10px; font-size: .8rem; }
+    .rappels h3 { font-size: .78rem; text-transform: uppercase; letter-spacing: .5px; color: var(--warn); margin-bottom: 4px; display: flex; gap: 6px; }
+    .rappels h3 a { margin-left: auto; color: var(--warn); font-weight: 400; text-transform: none; letter-spacing: 0; }
+    .rappels ul { list-style: none; display: flex; flex-direction: column; gap: 5px; }
+    .rappels li a { color: var(--text); font-weight: 600; text-decoration: none; }
+    .rappels li a:hover { text-decoration: underline; }
+    .rappels .r-meta { color: var(--text-muted); }
+    .rappels .depasse { color: var(--excl); font-weight: 600; }
+    .rappels .proche { color: var(--warn); font-weight: 600; }
+    .rappels.calme { border-color: var(--border); background: transparent; color: var(--text-muted); }
+    .rappels.calme h3 { color: var(--text-muted); }
+    .rappels.calme h3 a { color: var(--text-muted); }
+
+    dialog { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); padding: 18px; width: min(560px, calc(100vw - 32px)); margin: auto; }
+    dialog textarea { resize: vertical; line-height: 1.35; }
+    dialog::backdrop { background: rgba(0,0,0,.45); }
+    dialog h3 { font-size: 1rem; margin-bottom: 12px; }
+    dialog form { display: flex; flex-direction: column; gap: 10px; }
+    dialog label { display: flex; flex-direction: column; gap: 4px; font-size: .78rem; color: var(--text-muted); }
+    dialog .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    dialog .actions { display: flex; gap: 8px; margin-top: 4px; }
+    dialog .actions .spacer { margin-left: auto; }
+
+    @media (max-width: 600px) {
+      header, main { padding-left: 16px; padding-right: 16px; }
+      dialog .row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <span style="font-size:1.3rem">📌</span>
+  <h1>Avancement du travail</h1>
+  <span class="spacer"></span>
+  <a href="/static/suivi.html">📋 Suivi des séjours</a>
+  <a href="/">← Bibliothèque d'activités</a>
+  <button id="btn-theme" onclick="toggleTheme()" title="Basculer mode nuit / jour">☀️</button>
+</header>
+<main>
+  <div class="bar">
+    <span class="sum" id="sum"></span>
+    <span class="spacer"></span>
+    <button class="btn" onclick="ajouterCategorie()">+ Catégorie</button>
+  </div>
+  <div class="err" id="err"></div>
+  <div class="board" id="board"></div>
+</main>
+
+<dialog id="dlg">
+  <h3>Modifier la tâche</h3>
+  <form id="dlg-form" method="dialog">
+    <label>Tâche <textarea name="titre" rows="3" required></textarea></label>
+    <div class="row">
+      <label>Catégorie <select name="categorie_id"></select></label>
+      <label>État
+        <select name="statut">
+          <option value="a_faire">À faire</option>
+          <option value="en_cours">En cours</option>
+          <option value="fait">Fait</option>
+        </select>
+      </label>
+    </div>
+    <div class="row">
+      <label>N° de priorité (1 = en premier) <input type="number" name="rang" min="1"></label>
+      <label>Échéance <input type="date" name="echeance"></label>
+    </div>
+    <label>Note <textarea name="note" rows="4"></textarea></label>
+    <div class="actions">
+      <button type="button" class="btn danger" onclick="supprimerTache()">Supprimer</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn" onclick="document.getElementById('dlg').close()">Annuler</button>
+      <button type="submit" class="btn primary">Enregistrer</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+const MOIS = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+const STATUTS = { a_faire: 'À faire', en_cours: 'En cours', fait: 'Fait' };
+const SUIVANT = { a_faire: 'en_cours', en_cours: 'fait', fait: 'a_faire' };
+const JOURS_PROCHE = 7;
+
+let CATS = [], TACHES = [], RAPPELS = null, ERR_RAPPELS = null, EDITION = null;
+
+const esc = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const jm = iso => { const [y,m,d] = iso.split('-'); return `${+d} ${MOIS[+m-1]}`; };
+const aujourdhui = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+const joursAvant = iso => Math.round((new Date(iso) - new Date(aujourdhui())) / 86400000);
+
+function applyThemeIcon() {
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  document.getElementById('btn-theme').textContent = dark ? '☀️' : '🌙';
+}
+function toggleTheme() {
+  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  try { localStorage.setItem('theme', next); } catch (e) {}
+  applyThemeIcon();
+}
+
+async function api(url, method = 'GET', body) {
+  const r = await fetch(url, { method, headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined });
+  if (!r.ok) {
+    let msg = r.status + '';
+    try { msg = (await r.json()).detail || msg; } catch (e) {}
+    throw new Error(msg);
+  }
+  return r.json();
+}
+function erreur(e) { document.getElementById('err').textContent = e ? 'Erreur : ' + e.message : ''; }
+
+async function charger() {
+  try {
+    const d = await api('/api/taches');
+    CATS = d.categories; TACHES = d.taches;
+    erreur(null);
+  } catch (e) { erreur(e); }
+  rendre();
+}
+
+async function chargerRappels() {
+  try {
+    const liste = await api('/api/planning/suivi');
+    RAPPELS = liste.filter(s => s.delai_statut === 'depasse' || s.delai_statut === 'proche')
+      .sort((a, b) => (a.delai_statut === 'depasse' ? 0 : 1) - (b.delai_statut === 'depasse' ? 0 : 1) || a.delai.localeCompare(b.delai));
+  } catch (e) { ERR_RAPPELS = e.message; RAPPELS = []; }
+  rendre();
+}
+
+// Tri : numéro de priorité (1 = à faire en premier)
+const trier = (a, b) => (a.rang ?? 1e9) - (b.rang ?? 1e9) || a.id - b.id;
+
+function etatEcheance(t) {
+  if (!t.echeance || t.statut === 'fait') return '';
+  const j = joursAvant(t.echeance);
+  return j < 0 ? 'depasse' : j <= JOURS_PROCHE ? 'proche' : '';
+}
+
+function carteTache(t) {
+  const ech = etatEcheance(t);
+  const meta = [];
+  if (t.echeance) meta.push(`<span class="ech ${ech}">⏰ ${ech === 'depasse' ? 'dépassée · ' : ''}${jm(t.echeance)}</span>`);
+  if (t.statut === 'fait' && t.fait_le) meta.push(`<span>fait le ${jm(t.fait_le)}</span>`);
+  const actif = t.statut !== 'fait';
+  return `<li class="task ${t.statut}${actif && t.rang === 1 ? ' premier' : ''}">
+    <div class="gauche">
+      ${actif ? `<input class="rang" type="number" min="1" value="${t.rang ?? ''}" title="N° de priorité : tapez un autre numéro pour déplacer la tâche" aria-label="Numéro de priorité" onchange="deplacer(${t.id}, this.value)" onkeydown="if(event.key==='Enter')this.blur()">` : ''}
+      <button class="st ${t.statut}" onclick="changerStatut(${t.id})" title="Passer à « ${STATUTS[SUIVANT[t.statut]]} »">${STATUTS[t.statut]}</button>
+    </div>
+    <div class="body" onclick="ouvrir(${t.id})" title="Modifier">
+      <div class="t">${esc(t.titre)}</div>
+      ${meta.length ? `<div class="meta">${meta.join('')}</div>` : ''}
+      ${t.note && t.statut !== 'fait' ? `<div class="note">${esc(t.note)}</div>` : ''}
+    </div>
+  </li>`;
+}
+
+function blocRappels() {
+  const lien = '<a href="/static/suivi.html">voir le suivi →</a>';
+  if (RAPPELS === null) return `<div class="rappels calme"><h3>⏳ Rappels séjours ${lien}</h3>Chargement…</div>`;
+  if (ERR_RAPPELS) return `<div class="rappels calme"><h3>Rappels séjours ${lien}</h3>Impossible de lire le suivi : ${esc(ERR_RAPPELS)}</div>`;
+  if (!RAPPELS.length) return `<div class="rappels calme"><h3>✔ Rappels séjours ${lien}</h3>Aucun séjour en retard.</div>`;
+  return `<div class="rappels"><h3>⏰ ${RAPPELS.length} séjour${RAPPELS.length > 1 ? 's' : ''} à relancer ${lien}</h3><ul>` +
+    RAPPELS.map(s => `<li><a href="/?sejour=${s.id}" title="Ouvrir le séjour">${esc(s.enseignant || s.nom)}</a>
+      <span class="r-meta">· ${esc(s.ecole || '')} · séjour du ${jm(s.date_debut)}</span><br>
+      <span class="${s.delai_statut}">délai ${s.delai_statut === 'depasse' ? 'dépassé' : 'proche'} : ${jm(s.delai)}</span>
+      ${s.prochaine ? `<span class="r-meta">· à faire : ${esc(s.prochaine)}</span>` : ''}</li>`).join('') + '</ul></div>';
+}
+
+function rendre() {
+  const board = document.getElementById('board');
+  const ouverts = new Set([...board.querySelectorAll('details.done[open]')].map(d => d.dataset.cat));
+  // Garder ce qui est en cours de saisie (et le curseur) malgré le rafraîchissement
+  const brouillons = {};
+  board.querySelectorAll('form.add').forEach(f => { brouillons[f.dataset.cat] = { titre: f.titre.value, rang: f.rang.value }; });
+  const actif = document.activeElement;
+  const focusCat = actif && actif.closest && actif.closest('form.add') ? actif.closest('form.add').dataset.cat : null;
+  const focusNom = focusCat ? actif.name : null;
+  const total = TACHES.length, faites = TACHES.filter(t => t.statut === 'fait').length;
+  const enCours = TACHES.filter(t => t.statut === 'en_cours').length;
+  document.getElementById('sum').innerHTML = total
+    ? `<b>${faites}/${total}</b> tâches faites · ${enCours} en cours`
+    : 'Aucune tâche pour l\'instant : ajoutez-en une dans une colonne.';
+
+  board.innerHTML = CATS.map(c => {
+    const ts = TACHES.filter(t => t.categorie_id === c.id);
+    const actives = ts.filter(t => t.statut !== 'fait').sort(trier);
+    const finies = ts.filter(t => t.statut === 'fait').sort((a, b) => (b.fait_le || '').localeCompare(a.fait_le || '') || b.id - a.id);
+    const pct = ts.length ? Math.round(100 * finies.length / ts.length) : 0;
+    return `<section class="col">
+      <div class="col-head">
+        <h2>${esc(c.nom)}</h2>
+        <span class="count">${finies.length}/${ts.length}</span>
+        <button class="icon-btn" onclick="renommerCategorie(${c.id})" title="Renommer">✎</button>
+        ${c.protegee ? '' : `<button class="icon-btn" onclick="supprimerCategorie(${c.id})" title="Supprimer la catégorie">✕</button>`}
+      </div>
+      <div class="prog"><i style="width:${pct}%"></i></div>
+      ${c.cle === 'sejours' ? blocRappels() : ''}
+      <form class="add" data-cat="${c.id}" onsubmit="ajouter(event, ${c.id})">
+        <textarea name="titre" rows="3" placeholder="Nouvelle tâche…" aria-label="Nouvelle tâche dans ${esc(c.nom)}" onkeydown="entree(event)"></textarea>
+        <div class="add-row">
+          <label for="pos-${c.id}">N° de priorité</label>
+          <input id="pos-${c.id}" name="rang" type="number" min="1" placeholder="${actives.length + 1}" title="Vide = à la fin de la liste">
+          <button class="btn primary" type="submit">Ajouter</button>
+        </div>
+        <span class="aide">Entrée pour ajouter · Maj+Entrée pour aller à la ligne</span>
+      </form>
+      <ul class="tasks">${actives.map(carteTache).join('') || '<li class="vide">Rien à faire ici 🎉</li>'}</ul>
+      ${finies.length ? `<details class="done" data-cat="${c.id}" ${ouverts.has(String(c.id)) ? 'open' : ''}>
+        <summary>${finies.length} faite${finies.length > 1 ? 's' : ''}</summary>
+        <ul class="tasks">${finies.map(carteTache).join('')}</ul></details>` : ''}
+    </section>`;
+  }).join('');
+
+  board.querySelectorAll('form.add').forEach(f => {
+    const b = brouillons[f.dataset.cat];
+    if (b) { f.titre.value = b.titre; f.rang.value = b.rang; }
+    if (f.dataset.cat === focusCat) {
+      const champ = f.elements[focusNom] || f.titre;
+      champ.focus();
+      if (champ.setSelectionRange && champ.type !== 'number') champ.setSelectionRange(champ.value.length, champ.value.length);
+    }
+  });
+}
+
+function entree(ev) {
+  if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); ev.target.form.requestSubmit(); }
+}
+
+async function ajouter(ev, categorie_id) {
+  ev.preventDefault();
+  const f = ev.target, titre = f.titre.value.trim();
+  if (!titre) return;
+  try {
+    TACHES = await api('/api/taches', 'POST', { titre, categorie_id, rang: f.rang.value ? +f.rang.value : null });
+    f.titre.value = ''; f.rang.value = '';
+    erreur(null); rendre();
+    const champ = document.querySelector(`form.add[data-cat="${categorie_id}"] textarea`);
+    if (champ) champ.focus();
+  } catch (e) { erreur(e); }
+}
+
+async function maj(id, champs) {
+  try {
+    TACHES = await api(`/api/taches/${id}`, 'PATCH', champs);
+    erreur(null); rendre();
+  } catch (e) { erreur(e); rendre(); }
+}
+function deplacer(id, valeur) {
+  const n = parseInt(valeur, 10);
+  if (n >= 1) maj(id, { rang: n }); else rendre();
+}
+function changerStatut(id) {
+  const t = TACHES.find(x => x.id === id);
+  maj(id, { statut: SUIVANT[t.statut] });
+}
+
+function ouvrir(id) {
+  const t = TACHES.find(x => x.id === id), f = document.getElementById('dlg-form');
+  EDITION = id;
+  f.categorie_id.innerHTML = CATS.map(c => `<option value="${c.id}">${esc(c.nom)}</option>`).join('');
+  f.titre.value = t.titre; f.categorie_id.value = t.categorie_id; f.statut.value = t.statut;
+  f.rang.value = t.rang ?? ''; f.rang.disabled = t.statut === 'fait';
+  f.echeance.value = t.echeance || ''; f.note.value = t.note || '';
+  document.getElementById('dlg').showModal();
+}
+document.getElementById('dlg-form').addEventListener('submit', () => {
+  const f = document.getElementById('dlg-form');
+  const champs = { titre: f.titre.value, categorie_id: +f.categorie_id.value, statut: f.statut.value,
+                   echeance: f.echeance.value || null, note: f.note.value };
+  const t = TACHES.find(x => x.id === EDITION);
+  // N'envoyer le numéro que s'il a été changé (sinon la tâche garde sa place)
+  if (!f.rang.disabled && f.rang.value && +f.rang.value !== t.rang) champs.rang = +f.rang.value;
+  maj(EDITION, champs);
+});
+async function supprimerTache() {
+  const t = TACHES.find(x => x.id === EDITION);
+  if (!confirm(`Supprimer la tâche « ${t.titre} » ?`)) return;
+  try {
+    TACHES = await api(`/api/taches/${EDITION}`, 'DELETE');
+    document.getElementById('dlg').close(); erreur(null); rendre();
+  } catch (e) { erreur(e); }
+}
+
+async function ajouterCategorie() {
+  const nom = prompt('Nom de la nouvelle catégorie :');
+  if (!nom || !nom.trim()) return;
+  try { await api('/api/taches/categories', 'POST', { nom }); charger(); } catch (e) { erreur(e); }
+}
+async function renommerCategorie(id) {
+  const c = CATS.find(x => x.id === id);
+  const nom = prompt('Nouveau nom :', c.nom);
+  if (!nom || !nom.trim() || nom === c.nom) return;
+  try { await api(`/api/taches/categories/${id}`, 'PATCH', { nom }); charger(); } catch (e) { erreur(e); }
+}
+async function supprimerCategorie(id) {
+  const c = CATS.find(x => x.id === id);
+  const n = TACHES.filter(t => t.categorie_id === id).length;
+  if (!confirm(`Supprimer la catégorie « ${c.nom} » ?` + (n ? `\nSes ${n} tâche(s) seront déplacées dans « Autres ».` : ''))) return;
+  try { await api(`/api/taches/categories/${id}`, 'DELETE'); charger(); } catch (e) { erreur(e); }
+}
+
+applyThemeIcon();
+charger();
+chargerRappels();
+</script>
+</body>
+</html>

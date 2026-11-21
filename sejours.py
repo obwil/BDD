@@ -26,7 +26,8 @@ BASE_DIR = Path(__file__).parent
 DB_PATH = BASE_DIR / "activites.db"
 CONFIG_PATH = BASE_DIR / "config.json"
 
-DEFAULT_EXCEL = r"C:\Users\moina\Dropbox\CPAC\Documents projets\2026-2027\Plannings séjours_2026-2027.xlsx"
+from chemins import DOSSIER_ANNEE, localiser
+DEFAULT_EXCEL = str(DOSSIER_ANNEE / "Plannings séjours_2026-2027.xlsx")
 
 JOURS = ["lundi", "mardi", "mercredi", "jeudi"]
 MOMENTS = ["après-midi", "veillée"]
@@ -247,6 +248,7 @@ def liste_sejours():
     out = []
     for r in rows:
         d = dict(r)
+        d["dossier_path"] = localiser(d["dossier_path"])
         d["dossier_existe"] = bool(d["dossier_path"] and Path(d["dossier_path"]).is_dir())
         out.append(d)
     return out
@@ -262,7 +264,7 @@ def _dossiers_manquants(conn, trimestre: Optional[int] = None) -> list:
         s = dict(r)
         if trimestre is not None and s["trimestre"] != trimestre:
             continue
-        if not (s["dossier_path"] and Path(s["dossier_path"]).is_dir()):
+        if not (s["dossier_path"] and Path(localiser(s["dossier_path"])).is_dir()):
             out.append(s)
     return out
 
@@ -358,7 +360,7 @@ def _maj_doc2(conn, sejour_id: int, strict: bool = False) -> dict:
         return {"ok": False, "message": message}
 
     s = _charger_sejour(conn, sejour_id)
-    dossier = Path(s["dossier_path"]) if s.get("dossier_path") and Path(s["dossier_path"]).is_dir() else D.trouver_dossier(s)
+    dossier = Path(localiser(s["dossier_path"])) if s.get("dossier_path") and Path(localiser(s["dossier_path"])).is_dir() else D.trouver_dossier(s)
     if not dossier:
         return echec(409, "Pas de dossier pour ce séjour : crée-le d'abord.")
     try:
@@ -644,8 +646,8 @@ def retours_activite(activite_id: int):
 # ----------------------------------------------------------------------------
 
 def _dossier_existant(s: dict) -> Optional[Path]:
-    if s.get("dossier_path") and Path(s["dossier_path"]).is_dir():
-        return Path(s["dossier_path"])
+    if s.get("dossier_path") and Path(localiser(s["dossier_path"])).is_dir():
+        return Path(localiser(s["dossier_path"]))
     return D.trouver_dossier(s)
 
 

@@ -31,7 +31,7 @@ from datetime import datetime
 
 SIMULATION = False   # Mettre False pour traduire effectivement
 
-DROPBOX_ACTIVITES = Path(r"C:\Users\moina\Dropbox\Animation\Activités v2")
+from chemins import ACTIVITES_DIR as DROPBOX_ACTIVITES
 DB_PATH           = Path(__file__).parent / "activites.db"
 RAPPORT_PATH      = Path(__file__).parent / "rapport_traduction.txt"
 GEMINI_MODEL      = "gemini-2.5-flash"

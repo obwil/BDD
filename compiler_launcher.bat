@@ -1,8 +1,12 @@
 @echo off
+call "%~dp0_python.bat" || exit /b 1
 cd /d "%~dp0"
-"C:\Users\moina\AppData\Local\Programs\Python\Python313\python.exe" -m pip install pyinstaller --quiet
-"C:\Users\moina\AppData\Local\Programs\Python\Python313\python.exe" -m PyInstaller --onefile --windowed --name "BDD Launcher" launcher_start.py
+"%PYTHON%" -m pip install pyinstaller --quiet
+"%PYTHON%" -m PyInstaller --noconfirm --onefile --windowed --name "BDD Launcher" launcher_start.py
+"%PYTHON%" -m PyInstaller --noconfirm --onefile --windowed --name "BDD Demarrage" demarrage_start.py
 echo.
-echo Le fichier executable est dans le dossier dist\
-echo Vous pouvez l'epingler a la barre des taches.
+echo Les fichiers executables sont dans le dossier dist\
+echo  - BDD Demarrage.exe : demarre l'application + l'avancement du travail
+echo  - BDD Launcher.exe  : tous les outils
+echo Vous pouvez les epingler a la barre des taches.
 pause

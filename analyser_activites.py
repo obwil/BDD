@@ -29,7 +29,7 @@ import argparse
 # CONFIGURATION
 # =============================================================================
 
-DROPBOX_ACTIVITES = Path(r"C:\Users\moina\Dropbox\Animation\Activités v2")
+from chemins import ACTIVITES_DIR as DROPBOX_ACTIVITES, localiser
 DB_PATH = Path(__file__).parent / "activites.db"
 # =============================================================================
 # CHOIX DE L'API
@@ -217,9 +217,7 @@ def _inserer_relations(conn, activite_id, table, fk_col, ids):
 
 def normaliser_chemin(chemin_dossier):
     """Convertit un chemin file:/// en chemin Windows utilisable."""
-    if chemin_dossier.startswith("file:///"):
-        chemin_dossier = chemin_dossier[8:].replace("/", "\\")
-    return chemin_dossier
+    return localiser(chemin_dossier)
 
 
 def trouver_fichiers_desc(chemin_dossier):

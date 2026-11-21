@@ -18,7 +18,8 @@ from pathlib import Path
 import openpyxl
 
 DB_PATH    = Path(__file__).parent / "activites.db"
-EXCEL_PATH = Path(r"C:\Users\moina\Dropbox\Animation\Activités v2\Activités v2 ajouts.xlsx")
+from chemins import ACTIVITES_DIR
+EXCEL_PATH = ACTIVITES_DIR / "Activités v2 ajouts.xlsx"
 
 SIMULATION = False
 

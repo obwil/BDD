@@ -6,8 +6,8 @@ import sqlite3
 from pathlib import Path
 
 PORT = 18765
-DB_PATH = Path("C:/Users/moina/Dropbox/Outils/BDD activités/_OUTIL/activites.db")
-DROPBOX = Path("C:/Users/moina/Dropbox/Animation/Activités v2")
+DB_PATH = Path(__file__).resolve().parent / "activites.db"
+DROPBOX = Path(__file__).resolve().parents[3] / "Animation" / "Activités v2"
 
 MOTS_VIDES = [
     "contenu manquant", "contenu absent", "contenu vide",

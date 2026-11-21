@@ -19,7 +19,8 @@ import time
 from pathlib import Path
 
 DB_PATH = Path(__file__).parent / "activites.db"
-DROPBOX_ACTIVITES = Path(r"C:\Users\moina\Dropbox\Animation\Activites v2")
+from chemins import DROPBOX, localiser
+DROPBOX_ACTIVITES = DROPBOX / "Animation" / "Activites v2"
 
 # =============================================================================
 # CONFIGURATION
@@ -122,9 +123,7 @@ def enregistrer_resultats(conn, activite_id, cycle_id, attendu_ids, ids_valides,
 # =============================================================================
 
 def normaliser_chemin(chemin):
-    if chemin and chemin.startswith("file:///"):
-        chemin = chemin[8:].replace("/", "\\")
-    return chemin
+    return localiser(chemin)
 
 
 def trouver_fichiers_desc(chemin_dossier):

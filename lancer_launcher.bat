@@ -1,6 +1,7 @@
 @echo off
+call "%~dp0_python.bat" || exit /b 1
 cd /d "%~dp0"
-"C:\Users\moina\AppData\Local\Programs\Python\Python313\python.exe" -m pip install flask --quiet
+"%PYTHON%" -m pip install flask --quiet
 start "" "http://localhost:18766"
-"C:\Users\moina\AppData\Local\Programs\Python\Python313\python.exe" launcher_server.py
+"%PYTHON%" launcher_server.py
 pause

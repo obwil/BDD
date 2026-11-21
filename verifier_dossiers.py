@@ -6,7 +6,7 @@ import sqlite3
 from pathlib import Path
 
 DB_PATH = Path(__file__).parent / "activites.db"
-DROPBOX_ACTIVITES = Path(r"C:\Users\moina\Dropbox\Animation\Activités v2")
+from chemins import ACTIVITES_DIR as DROPBOX_ACTIVITES
 
 conn = sqlite3.connect(DB_PATH)
 conn.row_factory = sqlite3.Row

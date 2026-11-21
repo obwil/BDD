@@ -54,6 +54,15 @@
     .month-btn.active-incl { background: var(--accent); color: white; border-color: var(--accent); }
     .month-btn.active-excl { background: var(--excl); color: white; border-color: var(--excl); }
 
+    /* CALENDRIER — rendez-vous du mois sélectionné */
+    .cal-mois { margin-top: 8px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface2); padding: 8px 10px; font-size: .78rem; line-height: 1.35; display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; }
+    .cal-mois[hidden] { display: none; }
+    .cal-titre { font-weight: 700; font-size: .72rem; text-transform: uppercase; letter-spacing: .6px; color: var(--text-muted); }
+    .cal-item { display: flex; gap: 6px; align-items: flex-start; }
+    .cal-ico { flex-shrink: 0; width: 1.2em; text-align: center; }
+    .cal-nom { color: var(--text); }
+    .cal-quand { color: var(--text-muted); font-size: .72rem; display: block; }
+
     /* CYCLES — triple état */
     .cycle-item {
       display: flex; align-items: flex-start; gap: 6px; font-size: .83rem;
@@ -337,6 +346,7 @@
         <button class="month-btn" data-m="nov">Nov</button>
         <button class="month-btn" data-m="dec">Déc</button>
       </div>
+      <div id="cal-mois" class="cal-mois" hidden></div>
     </div>
 
     <div class="sidebar-section">
@@ -583,7 +593,59 @@ function cycleState(stateMap, id) {
 // ============================================================================
 // INIT
 // ============================================================================
+// ============================================================================
+// CALENDRIER DES RENDEZ-VOUS DE LA NATURE (près du filtre Mois)
+// ============================================================================
+let CAL = [];
+const MOIS_LONG = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+
+async function loadCalendrier() {
+  try { CAL = await api('/api/calendrier'); } catch(e) { CAL = []; }
+  majCalendrier();
+}
+
+function evenementDuMois(e, numMois) {
+  return e.mois_debut <= e.mois_fin
+    ? numMois >= e.mois_debut && numMois <= e.mois_fin
+    : numMois >= e.mois_debut || numMois <= e.mois_fin;
+}
+
+function majCalendrier() {
+  const box = document.getElementById('cal-mois');
+  if (!box) return;
+  const idx = (S.mois && S.moisMode === 'incl') ? MOIS_NOMS.indexOf(S.mois) : -1;
+  const evts = idx < 0 ? [] : CAL.filter(e => evenementDuMois(e, idx + 1));
+  box.replaceChildren();
+  if (!evts.length) { box.hidden = true; return; }
+
+  const titre = document.createElement('div');
+  titre.className = 'cal-titre';
+  titre.textContent = 'Rendez-vous en ' + MOIS_LONG[idx];
+  box.appendChild(titre);
+
+  evts.sort((a, b) => (a.jour_tri || 99) - (b.jour_tri || 99) || a.nom.localeCompare(b.nom, 'fr'));
+  evts.forEach(e => {
+    const li = document.createElement('div');
+    li.className = 'cal-item';
+    const ico = document.createElement('span');
+    ico.className = 'cal-ico';
+    ico.textContent = '🎉';
+    const txt = document.createElement('span');
+    const nom = document.createElement('span');
+    nom.className = 'cal-nom';
+    nom.textContent = e.nom;
+    const quand = document.createElement('span');
+    quand.className = 'cal-quand';
+    quand.textContent = (e.quand || '') + (e.verifie ? '' : ' · date à vérifier');
+    txt.append(nom, quand);
+    li.append(ico, txt);
+    box.appendChild(li);
+  });
+  box.hidden = false;
+}
+
 async function init() {
+  loadCalendrier();
   try {
     const s = await api('/api/stats');
     document.getElementById('header-stat').textContent =
@@ -902,7 +964,7 @@ async function applyURLActivite() {
   const activiteId = params.get('activite_id');
   if (activiteId) {
     await search();
-    openDrawer(parseInt(activiteId));
+    openDrawer(parseInt(activiteId), params.get('suivi') !== '0');  // ?suivi=0 : ouverture depuis le dashboard, non comptée
   }
 }
 
@@ -910,6 +972,7 @@ async function applyURLActivite() {
 // CHIPS
 // ============================================================================
 function buildChipsBar() {
+  majCalendrier();   // le calendrier suit le mois sélectionné (clic, retrait du filtre, réinitialisation)
   const bar = document.getElementById('chips-bar');
   bar.innerHTML = '';
 
@@ -1125,7 +1188,8 @@ function goPage(i){S.offset=i*S.limit;search();document.querySelector('.results'
 // ============================================================================
 // DRAWER
 // ============================================================================
-async function openDrawer(id) {
+async function openDrawer(id, compter=true) {
+  if(compter) fetch(`/api/activites/${id}/vue`,{method:'POST'}).catch(()=>{});  // suivi des consultations
   const c=document.getElementById('drawer-content');
   c.innerHTML='<div class="loading">Chargement…</div>';
   document.getElementById('drawer').classList.add('open');

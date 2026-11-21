@@ -20,7 +20,7 @@ from typing import Dict, List, Optional
 BASE_DIR = Path(__file__).parent
 CONFIG_PATH = BASE_DIR / "config.json"
 
-DEFAULT_DOSSIER_ANNEE = r"C:\Users\moina\Dropbox\CPAC\Documents projets\2026-2027"
+from chemins import DOSSIER_ANNEE as DEFAULT_DOSSIER_ANNEE, localiser
 DEFAULT_MEDIATEUR = "Romain"
 NOM_MODELE_B = "00000000 - Prénom Nom"
 NOM_ROULEMENT = "roulement_activites_matin.xlsx"
@@ -46,7 +46,7 @@ def _config() -> dict:
 
 
 def dossier_annee() -> Path:
-    return Path(_config().get("dossier_annee") or DEFAULT_DOSSIER_ANNEE)
+    return Path(localiser(_config().get("dossier_annee")) or DEFAULT_DOSSIER_ANNEE)
 
 
 def mediateur() -> str:

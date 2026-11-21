@@ -230,6 +230,7 @@ nav {
   <button class="nav-btn" onclick="goPage('thematiques')">Thématiques</button>
   <button class="nav-btn" onclick="goPage('zeros')">Attendus jamais utilisés</button>
   <button class="nav-btn" onclick="goPage('manquants')">Données manquantes</button>
+  <button class="nav-btn" onclick="goPage('utilisation')">Utilisation des activités</button>
 </nav>
 
 <!-- ======================== PAGE 1 : OVERVIEW ======================== -->
@@ -388,6 +389,7 @@ function goPage(id) {
   if (id === 'attendus') renderAttendusTable();
   if (id === 'thematiques') renderThemList();
   if (id === 'manquants') loadManquants();
+  if (id === 'utilisation') loadUtilisation();
 }
 
 // ============================================================
@@ -730,6 +732,108 @@ renderPairs();
 
 </div>
 
+<div id="page-utilisation" class="page">
+
+  <div class="kpi-row">
+    <div class="kpi red"><div class="kpi-val" id="u-kpi-jamais">…</div><div class="kpi-label">Jamais consultées ni utilisées</div></div>
+    <div class="kpi amber"><div class="kpi-val" id="u-kpi-novue">…</div><div class="kpi-label">Fiche jamais consultée</div></div>
+    <div class="kpi purple"><div class="kpi-val" id="u-kpi-nosej">…</div><div class="kpi-label">Jamais utilisées en séjour</div></div>
+    <div class="kpi green"><div class="kpi-val" id="u-kpi-vues">…</div><div class="kpi-label">Consultations enregistrées</div></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Utilisation des activités</span>
+      <span style="font-size:10px;color:var(--muted)" id="u-depuis"></span>
+    </div>
+    <div class="panel-body">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
+        <input type="text" class="search-input" id="u-recherche" placeholder="Rechercher..." oninput="renderUtilisation()" style="max-width:260px;margin:0">
+        <select id="u-filtre" onchange="renderUtilisation()" style="padding:5px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px">
+          <option value="jamais">Jamais consultées ni utilisées (candidates au tri)</option>
+          <option value="novue">Fiche jamais consultée</option>
+          <option value="nosej">Jamais utilisées en séjour</option>
+          <option value="dormantes">Dormantes (aucune vue depuis 90 j, aucun séjour)</option>
+          <option value="tout">Toutes</option>
+        </select>
+        <span id="u-compte" style="font-size:11px;color:var(--muted)"></span>
+      </div>
+      <div class="table-wrap" style="max-height:620px;overflow:auto">
+        <table class="data-table">
+          <thead><tr>
+            <th>Nom</th>
+            <th style="cursor:pointer" onclick="triUtilisation('nb_vues')">Vues ⇅</th>
+            <th style="cursor:pointer" onclick="triUtilisation('vues_90j')">90 j ⇅</th>
+            <th style="cursor:pointer" onclick="triUtilisation('derniere_vue')">Dernière vue ⇅</th>
+            <th style="cursor:pointer" onclick="triUtilisation('nb_sejours')">Séjours ⇅</th>
+            <th style="cursor:pointer" onclick="triUtilisation('dernier_sejour')">Dernier séjour ⇅</th>
+            <th style="cursor:pointer" onclick="triUtilisation('nb_retours')">Retours ⇅</th>
+            <th></th>
+          </tr></thead>
+          <tbody id="u-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let DATA_UTIL = [];
+let TRI_UTIL = { cle: 'nom', sens: 1 };
+
+async function loadUtilisation() {
+  try {
+    const d = await fetch('/api/dashboard/utilisation').then(r => r.json());
+    DATA_UTIL = d.activites;
+    document.getElementById('u-depuis').textContent = d.suivi_depuis
+      ? `Consultations suivies depuis le ${d.suivi_depuis.slice(0, 10)}`
+      : "Aucune consultation enregistrée pour l'instant : le suivi démarre à la prochaine ouverture d'une fiche";
+    const nb = f => DATA_UTIL.filter(f).length;
+    document.getElementById('u-kpi-jamais').textContent = nb(a => !a.nb_vues && !a.nb_sejours);
+    document.getElementById('u-kpi-novue').textContent = nb(a => !a.nb_vues);
+    document.getElementById('u-kpi-nosej').textContent = nb(a => !a.nb_sejours);
+    document.getElementById('u-kpi-vues').textContent = DATA_UTIL.reduce((t, a) => t + a.nb_vues, 0);
+    renderUtilisation();
+  } catch (e) { console.error('Erreur chargement utilisation:', e); }
+}
+
+function triUtilisation(cle) {
+  TRI_UTIL = { cle, sens: TRI_UTIL.cle === cle ? -TRI_UTIL.sens : -1 };
+  renderUtilisation();
+}
+
+function renderUtilisation() {
+  const q = document.getElementById('u-recherche').value.toLowerCase();
+  const f = document.getElementById('u-filtre').value;
+  const filtres = {
+    jamais: a => !a.nb_vues && !a.nb_sejours,
+    novue: a => !a.nb_vues,
+    nosej: a => !a.nb_sejours,
+    dormantes: a => !a.vues_90j && !a.nb_sejours,
+    tout: () => true,
+  };
+  const { cle, sens } = TRI_UTIL;
+  const liste = DATA_UTIL.filter(filtres[f]).filter(a => a.nom.toLowerCase().includes(q))
+    .sort((a, b) => {
+      const x = a[cle] ?? '', y = b[cle] ?? '';
+      return (x < y ? -1 : x > y ? 1 : a.nom.localeCompare(b.nom)) * sens;
+    });
+  document.getElementById('u-compte').textContent = `${liste.length} activité(s)`;
+  const jour = d => d ? d.slice(0, 10) : '—';
+  document.getElementById('u-tbody').innerHTML = liste.slice(0, 500).map(a => `<tr>
+    <td><a href="/?activite_id=${a.id}&suivi=0" target="_blank" style="color:var(--text);text-decoration:none" title="Ouvrir dans l'interface (non compté)">${a.nom}</a></td>
+    <td style="font-family:var(--mono)">${a.nb_vues}</td>
+    <td style="font-family:var(--mono)">${a.vues_90j}</td>
+    <td style="font-family:var(--mono);color:var(--muted)">${jour(a.derniere_vue)}</td>
+    <td style="font-family:var(--mono)">${a.nb_sejours}</td>
+    <td style="font-family:var(--mono);color:var(--muted)">${jour(a.dernier_sejour)}</td>
+    <td style="font-family:var(--mono)">${a.nb_retours}</td>
+    <td><button onclick="ouvrirDossier(${a.id})" style="background:none;border:1px solid var(--border);border-radius:4px;cursor:pointer;padding:2px 6px;font-size:11px;color:var(--muted)" title="Ouvrir le dossier">📂</button></td>
+  </tr>`).join('') + (liste.length > 500 ? `<tr><td colspan="8" style="color:var(--muted)">… ${liste.length - 500} autres (affinez la recherche)</td></tr>` : '');
+}
+</script>
+
 <script>
 let DATA_MANQUANTS = { vides: [], sans_desc: [], sans_attendus: [] };
 let VIDES_TAB_ACTIF = 'texte';
@@ -785,7 +889,7 @@ function rowActivite(a, i) {
   return `<tr>
     <td style="font-family:var(--mono);color:var(--muted);font-size:10px">${i+1}</td>
     <td>
-      <a href="http://localhost:8000/?activite_id=${a.id}" target="_blank"
+      <a href="http://localhost:8000/?activite_id=${a.id}&suivi=0" target="_blank"
          style="color:var(--fg);text-decoration:none;" title="Ouvrir dans l'interface">
         ${a.nom}
       </a>

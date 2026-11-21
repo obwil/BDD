@@ -14,7 +14,7 @@ from pathlib import Path
 from difflib import SequenceMatcher, get_close_matches
 
 DB_PATH    = Path(__file__).parent.parent / "activites.db"
-EXCEL_PATH = Path(r"C:\Users\moina\Dropbox\Animation\Activités v2\Activités v2.xlsm")
+EXCEL_PATH = Path(__file__).resolve().parents[3] / "Animation" / "Activités v2" / "Activités v2.xlsm"
 
 # Mettre False pour écrire réellement en base
 SIMULATION = True

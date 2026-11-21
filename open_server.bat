@@ -1,5 +1,6 @@
 @echo off
+call "%~dp0_python.bat" || exit /b 1
 title Serveur dossiers generiques
 start "" "http://localhost:18765"
-"C:\Users\moina\AppData\Local\Programs\Python\Python313\python.exe" "%~dp0open_server.py"
+"%PYTHON%" "%~dp0open_server.py"
 pause

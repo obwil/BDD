@@ -17,6 +17,7 @@ import sqlite3
 import json
 import openpyxl
 from pathlib import Path
+from chemins import localiser
 
 SCRIPT_DIR = Path(__file__).parent.resolve()
 CONFIG_PATH = SCRIPT_DIR / "config.json"
@@ -45,7 +46,7 @@ def main():
     print("=" * 60)
 
     config = load_config()
-    excel_path = Path(config["excel_output"])
+    excel_path = Path(localiser(config["excel_output"]))
 
     if not excel_path.exists():
         print(f"ERREUR : Fichier Excel introuvable : {excel_path}")

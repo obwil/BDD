@@ -13,7 +13,7 @@ SIMULATION = False
 # =============================================================================
 
 DB_PATH = Path(__file__).parent / "activites.db"
-ACTIVITES_DIR = Path(r"C:\Users\moina\Dropbox\Animation\Activités v2")
+from chemins import ACTIVITES_DIR
 
 EXT_VIDEO = {".mp4", ".avi", ".mov", ".mkv", ".webm", ".m4v"}
 

@@ -8,12 +8,13 @@ from flask import Flask, Response, send_from_directory, request, jsonify
 
 app = Flask(__name__)
 OUTIL_DIR = Path(__file__).parent
-PYTHON = r"C:\Users\moina\AppData\Local\Programs\Python\Python313\python.exe"
+PYTHON = sys.executable  # le Python de ce poste, celui qui fait tourner ce serveur
 
 # Scripts qui ouvrent leur propre fenêtre (lancés en détaché, pas de streaming)
 DETACHED = {
     "demarrer_app.bat",
     "demarrer_favoris.bat",
+    "demarrer_taches.bat",
     "reinitialiser_bdd.bat",
     "integrer_nouvelles_activites.bat",  # interactif (input) : besoin d'une vraie console
 }
